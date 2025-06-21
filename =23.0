@@ -1,0 +1,4 @@
+Requirement already satisfied: django-filter in ./backend/venv/lib/python3.12/site-packages (25.1)
+Requirement already satisfied: Django>=4.2 in ./backend/venv/lib/python3.12/site-packages (from django-filter) (4.2.23)
+Requirement already satisfied: asgiref<4,>=3.6.0 in ./backend/venv/lib/python3.12/site-packages (from Django>=4.2->django-filter) (3.8.1)
+Requirement already satisfied: sqlparse>=0.3.1 in ./backend/venv/lib/python3.12/site-packages (from Django>=4.2->django-filter) (0.5.3)

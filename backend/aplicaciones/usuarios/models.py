@@ -1,503 +1,492 @@
 """
-Modelos de usuarios - FELICITAFAC
-Sistema de autenticación personalizado para facturación electrónica
-Optimizado para MySQL y hosting compartido
+Modelos de Usuario - FELICITAFAC
+Sistema de Facturación Electrónica para Perú
+Autenticación y roles optimizados para MySQL
 """
 
-from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
-from django.core.validators import RegexValidator, MinLengthValidator
+from django.core.validators import EmailValidator, RegexValidator
 from django.utils import timezone
-from aplicaciones.core.models import ModeloBase, Empresa, Sucursal
+from aplicaciones.core.models import ModeloBase
 
 
-class Usuario(AbstractUser, ModeloBase):
+class GestorUsuarioPersonalizado(BaseUserManager):
     """
-    Modelo de usuario personalizado para FELICITAFAC
-    Extiende AbstractUser con campos específicos para facturación
+    Gestor personalizado para el modelo Usuario
+    Maneja creación de usuarios y superusuarios
     """
     
-    # Validadores personalizados
-    validador_dni = RegexValidator(
-        regex=r'^\d{8}$',
-        message='El DNI debe tener exactamente 8 dígitos'
+    def create_user(self, email, password=None, **extra_fields):
+        """Crear usuario normal"""
+        if not email:
+            raise ValueError('El usuario debe tener un email válido')
+        
+        email = self.normalize_email(email)
+        usuario = self.model(email=email, **extra_fields)
+        usuario.set_password(password)
+        usuario.save(using=self._db)
+        return usuario
+    
+    def create_superuser(self, email, password=None, **extra_fields):
+        """Crear superusuario"""
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('estado_usuario', 'activo')
+        
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superusuario debe tener is_staff=True')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superusuario debe tener is_superuser=True')
+        
+        return self.create_user(email, password, **extra_fields)
+
+
+class Rol(ModeloBase):
+    """
+    Modelo de Roles del sistema
+    Define los diferentes tipos de usuarios
+    """
+    
+    TIPOS_ROL = [
+        ('administrador', 'Administrador'),
+        ('contador', 'Contador'),
+        ('vendedor', 'Vendedor'),
+        ('cliente', 'Cliente'),
+    ]
+    
+    nombre = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Nombre del Rol',
+        help_text='Nombre único del rol en el sistema'
+    )
+    codigo = models.CharField(
+        max_length=20,
+        choices=TIPOS_ROL,
+        unique=True,
+        verbose_name='Código del Rol',
+        help_text='Código interno del rol'
+    )
+    descripcion = models.TextField(
+        verbose_name='Descripción',
+        help_text='Descripción detallada del rol y sus permisos'
+    )
+    nivel_acceso = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Nivel de Acceso',
+        help_text='Nivel numérico de acceso (mayor número = más permisos)'
+    )
+    permisos_especiales = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Permisos Especiales',
+        help_text='Configuración JSON de permisos específicos'
     )
     
-    validador_telefono = RegexValidator(
-        regex=r'^[\d\s\-\+\(\)]{7,15}$',
-        message='Formato de teléfono inválido'
-    )
+    class Meta:
+        db_table = 'usuarios_rol'
+        verbose_name = 'Rol'
+        verbose_name_plural = 'Roles'
+        ordering = ['nivel_acceso', 'nombre']
+        indexes = [
+            models.Index(fields=['codigo'], name='idx_rol_codigo'),
+            models.Index(fields=['nivel_acceso'], name='idx_rol_nivel'),
+        ]
     
-    # Redefinir campos base con configuración específica
+    def __str__(self):
+        return f"{self.nombre} ({self.codigo})"
+    
+    def tiene_permiso(self, permiso):
+        """Verificar si el rol tiene un permiso específico"""
+        return self.permisos_especiales.get(permiso, False)
+
+
+class Usuario(AbstractBaseUser, PermissionsMixin, ModeloBase):
+    """
+    Modelo personalizado de Usuario
+    Extiende AbstractBaseUser para autenticación completa
+    Optimizado para MySQL y hosting compartido
+    """
+    
+    ESTADOS_USUARIO = [
+        ('activo', 'Activo'),
+        ('inactivo', 'Inactivo'),
+        ('suspendido', 'Suspendido'),
+        ('bloqueado', 'Bloqueado'),
+    ]
+    
+    TIPOS_DOCUMENTO = [
+        ('dni', 'DNI'),
+        ('ruc', 'RUC'),
+        ('carnet_extranjeria', 'Carnet de Extranjería'),
+        ('pasaporte', 'Pasaporte'),
+    ]
+    
+    # Campos básicos de autenticación
     email = models.EmailField(
-        'Email',
         unique=True,
-        db_index=True,
-        help_text='Email único del usuario (será usado para login)'
+        validators=[EmailValidator()],
+        verbose_name='Email',
+        help_text='Email único para login'
     )
     
-    first_name = models.CharField(
-        'Nombres',
+    # Información personal
+    nombres = models.CharField(
         max_length=100,
-        validators=[MinLengthValidator(2)],
-        help_text='Nombres del usuario'
+        verbose_name='Nombres',
+        help_text='Nombres completos del usuario'
     )
-    
-    last_name = models.CharField(
-        'Apellidos',
+    apellidos = models.CharField(
         max_length=100,
-        validators=[MinLengthValidator(2)],
-        help_text='Apellidos del usuario'
+        verbose_name='Apellidos',
+        help_text='Apellidos completos del usuario'
     )
-    
-    # Campos adicionales específicos para Perú
-    dni = models.CharField(
-        'DNI',
-        max_length=8,
+    tipo_documento = models.CharField(
+        max_length=20,
+        choices=TIPOS_DOCUMENTO,
+        default='dni',
+        verbose_name='Tipo de Documento'
+    )
+    numero_documento = models.CharField(
+        max_length=20,
         unique=True,
-        validators=[validador_dni],
-        db_index=True,
-        help_text='Documento Nacional de Identidad (8 dígitos)'
+        verbose_name='Número de Documento',
+        validators=[
+            RegexValidator(
+                regex=r'^[0-9A-Z]{8,20}$',
+                message='Formato de documento inválido'
+            )
+        ]
     )
-    
     telefono = models.CharField(
-        'Teléfono',
-        max_length=15,
+        max_length=20,
         blank=True,
         null=True,
-        validators=[validador_telefono],
-        help_text='Número de teléfono'
+        verbose_name='Teléfono',
+        validators=[
+            RegexValidator(
+                regex=r'^\+?[0-9\s\-\(\)]{7,20}$',
+                message='Formato de teléfono inválido'
+            )
+        ]
     )
     
-    telefono_emergencia = models.CharField(
-        'Teléfono de Emergencia',
-        max_length=15,
-        blank=True,
-        null=True,
-        validators=[validador_telefono],
-        help_text='Teléfono de contacto de emergencia'
+    # Configuración de cuenta
+    estado_usuario = models.CharField(
+        max_length=20,
+        choices=ESTADOS_USUARIO,
+        default='activo',
+        verbose_name='Estado del Usuario'
+    )
+    rol = models.ForeignKey(
+        Rol,
+        on_delete=models.PROTECT,
+        verbose_name='Rol del Usuario',
+        help_text='Rol asignado que define permisos'
     )
     
-    direccion = models.TextField(
-        'Dirección',
-        max_length=300,
-        blank=True,
-        null=True,
-        help_text='Dirección del usuario'
+    # Campos Django Auth
+    is_staff = models.BooleanField(
+        default=False,
+        verbose_name='Es Staff',
+        help_text='Puede acceder al panel de administración'
     )
-    
-    fecha_nacimiento = models.DateField(
-        'Fecha de Nacimiento',
-        blank=True,
-        null=True,
-        help_text='Fecha de nacimiento'
-    )
-    
-    # Campos de configuración profesional
-    cargo = models.CharField(
-        'Cargo',
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text='Cargo del usuario en la empresa'
-    )
-    
-    empresa = models.ForeignKey(
-        Empresa,
-        on_delete=models.CASCADE,
-        related_name='usuarios',
-        verbose_name='Empresa',
-        null=True,  # Temporalmente opcional para migración
-        blank=True,  # Temporalmente opcional para migración
-        help_text='Empresa a la que pertenece el usuario'
-    )
-    
-    sucursales = models.ManyToManyField(
-        Sucursal,
-        through='UsuarioSucursal',
-        through_fields=('usuario', 'sucursal'),
-        related_name='usuarios',
-        verbose_name='Sucursales',
-        help_text='Sucursales a las que tiene acceso el usuario'
-    )
-    
-    # Avatar y configuración visual
-    avatar = models.ImageField(
-        'Avatar',
-        upload_to='avatars/',
-        blank=True,
-        null=True,
-        help_text='Foto de perfil del usuario'
-    )
-    
-    # Configuración de acceso
-    requiere_cambio_password = models.BooleanField(
-        'Requiere Cambio de Password',
+    is_active = models.BooleanField(
         default=True,
-        help_text='Indica si debe cambiar la contraseña en el próximo login'
+        verbose_name='Usuario Activo',
+        help_text='Usuario puede hacer login'
     )
     
+    # Campos de seguridad
+    fecha_ultimo_login = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Último Login'
+    )
     intentos_login_fallidos = models.PositiveIntegerField(
-        'Intentos de Login Fallidos',
         default=0,
-        help_text='Contador de intentos fallidos de login'
+        verbose_name='Intentos de Login Fallidos'
     )
-    
-    fecha_ultimo_login_fallido = models.DateTimeField(
-        'Fecha Último Login Fallido',
-        blank=True,
+    fecha_bloqueo = models.DateTimeField(
         null=True,
-        help_text='Fecha del último intento fallido de login'
+        blank=True,
+        verbose_name='Fecha de Bloqueo'
     )
-    
-    cuenta_bloqueada_hasta = models.DateTimeField(
-        'Cuenta Bloqueada Hasta',
-        blank=True,
+    debe_cambiar_password = models.BooleanField(
+        default=False,
+        verbose_name='Debe Cambiar Contraseña'
+    )
+    fecha_cambio_password = models.DateTimeField(
         null=True,
-        help_text='Fecha hasta la cual la cuenta está bloqueada'
+        blank=True,
+        verbose_name='Última Cambio de Contraseña'
     )
     
     # Configuración de notificaciones
-    notificar_email = models.BooleanField(
-        'Notificar por Email',
+    notificaciones_email = models.BooleanField(
         default=True,
-        help_text='Recibir notificaciones por email'
+        verbose_name='Recibir Notificaciones por Email'
     )
-    
-    notificar_facturas = models.BooleanField(
-        'Notificar Facturas',
+    notificaciones_sistema = models.BooleanField(
         default=True,
-        help_text='Recibir notificaciones de facturas emitidas'
+        verbose_name='Mostrar Notificaciones en Sistema'
     )
     
-    notificar_reportes = models.BooleanField(
-        'Notificar Reportes',
-        default=False,
-        help_text='Recibir notificaciones de reportes generados'
-    )
+    # Manager personalizado
+    objects = GestorUsuarioPersonalizado()
     
-    # Configuración de zona horaria
-    zona_horaria = models.CharField(
-        'Zona Horaria',
-        max_length=50,
-        default='America/Lima',
-        help_text='Zona horaria del usuario'
-    )
-    
-    # Configuración de interfaz
-    tema_interfaz = models.CharField(
-        'Tema de Interfaz',
-        max_length=20,
-        choices=[
-            ('claro', 'Claro'),
-            ('oscuro', 'Oscuro'),
-            ('auto', 'Automático'),
-        ],
-        default='claro',
-        help_text='Tema preferido para la interfaz'
-    )
-    
-    idioma = models.CharField(
-        'Idioma',
-        max_length=10,
-        choices=[
-            ('es', 'Español'),
-            ('en', 'English'),
-        ],
-        default='es',
-        help_text='Idioma preferido'
-    )
-    
-    # Campos de auditoría adicionales
-    creado_por = models.ForeignKey(
-        'self',
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name='usuarios_creados',
-        verbose_name='Creado Por',
-        help_text='Usuario que creó este registro'
-    )
-    
-    ultima_actividad = models.DateTimeField(
-        'Última Actividad',
-        blank=True,
-        null=True,
-        db_index=True,
-        help_text='Fecha y hora de la última actividad del usuario'
-    )
-    
-    # Configuración para autenticación por email
+    # Configuración de autenticación
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name', 'dni']
+    REQUIRED_FIELDS = ['nombres', 'apellidos', 'numero_documento']
     
     class Meta:
         db_table = 'usuarios_usuario'
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
+        ordering = ['nombres', 'apellidos']
         indexes = [
             models.Index(fields=['email'], name='idx_usuario_email'),
-            models.Index(fields=['dni'], name='idx_usuario_dni'),
-            models.Index(fields=['empresa'], name='idx_usuario_empresa'),
+            models.Index(fields=['numero_documento'], name='idx_usuario_documento'),
+            models.Index(fields=['estado_usuario'], name='idx_usuario_estado'),
+            models.Index(fields=['rol'], name='idx_usuario_rol'),
             models.Index(fields=['is_active'], name='idx_usuario_activo'),
-            models.Index(fields=['ultima_actividad'], name='idx_usuario_actividad'),
-            models.Index(fields=['cuenta_bloqueada_hasta'], name='idx_usuario_bloqueado'),
         ]
-        
+    
     def __str__(self):
-        return f"{self.get_full_name()} ({self.email})"
+        return f"{self.get_nombre_completo()} ({self.email})"
     
-    def clean(self):
-        """Validaciones personalizadas"""
-        from django.core.exceptions import ValidationError
-        
-        # Validar DNI con algoritmo
-        if self.dni and not self._validar_dni(self.dni):
-            raise ValidationError({'dni': 'DNI inválido según algoritmo RENIEC'})
-        
-        # Validar fecha de nacimiento
-        if self.fecha_nacimiento and self.fecha_nacimiento > timezone.now().date():
-            raise ValidationError({'fecha_nacimiento': 'La fecha de nacimiento no puede ser futura'})
+    def get_nombre_completo(self):
+        """Obtener nombre completo del usuario"""
+        return f"{self.nombres} {self.apellidos}".strip()
     
-    def _validar_dni(self, dni):
-        """Validación básica de DNI peruano"""
-        if len(dni) != 8 or not dni.isdigit():
-            return False
-        
-        # Validación básica: DNI no puede empezar con 0
-        if dni.startswith('0'):
-            return False
-        
-        return True
+    def get_nombre_corto(self):
+        """Obtener nombre corto del usuario"""
+        return self.nombres
     
-    def get_full_name(self):
-        """Retorna el nombre completo del usuario"""
-        return f"{self.first_name} {self.last_name}".strip()
-    
-    def get_short_name(self):
-        """Retorna el nombre corto del usuario"""
-        return self.first_name
-    
-    def esta_bloqueado(self):
-        """Verifica si la cuenta está bloqueada"""
-        if self.cuenta_bloqueada_hasta:
-            return timezone.now() < self.cuenta_bloqueada_hasta
-        return False
-    
-    def bloquear_cuenta(self, minutos=30):
-        """Bloquea la cuenta por un tiempo determinado"""
-        self.cuenta_bloqueada_hasta = timezone.now() + timezone.timedelta(minutes=minutos)
-        self.save(update_fields=['cuenta_bloqueada_hasta'])
-    
-    def desbloquear_cuenta(self):
-        """Desbloquea la cuenta"""
-        self.cuenta_bloqueada_hasta = None
-        self.intentos_login_fallidos = 0
-        self.save(update_fields=['cuenta_bloqueada_hasta', 'intentos_login_fallidos'])
-    
-    def registrar_intento_fallido(self):
-        """Registra un intento de login fallido"""
-        self.intentos_login_fallidos += 1
-        self.fecha_ultimo_login_fallido = timezone.now()
-        
-        # Bloquear cuenta después de 5 intentos fallidos
-        if self.intentos_login_fallidos >= 5:
-            self.bloquear_cuenta()
-        
-        self.save(update_fields=[
-            'intentos_login_fallidos',
-            'fecha_ultimo_login_fallido',
-            'cuenta_bloqueada_hasta'
-        ])
-    
-    def registrar_login_exitoso(self):
-        """Registra un login exitoso"""
-        self.last_login = timezone.now()
-        self.ultima_actividad = timezone.now()
-        self.intentos_login_fallidos = 0
-        self.fecha_ultimo_login_fallido = None
-        self.cuenta_bloqueada_hasta = None
-        
-        self.save(update_fields=[
-            'last_login',
-            'ultima_actividad',
-            'intentos_login_fallidos',
-            'fecha_ultimo_login_fallido',
-            'cuenta_bloqueada_hasta'
-        ])
-    
-    def actualizar_actividad(self):
-        """Actualiza la fecha de última actividad"""
-        self.ultima_actividad = timezone.now()
-        self.save(update_fields=['ultima_actividad'])
-    
-    def obtener_sucursales_acceso(self):
-        """Retorna las sucursales a las que tiene acceso el usuario"""
-        return self.sucursales.filter(
-            usuariosucursal__activo=True,
-            activo=True
+    def puede_hacer_login(self):
+        """Verificar si el usuario puede hacer login"""
+        return (
+            self.is_active and 
+            self.estado_usuario == 'activo' and
+            self.intentos_login_fallidos < 5
         )
     
-    def tiene_acceso_sucursal(self, sucursal):
-        """Verifica si el usuario tiene acceso a una sucursal específica"""
-        return self.usuariosucursal_set.filter(
-            sucursal=sucursal,
-            activo=True
-        ).exists()
+    def bloquear_usuario(self, razon="Demasiados intentos fallidos"):
+        """Bloquear usuario temporalmente"""
+        self.estado_usuario = 'bloqueado'
+        self.fecha_bloqueo = timezone.now()
+        self.save(update_fields=['estado_usuario', 'fecha_bloqueo'])
     
-    def obtener_permisos_efectivos(self):
-        """Retorna todos los permisos efectivos del usuario"""
-        permisos = set()
-        
-        # Permisos directos del usuario
-        permisos.update(self.user_permissions.all())
-        
-        # Permisos de los grupos del usuario
-        for group in self.groups.all():
-            permisos.update(group.permissions.all())
-        
-        return permisos
+    def desbloquear_usuario(self):
+        """Desbloquear usuario"""
+        self.estado_usuario = 'activo'
+        self.fecha_bloqueo = None
+        self.intentos_login_fallidos = 0
+        self.save(update_fields=['estado_usuario', 'fecha_bloqueo', 'intentos_login_fallidos'])
+    
+    def incrementar_intentos_fallidos(self):
+        """Incrementar contador de intentos fallidos"""
+        self.intentos_login_fallidos += 1
+        if self.intentos_login_fallidos >= 5:
+            self.bloquear_usuario()
+        else:
+            self.save(update_fields=['intentos_login_fallidos'])
+    
+    def resetear_intentos_fallidos(self):
+        """Resetear contador de intentos fallidos"""
+        self.intentos_login_fallidos = 0
+        self.fecha_ultimo_login = timezone.now()
+        self.save(update_fields=['intentos_login_fallidos', 'fecha_ultimo_login'])
+    
+    def tiene_permiso_modulo(self, modulo):
+        """Verificar si tiene permiso para un módulo específico"""
+        if not self.rol:
+            return False
+        return self.rol.tiene_permiso(modulo)
+    
+    def es_administrador(self):
+        """Verificar si es administrador"""
+        return self.rol and self.rol.codigo == 'administrador'
+    
+    def es_contador(self):
+        """Verificar si es contador"""
+        return self.rol and self.rol.codigo == 'contador'
+    
+    def es_vendedor(self):
+        """Verificar si es vendedor"""
+        return self.rol and self.rol.codigo == 'vendedor'
+    
+    def es_cliente(self):
+        """Verificar si es cliente"""
+        return self.rol and self.rol.codigo == 'cliente'
 
 
-class UsuarioSucursal(ModeloBase):
+class PerfilUsuario(ModeloBase):
     """
-    Relación many-to-many entre Usuario y Sucursal con campos adicionales
+    Perfil extendido del usuario
+    Información adicional no crítica para autenticación
     """
-    usuario = models.ForeignKey(
+    
+    usuario = models.OneToOneField(
         Usuario,
         on_delete=models.CASCADE,
+        related_name='perfil',
         verbose_name='Usuario'
     )
     
-    sucursal = models.ForeignKey(
-        Sucursal,
-        on_delete=models.CASCADE,
-        verbose_name='Sucursal'
+    # Información adicional
+    fecha_nacimiento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de Nacimiento'
+    )
+    direccion = models.TextField(
+        blank=True,
+        verbose_name='Dirección'
+    )
+    ciudad = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Ciudad'
+    )
+    pais = models.CharField(
+        max_length=50,
+        default='Perú',
+        verbose_name='País'
     )
     
-    es_principal = models.BooleanField(
-        'Es Sucursal Principal',
+    # Configuración de interfaz
+    tema_oscuro = models.BooleanField(
         default=False,
-        help_text='Indica si es la sucursal principal del usuario'
+        verbose_name='Tema Oscuro'
+    )
+    idioma = models.CharField(
+        max_length=10,
+        default='es',
+        choices=[
+            ('es', 'Español'),
+            ('en', 'English'),
+        ],
+        verbose_name='Idioma'
+    )
+    timezone = models.CharField(
+        max_length=50,
+        default='America/Lima',
+        verbose_name='Zona Horaria'
     )
     
-    permisos_especiales = models.JSONField(
-        'Permisos Especiales',
+    # Configuraciones de dashboard
+    configuracion_dashboard = models.JSONField(
         default=dict,
         blank=True,
-        help_text='Permisos específicos para esta sucursal'
+        verbose_name='Configuración Dashboard',
+        help_text='Configuración personalizada del dashboard'
     )
     
-    fecha_asignacion = models.DateTimeField(
-        'Fecha de Asignación',
-        auto_now_add=True,
-        help_text='Fecha de asignación a la sucursal'
-    )
-    
-    asignado_por = models.ForeignKey(
-        Usuario,
-        on_delete=models.SET_NULL,
+    # Información profesional
+    cargo = models.CharField(
+        max_length=100,
         blank=True,
+        verbose_name='Cargo'
+    )
+    empresa = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Empresa'
+    )
+    biografia = models.TextField(
+        blank=True,
+        verbose_name='Biografía'
+    )
+    
+    # Avatar y archivos
+    avatar = models.ImageField(
+        upload_to='usuarios/avatars/',
         null=True,
-        related_name='asignaciones_realizadas',
-        verbose_name='Asignado Por',
-        help_text='Usuario que realizó la asignación'
+        blank=True,
+        verbose_name='Avatar'
     )
     
     class Meta:
-        db_table = 'usuarios_usuario_sucursal'
-        verbose_name = 'Usuario Sucursal'
-        verbose_name_plural = 'Usuario Sucursales'
-        unique_together = [('usuario', 'sucursal')]
-        indexes = [
-            models.Index(fields=['usuario', 'sucursal'], name='idx_usuario_sucursal'),
-            models.Index(fields=['es_principal'], name='idx_usuario_sucursal_principal'),
-            models.Index(fields=['activo'], name='idx_usuario_sucursal_activo'),
-        ]
-        
-    def __str__(self):
-        return f"{self.usuario.get_full_name()} - {self.sucursal.nombre}"
+        db_table = 'usuarios_perfil'
+        verbose_name = 'Perfil de Usuario'
+        verbose_name_plural = 'Perfiles de Usuario'
     
-    def save(self, *args, **kwargs):
-        """Validar que solo haya una sucursal principal por usuario"""
-        if self.es_principal:
-            UsuarioSucursal.objects.filter(
-                usuario=self.usuario,
-                es_principal=True
-            ).exclude(pk=self.pk).update(es_principal=False)
-        super().save(*args, **kwargs)
+    def __str__(self):
+        return f"Perfil de {self.usuario.get_nombre_completo()}"
+    
+    def get_edad(self):
+        """Calcular edad del usuario"""
+        if not self.fecha_nacimiento:
+            return None
+        
+        from datetime import date
+        today = date.today()
+        return today.year - self.fecha_nacimiento.year - (
+            (today.month, today.day) < (self.fecha_nacimiento.month, self.fecha_nacimiento.day)
+        )
 
 
-class SesionUsuario(models.Model):
+class SesionUsuario(ModeloBase):
     """
-    Modelo para rastrear sesiones de usuarios
+    Modelo para rastrear sesiones de usuario
+    Útil para seguridad y analytics
     """
+    
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
         related_name='sesiones',
         verbose_name='Usuario'
     )
-    
-    session_key = models.CharField(
-        'Clave de Sesión',
-        max_length=40,
+    token_sesion = models.CharField(
+        max_length=255,
         unique=True,
-        db_index=True
+        verbose_name='Token de Sesión'
     )
-    
     ip_address = models.GenericIPAddressField(
-        'Dirección IP',
-        help_text='Dirección IP desde la cual se conectó'
+        verbose_name='Dirección IP'
     )
-    
     user_agent = models.TextField(
-        'User Agent',
-        help_text='Información del navegador'
+        verbose_name='User Agent'
     )
-    
     fecha_inicio = models.DateTimeField(
-        'Fecha de Inicio',
         auto_now_add=True,
-        help_text='Fecha y hora de inicio de sesión'
+        verbose_name='Fecha de Inicio'
     )
-    
-    fecha_fin = models.DateTimeField(
-        'Fecha de Fin',
-        blank=True,
-        null=True,
-        help_text='Fecha y hora de cierre de sesión'
+    fecha_ultimo_uso = models.DateTimeField(
+        auto_now=True,
+        verbose_name='Último Uso'
     )
-    
     activa = models.BooleanField(
-        'Activa',
         default=True,
-        db_index=True,
-        help_text='Indica si la sesión está activa'
+        verbose_name='Sesión Activa'
+    )
+    fecha_expiracion = models.DateTimeField(
+        verbose_name='Fecha de Expiración'
     )
     
     class Meta:
-        db_table = 'usuarios_sesion_usuario'
+        db_table = 'usuarios_sesion'
         verbose_name = 'Sesión de Usuario'
-        verbose_name_plural = 'Sesiones de Usuarios'
+        verbose_name_plural = 'Sesiones de Usuario'
+        ordering = ['-fecha_ultimo_uso']
         indexes = [
-            models.Index(fields=['usuario', 'activa'], name='idx_sesion_usuario_activa'),
-            models.Index(fields=['session_key'], name='idx_sesion_key'),
-            models.Index(fields=['fecha_inicio'], name='idx_sesion_inicio'),
+            models.Index(fields=['usuario'], name='idx_sesion_usuario'),
+            models.Index(fields=['token_sesion'], name='idx_sesion_token'),
+            models.Index(fields=['activa'], name='idx_sesion_activa'),
+            models.Index(fields=['fecha_expiracion'], name='idx_sesion_expiracion'),
         ]
-        
+    
     def __str__(self):
-        return f"Sesión de {self.usuario.get_full_name()} - {self.fecha_inicio}"
+        return f"Sesión de {self.usuario.email} desde {self.ip_address}"
+    
+    def esta_expirada(self):
+        """Verificar si la sesión está expirada"""
+        return timezone.now() > self.fecha_expiracion
     
     def cerrar_sesion(self):
-        """Cierra la sesión"""
-        self.fecha_fin = timezone.now()
+        """Cerrar la sesión"""
         self.activa = False
-        self.save(update_fields=['fecha_fin', 'activa'])
-    
-    def duracion(self):
-        """Retorna la duración de la sesión"""
-        if self.fecha_fin:
-            return self.fecha_fin - self.fecha_inicio
-        else:
-            return timezone.now() - self.fecha_inicio
+        self.save(update_fields=['activa'])

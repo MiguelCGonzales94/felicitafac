@@ -8,61 +8,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import JsonResponse
-from django.utils import timezone
 from rest_framework.authtoken.views import obtain_auth_token
 
-
-def api_root_view(request):
-    """
-    Vista raíz de la API que proporciona información básica
-    """
-    return JsonResponse({
-        'mensaje': '¡Bienvenido a FELICITAFAC API!',
-        'sistema': 'Sistema de Facturación Electrónica para Perú',
-        'version': '1.0.0',
-        'endpoints': {
-            'admin': '/admin/',
-            'api': '/api/',
-            'auth': '/api/auth/',
-            'docs': '/api/docs/',
-            'usuarios': '/api/usuarios/',
-            'clientes': '/api/clientes/',
-            'productos': '/api/productos/',
-            'facturacion': '/api/facturacion/',
-            'inventario': '/api/inventario/',
-            'contabilidad': '/api/contabilidad/',
-            'reportes': '/api/reportes/',
-        },
-        'configuracion': {
-            'timezone': settings.TIME_ZONE,
-            'language': settings.LANGUAGE_CODE,
-            'debug': settings.DEBUG,
-        }
-    })
-
-
-def health_check_view(request):
-    """
-    Vista de health check para monitoreo
-    """
-    try:
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        
-        return JsonResponse({
-            'status': 'ok',
-            'database': 'connected',
-            'timestamp': timezone.now().isoformat()
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'database': 'disconnected',
-            'error': str(e),
-            'timestamp': timezone.now().isoformat()
-        }, status=500)
+# Importar vistas desde el archivo views.py
+from .views import (
+    api_root_view,
+    health_check_view,
+    info_sistema_view,
+    error_404,
+    error_500,
+    error_403,
+    error_400
+)
 
 
 # Configuración principal de URLs
@@ -70,19 +27,21 @@ urlpatterns = [
     # Panel de administración Django
     path('admin/', admin.site.urls),
     
-    # API raíz
+    # API raíz - Vista principal del sistema
     path('', api_root_view, name='api-root'),
     path('api/', api_root_view, name='api-root-alt'),
     
-    # Health check
+    # Health check y información del sistema
     path('health/', health_check_view, name='health-check'),
     path('api/health/', health_check_view, name='api-health-check'),
+    path('info/', info_sistema_view, name='info-sistema'),
+    path('api/info/', info_sistema_view, name='api-info-sistema'),
     
     # Autenticación
     path('api/auth/token/', obtain_auth_token, name='api-token-auth'),
     path('api/auth/', include('rest_framework.urls')),
     
-    # APIs de aplicaciones (solo las implementadas en Fase 1)
+    # APIs de aplicaciones (implementadas en Fase 1)
     path('api/core/', include('aplicaciones.core.urls')),
     path('api/usuarios/', include('aplicaciones.usuarios.urls')),
     
@@ -113,7 +72,10 @@ if settings.DEBUG:
 admin.site.site_header = 'FELICITAFAC Administración'
 admin.site.site_title = 'FELICITAFAC'
 admin.site.index_title = 'Sistema de Facturación Electrónica'
+admin.site.site_url = '/'
 
 # Handler de errores personalizados
 handler404 = 'configuracion.views.error_404'
 handler500 = 'configuracion.views.error_500'
+handler403 = 'configuracion.views.error_403'
+handler400 = 'configuracion.views.error_400'
