@@ -1,13 +1,15 @@
 """
-Signals de la aplicación Usuarios - FELICITAFAC
+Signals de Usuarios - FELICITAFAC CORREGIDO
+Sistema de Facturación Electrónica para Perú
+Signals para modelo Usuario con métodos correctos
 """
 
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
-from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
-from rest_framework.authtoken.models import Token
-from .models import Usuario, SesionUsuario
 import logging
+from django.db.models.signals import post_save, pre_delete
+from django.dispatch import receiver
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.utils import timezone
+from .models import Usuario, PerfilUsuario
 
 logger = logging.getLogger(__name__)
 
@@ -18,81 +20,64 @@ def usuario_post_save(sender, instance, created, **kwargs):
     Signal ejecutado después de guardar un usuario
     """
     if created:
-        # Crear token de autenticación automáticamente
-        Token.objects.get_or_create(user=instance)
-        logger.info(f"Nuevo usuario creado: {instance.get_full_name()} ({instance.email})")
+        # Usuario recién creado
+        logger.info(f"Nuevo usuario creado: {instance.get_nombre_completo()} ({instance.email})")
+        
+        # Crear perfil automáticamente si no existe
+        if not hasattr(instance, 'perfil'):
+            try:
+                PerfilUsuario.objects.create(
+                    usuario=instance,
+                    ciudad='Lima',
+                    pais='Perú',
+                    cargo=instance.nombres,
+                    empresa='FELICITAFAC'
+                )
+                logger.info(f"Perfil creado automáticamente para {instance.email}")
+            except Exception as e:
+                logger.error(f"Error creando perfil para {instance.email}: {e}")
+    else:
+        # Usuario actualizado
+        logger.info(f"Usuario actualizado: {instance.get_nombre_completo()} ({instance.email})")
+
+
+@receiver(pre_delete, sender=Usuario)
+def usuario_pre_delete(sender, instance, **kwargs):
+    """
+    Signal ejecutado antes de eliminar un usuario
+    """
+    logger.warning(f"Usuario eliminado: {instance.get_nombre_completo()} ({instance.email})")
 
 
 @receiver(user_logged_in)
-def usuario_login_exitoso(sender, request, user, **kwargs):
+def usuario_logged_in(sender, user, request, **kwargs):
     """
-    Signal ejecutado cuando un usuario hace login exitoso
+    Signal ejecutado cuando un usuario inicia sesión
     """
-    if hasattr(user, 'registrar_login_exitoso'):
-        user.registrar_login_exitoso()
-    
-    # Crear sesión de usuario
-    if request:
-        ip_address = get_client_ip(request)
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
-        session_key = request.session.session_key
+    if hasattr(user, 'get_nombre_completo'):
+        logger.info(f"Usuario inició sesión: {user.get_nombre_completo()} ({user.email})")
         
-        SesionUsuario.objects.create(
-            usuario=user,
-            session_key=session_key or '',
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
-    
-    logger.info(f"Login exitoso: {user.get_full_name()} ({user.email})")
+        # Actualizar fecha de último login
+        user.fecha_ultimo_login = timezone.now()
+        user.intentos_login_fallidos = 0
+        user.save(update_fields=['fecha_ultimo_login', 'intentos_login_fallidos'])
 
 
 @receiver(user_logged_out)
-def usuario_logout(sender, request, user, **kwargs):
+def usuario_logged_out(sender, user, request, **kwargs):
     """
-    Signal ejecutado cuando un usuario hace logout
+    Signal ejecutado cuando un usuario cierra sesión
     """
-    if user and request:
-        session_key = request.session.session_key
-        if session_key:
-            SesionUsuario.objects.filter(
-                usuario=user,
-                session_key=session_key,
-                activa=True
-            ).update(activa=False)
-    
-    logger.info(f"Logout: {user.get_full_name() if user else 'Usuario anónimo'}")
+    if user and hasattr(user, 'get_nombre_completo'):
+        logger.info(f"Usuario cerró sesión: {user.get_nombre_completo()} ({user.email})")
 
 
-@receiver(user_login_failed)
-def usuario_login_fallido(sender, credentials, request, **kwargs):
+@receiver(post_save, sender=PerfilUsuario)
+def perfil_post_save(sender, instance, created, **kwargs):
     """
-    Signal ejecutado cuando falla un login
+    Signal ejecutado después de guardar un perfil
     """
-    email = credentials.get('email') or credentials.get('username')
-    
-    if email:
-        try:
-            user = Usuario.objects.get(email=email)
-            if hasattr(user, 'registrar_intento_fallido'):
-                user.registrar_intento_fallido()
-            logger.warning(f"Login fallido para: {email}")
-        except Usuario.DoesNotExist:
-            logger.warning(f"Intento de login con email inexistente: {email}")
-    
-    # Log de IP para seguridad
-    if request:
-        ip_address = get_client_ip(request)
-        logger.warning(f"Login fallido desde IP: {ip_address}")
-
-
-def get_client_ip(request):
-    """
-    Obtener la IP real del cliente
-    """
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
+    if created:
+        logger.info(f"Perfil creado para usuario: {instance.usuario.get_nombre_completo()}")
     else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+        logger.info(f"Perfil actualizado para usuario: {instance.usuario.get_nombre_completo()}")
