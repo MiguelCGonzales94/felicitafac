@@ -553,7 +553,7 @@ class Producto(ModeloBase):
             models.Index(fields=['codigo'], name='idx_producto_codigo'),
             models.Index(fields=['nombre'], name='idx_producto_nombre'),
             models.Index(fields=['codigo_barras'], name='idx_producto_barras'),
-            models.Index(fields=['categoria'], name='idx_producto_categoria_rel'),
+            models.Index(fields=['categoria'], name='idx_producto_categoria'),
             models.Index(fields=['tipo_producto'], name='idx_producto_tipo'),
             models.Index(fields=['activo'], name='idx_producto_activo'),
             models.Index(fields=['permite_venta'], name='idx_producto_venta'),

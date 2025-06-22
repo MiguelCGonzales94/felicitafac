@@ -323,7 +323,7 @@ class Cliente(ModeloBase):
         indexes = [
             models.Index(fields=['numero_documento'], name='idx_cliente_numero_doc'),
             models.Index(fields=['tipo_cliente'], name='idx_cliente_tipo'),
-            models.Index(fields=['activo'], name='idx_cliente_estado_activo'),
+            models.Index(fields=['activo'], name='idx_cliente_activo'),
             models.Index(fields=['fecha_creacion'], name='idx_cliente_fecha'),
             models.Index(fields=['razon_social'], name='idx_cliente_razon_social'),
             models.Index(fields=['ubigeo'], name='idx_cliente_ubigeo'),

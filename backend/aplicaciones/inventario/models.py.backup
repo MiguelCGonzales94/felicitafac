@@ -568,7 +568,7 @@ class LoteProducto(ModeloBase):
         verbose_name_plural = 'Lotes de Productos'
         unique_together = [['producto', 'almacen', 'numero_lote']]
         indexes = [
-            models.Index(fields=['producto'], name='idx_inventario_lote_producto'),
+            models.Index(fields=['producto'], name='idx_lote_producto'),
             models.Index(fields=['almacen'], name='idx_lote_almacen'),
             models.Index(fields=['numero_lote'], name='idx_lote_numero'),
             models.Index(fields=['fecha_ingreso'], name='idx_lote_fecha_ing'),

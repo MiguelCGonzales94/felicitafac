@@ -789,9 +789,9 @@ class DetalleDocumento(ModeloBase):
         unique_together = [['documento', 'numero_item']]
         indexes = [
             models.Index(fields=['documento'], name='idx_detalle_documento'),
-            models.Index(fields=['producto'], name='idx_detalle_factura_producto'),
+            models.Index(fields=['producto'], name='idx_detalle_producto'),
             models.Index(fields=['numero_item'], name='idx_detalle_numero'),
-            models.Index(fields=['activo'], name='idx_detalle_factura_activo'),
+            models.Index(fields=['activo'], name='idx_detalle_activo'),
         ]
         ordering = ['numero_item']
     

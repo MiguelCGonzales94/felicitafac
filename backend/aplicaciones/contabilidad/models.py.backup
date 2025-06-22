@@ -908,13 +908,13 @@ class DetalleAsiento(ModeloBase):
         verbose_name_plural = 'Detalles de Asientos'
         unique_together = [['asiento', 'numero_linea']]
         indexes = [
-            models.Index(fields=['asiento'], name='idx_detal_asient_contable'),
-            models.Index(fields=['cuenta'], name='idx_detal_asient_cuenta'),
-            models.Index(fields=['numero_linea'], name='idx_detal_asien_linea'),
-            models.Index(fields=['debe'], name='idx_detal_debe'),
-            models.Index(fields=['haber'], name='idx_detal_haber'),
-            models.Index(fields=['cliente_proveedor'], name='idx_detal_tercero'),
-            models.Index(fields=['activo'], name='idx_detal_asient_contab_activo'),
+            models.Index(fields=['asiento'], name='idx_detalle_asiento'),
+            models.Index(fields=['cuenta'], name='idx_detalle_cuenta'),
+            models.Index(fields=['numero_linea'], name='idx_detalle_linea'),
+            models.Index(fields=['debe'], name='idx_detalle_debe'),
+            models.Index(fields=['haber'], name='idx_detalle_haber'),
+            models.Index(fields=['cliente_proveedor'], name='idx_detalle_tercero'),
+            models.Index(fields=['activo'], name='idx_detalle_activo'),
         ]
         ordering = ['numero_linea']
     
