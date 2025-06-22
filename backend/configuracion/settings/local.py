@@ -141,18 +141,18 @@ except ImportError:
     pass
 
 # Configuración de Django Debug Toolbar (si está instalado)
-if DEBUG:
-    try:
-        import debug_toolbar
-        INSTALLED_APPS += ['debug_toolbar']
-        MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
-        INTERNAL_IPS = ['127.0.0.1', 'localhost']
-        
-        DEBUG_TOOLBAR_CONFIG = {
-            'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
-        }
-    except ImportError:
-        pass
+#if DEBUG:
+#    try:
+#        import debug_toolbar
+#        INSTALLED_APPS += ['debug_toolbar']
+#        MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+#        INTERNAL_IPS = ['127.0.0.1', 'localhost']
+#        
+#        DEBUG_TOOLBAR_CONFIG = {
+#            'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
+#        }
+#    except ImportError:
+#        pass
 
 # Configuración de directorios adicionales para desarrollo
 MEDIA_ROOT = BASE_DIR / 'media'
