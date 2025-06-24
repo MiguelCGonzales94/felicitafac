@@ -23,7 +23,7 @@ from .serializers import (
     LoteProductoSerializer, MovimientoInventarioSerializer,
     MovimientoCreateSerializer, ReporteInventarioSerializer
 )
-from aplicaciones.core.permissions import PuedeVerInventario, PuedeEditarInventario
+from aplicaciones.core.permissions import PuedeGestionarInventario
 from aplicaciones.core.pagination import PaginacionEstandar
 
 logger = logging.getLogger(__name__)
@@ -51,13 +51,13 @@ class TipoMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
 class AlmacenViewSet(viewsets.ModelViewSet):
     queryset = Almacen.objects.select_related('sucursal', 'responsable').filter(activo=True)
     serializer_class = AlmacenSerializer
-    permission_classes = [IsAuthenticated, PuedeVerInventario]
+    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAuthenticated, PuedeEditarInventario]
+            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
         else:
-            permission_classes = [IsAuthenticated, PuedeVerInventario]
+            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
         return [permission() for permission in permission_classes]
     
     @action(detail=True, methods=['get'])
@@ -94,7 +94,7 @@ class AlmacenViewSet(viewsets.ModelViewSet):
 class StockProductoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StockProducto.objects.select_related('producto', 'almacen').filter(activo=True)
     serializer_class = StockProductoSerializer
-    permission_classes = [IsAuthenticated, PuedeVerInventario]
+    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
     pagination_class = PaginacionEstandar
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
@@ -173,7 +173,7 @@ class StockProductoViewSet(viewsets.ReadOnlyModelViewSet):
 class LoteProductoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoteProducto.objects.select_related('producto', 'almacen').filter(activo=True)
     serializer_class = LoteProductoSerializer
-    permission_classes = [IsAuthenticated, PuedeVerInventario]
+    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
     pagination_class = PaginacionEstandar
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
@@ -238,7 +238,7 @@ class MovimientoInventarioViewSet(viewsets.ModelViewSet):
         'tipo_movimiento', 'almacen', 'usuario_creacion'
     ).prefetch_related('detalles').filter(activo=True)
     
-    permission_classes = [IsAuthenticated, PuedeVerInventario]
+    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
     pagination_class = PaginacionEstandar
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     
@@ -261,9 +261,9 @@ class MovimientoInventarioViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update']:
-            permission_classes = [IsAuthenticated, PuedeEditarInventario]
+            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
         else:
-            permission_classes = [IsAuthenticated, PuedeVerInventario]
+            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):

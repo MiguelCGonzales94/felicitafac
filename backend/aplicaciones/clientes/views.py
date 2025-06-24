@@ -23,7 +23,7 @@ from .serializers import (
     ContactoClienteSerializer, EstadisticasClienteSerializer
 )
 from aplicaciones.core.permissions import (
-    EsAdminOContador, EsVendedorOSuperior, PuedeVerClientes, PuedeEditarClientes
+    EsContadorOAdministrador, EsVendedorOSuperior, PuedeGestionarInventario
 )
 from aplicaciones.core.utils import obtener_usuario_actual
 from aplicaciones.core.pagination import PaginacionEstandar
