@@ -241,6 +241,224 @@ class PuedeConfigurarSistema(BasePermission):
         return False
 
 
+class PuedeVerFacturacion(BasePermission):
+    """
+    Permiso para ver documentos de facturación
+    Administradores, contadores y vendedores pueden ver facturas
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede ver documentos de facturación
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Verificar roles permitidos
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador', 'vendedor']
+        
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """
+        Permisos a nivel de objeto para facturas
+        """
+        # Administradores y contadores ven todas las facturas
+        if hasattr(request.user, 'rol') and request.user.rol:
+            if request.user.rol.codigo in ['administrador', 'contador']:
+                return True
+            
+            # Vendedores solo ven sus propias facturas
+            if request.user.rol.codigo == 'vendedor':
+                return hasattr(obj, 'usuario_creacion') and obj.usuario_creacion == request.user
+        
+        return False
+
+
+class PuedeEditarFacturacion(BasePermission):
+    """
+    Permiso para editar documentos de facturación
+    Solo administradores y vendedores pueden crear/editar facturas
+    Contadores solo pueden consultar
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede editar documentos de facturación
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Solo administradores y vendedores pueden editar
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'vendedor']
+        
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """
+        Permisos a nivel de objeto para edición de facturas
+        """
+        # Administradores pueden editar cualquier factura en borrador
+        if hasattr(request.user, 'rol') and request.user.rol:
+            if request.user.rol.codigo == 'administrador':
+                # Solo facturas en estado borrador son editables
+                return hasattr(obj, 'estado') and obj.estado == 'borrador'
+            
+            # Vendedores solo pueden editar sus propias facturas en borrador
+            if request.user.rol.codigo == 'vendedor':
+                return (hasattr(obj, 'usuario_creacion') and 
+                       obj.usuario_creacion == request.user and
+                       hasattr(obj, 'estado') and obj.estado == 'borrador')
+        
+        return False
+
+
+class PuedeVerClientes(BasePermission):
+    """
+    Permiso para ver información de clientes
+    Todos los roles autenticados pueden ver clientes
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede ver clientes
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Todos los roles pueden ver clientes
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador', 'vendedor']
+        
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """
+        Permisos a nivel de objeto para clientes
+        """
+        # Administradores y contadores ven todos los clientes
+        if hasattr(request.user, 'rol') and request.user.rol:
+            if request.user.rol.codigo in ['administrador', 'contador']:
+                return True
+            
+            # Vendedores ven todos los clientes (necesario para ventas)
+            if request.user.rol.codigo == 'vendedor':
+                return True
+        
+        return False
+
+
+class PuedeEditarClientes(BasePermission):
+    """
+    Permiso para editar información de clientes
+    Solo administradores y contadores pueden editar clientes
+    Vendedores solo pueden crear clientes nuevos
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede editar clientes
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Para creación, todos los roles permitidos pueden crear
+        if view.action == 'create':
+            if hasattr(request.user, 'rol') and request.user.rol:
+                return request.user.rol.codigo in ['administrador', 'contador', 'vendedor']
+        
+        # Para edición, solo admin y contador
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador']
+        
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """
+        Permisos a nivel de objeto para edición de clientes
+        """
+        # Solo administradores y contadores pueden editar
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador']
+        
+        return False
+
+
+class PuedeVerProductos(BasePermission):
+    """
+    Permiso para ver información de productos
+    Todos los roles autenticados pueden ver productos
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede ver productos
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Todos los roles pueden ver productos
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador', 'vendedor']
+        
+        return False
+
+
+class PuedeEditarProductos(BasePermission):
+    """
+    Permiso para editar información de productos
+    Solo administradores y contadores pueden editar productos
+    """
+    
+    def has_permission(self, request, view):
+        """
+        Verificar si el usuario puede editar productos
+        """
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Superusuario tiene acceso completo
+        if request.user.is_superuser:
+            return True
+        
+        # Solo administradores y contadores pueden editar productos
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador']
+        
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """
+        Permisos a nivel de objeto para edición de productos
+        """
+        # Solo administradores y contadores pueden editar
+        if hasattr(request.user, 'rol') and request.user.rol:
+            return request.user.rol.codigo in ['administrador', 'contador']
+        
+        return False
+    
 # Alias para mantener compatibilidad
 EsStaff = EsContadorOAdministrador
 EsUsuarioAutenticado = EsClienteOSuperior

@@ -49,8 +49,8 @@ urlpatterns = [
     path('api/productos/', include('aplicaciones.productos.urls')),    # Fase 3-4
     path('api/facturacion/', include('aplicaciones.facturacion.urls')), # Fase 3-4
     path('api/inventario/', include('aplicaciones.inventario.urls')),   # Fase 5
-    path('api/contabilidad/', include('aplicaciones.contabilidad.urls')), # Fase 6
-    path('api/reportes/', include('aplicaciones.reportes.urls')),       # Fase 7
+    #path('api/contabilidad/', include('aplicaciones.contabilidad.urls')), # Fase 6
+    #path('api/reportes/', include('aplicaciones.reportes.urls')),       # Fase 7
 ]
 
 # Configuración para archivos estáticos y multimedia en desarrollo

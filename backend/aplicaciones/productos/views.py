@@ -24,7 +24,7 @@ from .serializers import (
     EstadisticasProductoSerializer, MovimientoStockSerializer
 )
 from aplicaciones.core.permissions import (
-    EsAdminOContador, EsVendedorOSuperior, PuedeVerProductos, PuedeEditarProductos
+    EsContadorOAdministrador, EsVendedorOSuperior, PuedeVerProductos, PuedeEditarProductos
 )
 from aplicaciones.core.pagination import PaginacionEstandar
 
@@ -45,7 +45,7 @@ class TipoProductoViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """Permisos específicos por acción"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAuthenticated, EsAdminOContador]
+            permission_classes = [IsAuthenticated, EsContadorOAdministrador]
         else:
             permission_classes = [IsAuthenticated, PuedeVerProductos]
         

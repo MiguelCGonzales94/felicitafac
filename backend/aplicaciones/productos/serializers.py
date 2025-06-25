@@ -5,7 +5,7 @@ API REST con validaciones específicas para inventarios y SUNAT
 """
 
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
+from rest_framework.validators import UniqueTogetherValidator
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from decimal import Decimal
@@ -265,7 +265,7 @@ class ProductoSerializer(serializers.ModelSerializer):
         ]
         
         validators = [
-            UniqueValidator(
+            UniqueTogetherValidator(
                 queryset=Producto.objects.all(),
                 fields=['codigo'],
                 message="Ya existe un producto con este código"
