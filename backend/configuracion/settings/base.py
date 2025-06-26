@@ -42,6 +42,7 @@ FELICITAFAC_APPS = [
     'aplicaciones.productos',
     'aplicaciones.facturacion',
     'aplicaciones.inventario',
+    'aplicaciones.integraciones',  
     'aplicaciones.contabilidad',
     'aplicaciones.reportes',
 ]

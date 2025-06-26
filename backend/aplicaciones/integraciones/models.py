@@ -448,11 +448,11 @@ class ConfiguracionIntegracion(ModeloBase):
         verbose_name_plural = 'Configuraciones de Integración'
         unique_together = [['proveedor', 'ambiente']]
         indexes = [
-            models.Index(fields=['proveedor'], name='idx_config_proveedor'),
-            models.Index(fields=['ambiente'], name='idx_config_ambiente'),
-            models.Index(fields=['ruc_empresa'], name='idx_config_ruc'),
-            models.Index(fields=['configuracion_valida'], name='idx_config_valida'),
-            models.Index(fields=['activo'], name='idx_config_activo'),
+            models.Index(fields=['proveedor'], name='idx_int_config_proveedor'),
+            models.Index(fields=['ambiente'], name='idx_int_config_ambiente'),
+            models.Index(fields=['ruc_empresa'], name='idx_int_config_ruc'),
+            models.Index(fields=['configuracion_valida'], name='idx_int_config_valida'),
+            models.Index(fields=['activo'], name='idx_int_config_activo'),
         ]
     
     def __str__(self):

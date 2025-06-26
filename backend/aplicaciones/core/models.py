@@ -474,8 +474,8 @@ class ConfiguracionSistema(ModeloBase):
         verbose_name = 'Configuración del Sistema'
         verbose_name_plural = 'Configuraciones del Sistema'
         indexes = [
-            models.Index(fields=['clave'], name='idx_config_clave'),
-            models.Index(fields=['activo'], name='idx_config_activo'),
+                models.Index(fields=['clave'], name='idx_core_config_clave'),
+                models.Index(fields=['activo'], name='idx_core_config_activo'),
         ]
         
     def __str__(self):
