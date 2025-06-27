@@ -1,313 +1,427 @@
 /**
- * Types para Facturación - FELICITAFAC Frontend
+ * Types de Facturación - FELICITAFAC
+ * Sistema de Facturación Electrónica para Perú
+ * Tipos TypeScript para facturación SUNAT
  */
 
-export interface TipoDocumentoElectronico {
-  id: number;
-  codigo_sunat: string;
-  nombre: string;
-  nomenclatura: string;
-  requiere_cliente_ruc: boolean;
-  permite_exportacion: boolean;
-  afecta_inventario: boolean;
-  afecta_cuentas_cobrar: boolean;
-  requiere_referencia: boolean;
-  serie_defecto: string;
-  cantidad_documentos?: number;
-  activo: boolean;
-}
+// =======================================================
+// TIPOS BÁSICOS DE FACTURACIÓN
+// =======================================================
 
-export interface SerieDocumento {
-  id: number;
-  sucursal: number;
-  sucursal_nombre?: string;
-  tipo_documento: number;
-  tipo_documento_nombre?: string;
-  serie: string;
-  numero_actual: number;
-  numero_maximo: number;
-  es_predeterminada: boolean;
-  documentos_emitidos?: number;
-  siguiente_numero?: number;
-  observaciones?: string;
-  activo: boolean;
-}
+export type TipoDocumento = 'factura' | 'boleta' | 'nota_credito' | 'nota_debito';
+export type EstadoFactura = 'pendiente' | 'emitida' | 'anulada' | 'rechazada';
+export type TipoAfectacionIGV = '10' | '20' | '30' | '40'; // Gravado, Exonerado, Inafecto, Exportación
+export type UnidadMedida = 'NIU' | 'KGM' | 'MTR' | 'LTR' | 'H87' | 'BX' | 'PK' | 'ZZ';
+export type TipoPago = 'contado' | 'credito';
+export type EstadoPago = 'pendiente' | 'pagado' | 'vencido' | 'parcial';
 
-export interface FormaPago {
-  id: number;
-  codigo: string;
-  nombre: string;
-  tipo: 'efectivo' | 'transferencia' | 'tarjeta_credito' | 'tarjeta_debito' | 'cheque' | 'deposito' | 'yape' | 'plin' | 'billetera_digital' | 'credito';
-  requiere_referencia: boolean;
-  es_credito: boolean;
-  dias_credito_defecto: number;
-  cuenta_contable?: string;
-  orden: number;
-  activo: boolean;
-}
+// =======================================================
+// INTERFACES PRINCIPALES
+// =======================================================
 
-export interface PagoDocumento {
+/**
+ * Item de factura
+ */
+export interface ItemFactura {
   id?: number;
-  forma_pago: number;
-  forma_pago_info?: FormaPago;
-  monto: number;
-  referencia?: string;
-  fecha_pago: string;
-  observaciones?: string;
-  activo?: boolean;
-}
-
-export interface DetalleDocumento {
-  id?: number;
-  numero_item: number;
-  producto: number;
-  producto_info?: {
-    codigo: string;
-    nombre: string;
-    stock_actual: number;
-    controla_stock: boolean;
-  };
+  producto_id: number;
   codigo_producto: string;
   descripcion: string;
-  unidad_medida: string;
   cantidad: number;
   precio_unitario: number;
-  precio_unitario_con_igv?: number;
-  descuento_porcentaje: number;
-  descuento?: number;
-  subtotal?: number;
-  base_imponible?: number;
-  igv?: number;
-  total_item?: number;
-  tipo_afectacion_igv: string;
-  codigo_tributo: string;
-  porcentaje_igv: number;
-  es_gratuito: boolean;
-  lote?: string;
-  fecha_vencimiento_producto?: string;
-  observaciones?: string;
-  activo?: boolean;
+  descuento: number;
+  tipo_afectacion_igv: TipoAfectacionIGV;
+  unidad_medida: UnidadMedida;
+  
+  // Calculados automáticamente
+  subtotal: number;
+  igv: number;
+  total: number;
+  
+  // Información adicional del producto
+  stock_disponible?: number;
+  categoria?: string;
+  imagen_url?: string;
 }
 
-export interface DocumentoElectronico {
-  id?: number;
-  uuid?: string;
-  tipo_documento: number;
-  tipo_documento_info?: TipoDocumentoElectronico;
-  serie_documento: number;
-  serie_documento_info?: SerieDocumento;
-  numero?: number;
-  numero_completo?: string;
+/**
+ * Datos del cliente para facturación
+ */
+export interface ClienteFactura {
+  id: number;
+  tipo_documento: '1' | '6'; // DNI o RUC
+  numero_documento: string;
+  nombre_o_razon_social: string;
+  direccion: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+  telefono?: string;
+  email?: string;
+}
+
+/**
+ * Factura principal
+ */
+export interface Factura {
+  id: number;
+  tipo_documento: TipoDocumento;
+  serie: string;
+  numero: number;
+  numero_completo: string; // Serie + Número
+  
+  // Cliente
+  cliente_id: number;
+  cliente: ClienteFactura;
   
   // Fechas
   fecha_emision: string;
   fecha_vencimiento?: string;
-  dias_vencimiento?: number;
   
-  // Cliente
-  cliente: number;
-  cliente_info?: {
-    id: number;
-    razon_social: string;
-    numero_documento: string;
-    email?: string;
-    telefono?: string;
-  };
-  cliente_tipo_documento?: string;
-  cliente_numero_documento?: string;
-  cliente_razon_social?: string;
-  cliente_direccion?: string;
-  cliente_email?: string;
-  
-  // Moneda y cambio
-  moneda: 'PEN' | 'USD' | 'EUR';
-  tipo_cambio: number;
-  
-  // Importes
-  subtotal?: number;
-  total_descuentos?: number;
-  base_imponible?: number;
-  igv?: number;
-  total_exonerado?: number;
-  total_inafecto?: number;
-  total_gratuito?: number;
-  total?: number;
-  
-  // Información adicional
-  observaciones?: string;
-  condiciones_pago: string;
-  vendedor?: number;
-  vendedor_info?: {
-    id: number;
-    nombres: string;
-    apellidos: string;
-    email?: string;
-  };
-  
-  // Estado y control
-  estado: 'borrador' | 'emitido' | 'enviado_sunat' | 'aceptado_sunat' | 'rechazado_sunat' | 'anulado' | 'observado';
-  motivo_anulacion?: string;
-  puede_anular_info?: {
-    puede_anular: boolean;
-    motivo: string;
-  };
-  estado_pago?: 'PENDIENTE' | 'PARCIAL' | 'PAGADO';
-  
-  // Información SUNAT
-  hash_documento?: string;
-  codigo_qr?: string;
-  enlace_pdf?: string;
-  enlace_xml?: string;
-  enlace_cdr?: string;
-  fecha_envio_sunat?: string;
-  fecha_respuesta_sunat?: string;
-  url_pdf?: string;
-  url_xml?: string;
-  
-  // Referencia (para notas)
-  documento_referencia?: number;
-  tipo_nota?: string;
-  motivo_nota?: string;
-  
-  // Relacionados
-  detalles?: DetalleDocumento[];
-  pagos?: PagoDocumento[];
-  
-  // Auditoría
-  activo?: boolean;
-  fecha_creacion?: string;
-  fecha_actualizacion?: string;
-}
-
-export interface DocumentoElectronicoListItem {
-  id: number;
-  numero_completo: string;
-  tipo_documento_nombre: string;
-  cliente_nombre: string;
-  fecha_emision: string;
-  fecha_vencimiento?: string;
-  dias_vencimiento?: number;
+  // Montos
+  subtotal: number;
+  descuento_global: number;
+  igv: number;
   total: number;
-  moneda: string;
-  estado: string;
-  estado_pago: 'PENDIENTE' | 'PARCIAL' | 'PAGADO';
-  activo: boolean;
-}
-
-export interface DocumentoFormData {
-  tipo_documento: number;
-  serie_documento: number;
-  cliente: number;
-  fecha_emision: string;
-  fecha_vencimiento?: string;
-  moneda: string;
-  tipo_cambio: number;
+  
+  // Estado
+  estado: EstadoFactura;
+  estado_pago: EstadoPago;
+  
+  // SUNAT
+  estado_sunat?: EstadoSunat;
+  hash_sunat?: string;
+  qr_sunat?: string;
+  enlace_pdf?: string;
+  xml_firmado?: string;
+  
+  // Pago
+  tipo_pago: TipoPago;
+  dias_credito?: number;
+  
+  // Items
+  items: ItemFactura[];
+  
+  // Metadata
   observaciones?: string;
-  condiciones_pago: string;
-  vendedor?: number;
-  documento_referencia?: number;
-  tipo_nota?: string;
-  motivo_nota?: string;
-  detalles_data: Omit<DetalleDocumento, 'id'>[];
-  pagos_data?: Omit<PagoDocumento, 'id'>[];
+  created_at: string;
+  updated_at: string;
+  usuario_creador: number;
 }
 
-export interface DocumentoBusqueda {
-  numero_completo?: string;
-  tipo_documento?: number;
-  cliente?: number;
-  estado?: string;
-  fecha_desde?: string;
-  fecha_hasta?: string;
-  moneda?: string;
-  monto_minimo?: number;
-  monto_maximo?: number;
-  estado_pago?: 'pendiente' | 'parcial' | 'pagado';
-  vendedor?: number;
+/**
+ * Estado SUNAT de la factura
+ */
+export interface EstadoSunat {
+  codigo_respuesta: string;
+  descripcion_respuesta: string;
+  fecha_consulta: string;
+  enlace_cdr?: string;
+  aceptada_con_observaciones: boolean;
+  observaciones?: string[];
 }
 
-export interface EstadisticasFacturacion {
-  total_documentos: number;
-  total_facturado: number;
-  total_igv: number;
-  documentos_por_estado: Record<string, number>;
-  por_tipo_documento: Record<string, { cantidad: number; monto: number }>;
-  por_moneda: Record<string, { cantidad: number; monto: number }>;
-  facturacion_diaria: Array<{ fecha: string; monto: number; cantidad: number }>;
-  facturacion_mensual: Array<{ mes: string; monto: number; cantidad: number }>;
-  top_clientes: Array<{ cliente: string; monto: number; documentos: number }>;
-  documentos_vencidos: number;
-  documentos_por_vencer: number;
-  ticket_promedio: number;
-  documentos_promedio_dia: number;
+/**
+ * Detalle completo de factura
+ */
+export interface DetalleFactura extends Factura {
+  historial_estados: HistorialEstado[];
+  movimientos_contables: MovimientoContable[];
+  pagos: PagoFactura[];
 }
 
-export interface AnulacionDocumento {
+/**
+ * Historial de estados
+ */
+export interface HistorialEstado {
+  id: number;
+  estado_anterior: EstadoFactura;
+  estado_nuevo: EstadoFactura;
+  fecha_cambio: string;
+  usuario: string;
+  motivo?: string;
+}
+
+/**
+ * Movimiento contable generado
+ */
+export interface MovimientoContable {
+  id: number;
+  cuenta_contable: string;
+  nombre_cuenta: string;
+  debe: number;
+  haber: number;
+  fecha_registro: string;
+}
+
+/**
+ * Pago de factura
+ */
+export interface PagoFactura {
+  id: number;
+  monto: number;
+  fecha_pago: string;
+  metodo_pago: string;
+  numero_operacion?: string;
+  observaciones?: string;
+  usuario_registro: string;
+}
+
+// =======================================================
+// REQUESTS PARA APIs
+// =======================================================
+
+/**
+ * Request para crear factura
+ */
+export interface CrearFacturaRequest {
+  tipo_documento: TipoDocumento;
+  cliente_id: number;
+  fecha_emision?: string;
+  fecha_vencimiento?: string;
+  tipo_pago: TipoPago;
+  dias_credito?: number;
+  descuento_global?: number;
+  observaciones?: string;
+  items: Omit<ItemFactura, 'id' | 'subtotal' | 'igv' | 'total'>[];
+}
+
+/**
+ * Request para actualizar factura
+ */
+export interface ActualizarFacturaRequest {
+  cliente_id?: number;
+  fecha_vencimiento?: string;
+  observaciones?: string;
+  items?: Omit<ItemFactura, 'id' | 'subtotal' | 'igv' | 'total'>[];
+}
+
+/**
+ * Request para anular factura
+ */
+export interface AnularFacturaRequest {
   motivo: string;
-  enviar_sunat: boolean;
+  generar_nota_credito?: boolean;
 }
 
-export interface DocumentoApiResponse {
+// =======================================================
+// RESPONSES DE APIs
+// =======================================================
+
+/**
+ * Response paginado de facturas
+ */
+export interface FacturasPaginadas {
   count: number;
   next?: string;
   previous?: string;
-  results: DocumentoElectronicoListItem[];
+  results: Factura[];
 }
 
-export interface DocumentoValidation {
-  cliente?: string[];
-  detalles_data?: string[];
-  fecha_emision?: string[];
-  total?: string[];
-  [key: string]: string[] | undefined;
+/**
+ * Response de crear/actualizar factura
+ */
+export interface RespuestaFactura {
+  factura: Factura;
+  mensaje: string;
+  warnings?: string[];
 }
 
-export interface DocumentoError {
-  message: string;
-  errors?: DocumentoValidation;
-  status?: number;
+/**
+ * Response de validación antes de crear
+ */
+export interface ValidacionFactura {
+  valido: boolean;
+  errores: string[];
+  warnings: string[];
+  stock_insuficiente: Array<{
+    producto: string;
+    stock_disponible: number;
+    cantidad_solicitada: number;
+  }>;
 }
 
-// Enums y constantes
-export const TIPOS_DOCUMENTO_SUNAT = {
-  FACTURA: '01',
-  BOLETA: '03',
-  NOTA_CREDITO: '07',
-  NOTA_DEBITO: '08',
-  GUIA_REMISION: '09'
-} as const;
+// =======================================================
+// TIPOS PARA PUNTO DE VENTA
+// =======================================================
 
-export const ESTADOS_DOCUMENTO = {
-  BORRADOR: 'borrador',
-  EMITIDO: 'emitido',
-  ENVIADO_SUNAT: 'enviado_sunat',
-  ACEPTADO_SUNAT: 'aceptado_sunat',
-  RECHAZADO_SUNAT: 'rechazado_sunat',
-  ANULADO: 'anulado',
-  OBSERVADO: 'observado'
-} as const;
+/**
+ * Estado del carrito de compras
+ */
+export interface CarritoEstado {
+  items: ItemFactura[];
+  cliente_seleccionado?: ClienteFactura;
+  tipo_documento: TipoDocumento;
+  tipo_pago: TipoPago;
+  dias_credito: number;
+  descuento_global: number;
+  observaciones: string;
+  
+  // Totales calculados
+  subtotal: number;
+  igv: number;
+  total: number;
+  
+  // Estados de UI
+  cargando: boolean;
+  error?: string;
+}
 
-export const ESTADOS_PAGO = {
-  PENDIENTE: 'PENDIENTE',
-  PARCIAL: 'PARCIAL',
-  PAGADO: 'PAGADO'
-} as const;
+/**
+ * Configuración del POS
+ */
+export interface ConfiguracionPOS {
+  mostrar_stock: boolean;
+  permitir_stock_negativo: boolean;
+  calcular_igv_automatico: boolean;
+  serie_por_defecto_factura: string;
+  serie_por_defecto_boleta: string;
+  terminos_condiciones: string;
+  pie_pagina: string;
+}
 
-export const MONEDAS = {
-  PEN: 'PEN',
-  USD: 'USD',
-  EUR: 'EUR'
-} as const;
+// =======================================================
+// TIPOS PARA REPORTES
+// =======================================================
 
-export const CONDICIONES_PAGO = {
-  CONTADO: 'CONTADO',
-  CREDITO_30: 'CREDITO 30 DIAS',
-  CREDITO_60: 'CREDITO 60 DIAS',
-  CREDITO_90: 'CREDITO 90 DIAS'
-} as const;
+/**
+ * Resumen de ventas
+ */
+export interface ResumenVentas {
+  periodo: {
+    fecha_desde: string;
+    fecha_hasta: string;
+  };
+  totales: {
+    cantidad_facturas: number;
+    cantidad_boletas: number;
+    monto_total_sin_igv: number;
+    monto_igv: number;
+    monto_total_con_igv: number;
+  };
+  por_dia: Array<{
+    fecha: string;
+    cantidad_documentos: number;
+    monto_sin_igv: number;
+    monto_con_igv: number;
+  }>;
+  top_productos: Array<{
+    producto: string;
+    cantidad: number;
+    monto: number;
+  }>;
+  top_clientes: Array<{
+    cliente: string;
+    cantidad_facturas: number;
+    monto_total: number;
+  }>;
+}
 
-export type TipoDocumentoSunat = typeof TIPOS_DOCUMENTO_SUNAT[keyof typeof TIPOS_DOCUMENTO_SUNAT];
-export type EstadoDocumento = typeof ESTADOS_DOCUMENTO[keyof typeof ESTADOS_DOCUMENTO];
-export type EstadoPago = typeof ESTADOS_PAGO[keyof typeof ESTADOS_PAGO];
-export type Moneda = typeof MONEDAS[keyof typeof MONEDAS];
-export type CondicionPago = typeof CONDICIONES_PAGO[keyof typeof CONDICIONES_PAGO];
+// =======================================================
+// FILTROS Y BÚSQUEDAS
+// =======================================================
+
+/**
+ * Filtros para listar facturas
+ */
+export interface FiltrosFacturas {
+  busqueda?: string;
+  cliente_id?: number;
+  tipo_documento?: TipoDocumento;
+  estado?: EstadoFactura;
+  estado_pago?: EstadoPago;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  serie?: string;
+  numero_desde?: number;
+  numero_hasta?: number;
+  monto_desde?: number;
+  monto_hasta?: number;
+  usuario_creador?: number;
+  pagina?: number;
+  limite?: number;
+  ordenar_por?: 'fecha_emision' | 'numero' | 'total' | 'cliente';
+  orden?: 'asc' | 'desc';
+}
+
+// =======================================================
+// CONSTANTES
+// =======================================================
+
+export const TIPOS_DOCUMENTO_LABELS: Record<TipoDocumento, string> = {
+  factura: 'Factura',
+  boleta: 'Boleta de Venta',
+  nota_credito: 'Nota de Crédito',
+  nota_debito: 'Nota de Débito',
+};
+
+export const ESTADOS_FACTURA_LABELS: Record<EstadoFactura, string> = {
+  pendiente: 'Pendiente',
+  emitida: 'Emitida',
+  anulada: 'Anulada',
+  rechazada: 'Rechazada',
+};
+
+export const ESTADOS_PAGO_LABELS: Record<EstadoPago, string> = {
+  pendiente: 'Pendiente',
+  pagado: 'Pagado',
+  vencido: 'Vencido',
+  parcial: 'Parcial',
+};
+
+export const TIPO_AFECTACION_IGV_LABELS: Record<TipoAfectacionIGV, string> = {
+  '10': 'Gravado - Operación Onerosa',
+  '20': 'Exonerado - Operación Onerosa',
+  '30': 'Inafecto - Operación Onerosa',
+  '40': 'Exportación',
+};
+
+export const UNIDADES_MEDIDA_LABELS: Record<UnidadMedida, string> = {
+  NIU: 'Unidad',
+  KGM: 'Kilogramo',
+  MTR: 'Metro',
+  LTR: 'Litro',
+  H87: 'Pieza',
+  BX: 'Caja',
+  PK: 'Paquete',
+  ZZ: 'Servicio',
+};
+
+// =======================================================
+// UTILIDADES DE TIPOS
+// =======================================================
+
+/**
+ * Tipo para select options
+ */
+export interface OpcionSelect<T = string> {
+  value: T;
+  label: string;
+  disabled?: boolean;
+}
+
+/**
+ * Opciones para selects
+ */
+export const OPCIONES_TIPO_DOCUMENTO: OpcionSelect<TipoDocumento>[] = [
+  { value: 'factura', label: 'Factura' },
+  { value: 'boleta', label: 'Boleta de Venta' },
+  { value: 'nota_credito', label: 'Nota de Crédito' },
+  { value: 'nota_debito', label: 'Nota de Débito' },
+];
+
+export const OPCIONES_TIPO_PAGO: OpcionSelect<TipoPago>[] = [
+  { value: 'contado', label: 'Al Contado' },
+  { value: 'credito', label: 'Al Crédito' },
+];
+
+export const OPCIONES_UNIDAD_MEDIDA: OpcionSelect<UnidadMedida>[] = [
+  { value: 'NIU', label: 'Unidad' },
+  { value: 'KGM', label: 'Kilogramo' },
+  { value: 'MTR', label: 'Metro' },
+  { value: 'LTR', label: 'Litro' },
+  { value: 'H87', label: 'Pieza' },
+  { value: 'BX', label: 'Caja' },
+  { value: 'PK', label: 'Paquete' },
+  { value: 'ZZ', label: 'Servicio' },
+];
