@@ -131,7 +131,18 @@ const SelectorCliente: React.FC<PropiedadesSelectorCliente> = ({
   }, [onClienteSeleccionado, seleccionarYCerrar]);
 
   const seleccionarClienteGenerico = () => {
-    seleccionarCliente(CLIENTE_GENERICO);
+    const clienteGenerico: ClienteFactura = {
+      id: CLIENTE_GENERICO.id,
+      tipo_documento: CLIENTE_GENERICO.tipo_documento,
+      numero_documento: CLIENTE_GENERICO.numero_documento,
+      nombre_o_razon_social: CLIENTE_GENERICO.nombre_o_razon_social,
+      direccion: CLIENTE_GENERICO.direccion,
+      distrito: CLIENTE_GENERICO.distrito,
+      provincia: CLIENTE_GENERICO.provincia,
+      departamento: CLIENTE_GENERICO.departamento,
+      email: CLIENTE_GENERICO.email,
+    };
+    seleccionarCliente(clienteGenerico);
   };
 
   // =======================================================

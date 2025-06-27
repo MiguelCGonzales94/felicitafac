@@ -15,7 +15,8 @@ import {
   Percent,
   DollarSign,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Package
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';

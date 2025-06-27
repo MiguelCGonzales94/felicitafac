@@ -71,15 +71,11 @@ const CatalogoProductos: React.FC<PropiedadesCatalogoProductos> = ({
     loading: cargandoProductos,
     error: errorProductos,
     refrescar: refrescarProductos,
-  } = useApiGet<{
-    count: number;
-    results: ProductoListItem[];
-  }>(
+  } = useApiGet<any>(
     () => {
       const params = new URLSearchParams({
         page: paginaActual.toString(),
         page_size: POS_CONFIG.PRODUCTOS_POR_PAGINA.toString(),
-        estado: 'activo',
         ...(filtros.categoria && { categoria: filtros.categoria }),
         ...(filtros.soloConStock && { con_stock: 'true' }),
         ...(filtros.tipo_producto && { tipo_producto: filtros.tipo_producto }),
@@ -89,7 +85,7 @@ const CatalogoProductos: React.FC<PropiedadesCatalogoProductos> = ({
         }),
       });
 
-      return `${API_ENDPOINTS.PRODUCTOS.LIST}?${params.toString()}`;
+      return `/api/productos/productos/?${params.toString()}`;
     },
     undefined,
     {
@@ -105,11 +101,8 @@ const CatalogoProductos: React.FC<PropiedadesCatalogoProductos> = ({
     loading: cargandoBusqueda,
     termino: terminoBusqueda,
     setTermino: setTerminoBusqueda,
-  } = useApiBusqueda<{
-    count: number;
-    results: ProductoListItem[];
-  }>(
-    API_ENDPOINTS.PRODUCTOS.LIST,
+  } = useApiBusqueda<any>(
+    '/api/productos/productos/',
     300, // 300ms debounce
     undefined,
     {
@@ -119,16 +112,42 @@ const CatalogoProductos: React.FC<PropiedadesCatalogoProductos> = ({
 
   // API para categorías
   const {
-    data: categorias,
+    data: categoriasData,
     loading: cargandoCategorias,
-  } = useApiGet<Array<{ id: string; nombre: string; cantidad: number }>>(
-    API_ENDPOINTS.PRODUCTOS.CATEGORIAS,
+  } = useApiGet<any>(
+    '/api/productos/categorias/',
     undefined,
     {
       cachear: true,
       tiempoCacheMs: 10 * 60 * 1000, // 10 minutos
     }
   );
+
+  // Procesar categorías según el formato de la API
+  const categorias = React.useMemo(() => {
+    if (!categoriasData) return [];
+    
+    // Si es un array directamente
+    if (Array.isArray(categoriasData)) {
+      return categoriasData.map((cat: any) => ({
+        id: cat.id || cat.codigo,
+        nombre: cat.nombre,
+        cantidad: cat.cantidad || 0
+      }));
+    }
+    
+    // Si es un objeto con results (paginado)
+    if (categoriasData.results && Array.isArray(categoriasData.results)) {
+      return categoriasData.results.map((cat: any) => ({
+        id: cat.id || cat.codigo,
+        nombre: cat.nombre,
+        cantidad: cat.cantidad || 0
+      }));
+    }
+    
+    // Fallback a array vacío
+    return [];
+  }, [categoriasData]);
 
   // =======================================================
   // DATOS COMPUTADOS
@@ -403,11 +422,14 @@ const CatalogoProductos: React.FC<PropiedadesCatalogoProductos> = ({
               value={categoriaSeleccionada}
               onChange={(e) => manejarCambioCategoria(e.target.value)}
               className="text-sm border border-gray-300 rounded px-3 py-1"
+              disabled={cargandoCategorias}
             >
-              <option value="">Todas las categorías</option>
-              {categorias?.map(categoria => (
+              <option value="">
+                {cargandoCategorias ? 'Cargando...' : 'Todas las categorías'}
+              </option>
+              {categorias.map(categoria => (
                 <option key={categoria.id} value={categoria.id}>
-                  {categoria.nombre} ({categoria.cantidad})
+                  {categoria.nombre} {categoria.cantidad > 0 ? `(${categoria.cantidad})` : ''}
                 </option>
               ))}
             </select>

@@ -62,14 +62,15 @@ export const API_ENDPOINTS = {
   
   // Productos
   PRODUCTOS: {
-    LIST: '/productos/',
-    DETAIL: (id: number) => `/productos/${id}/`,
-    CREATE: '/productos/',
-    UPDATE: (id: number) => `/productos/${id}/`,
-    DELETE: (id: number) => `/productos/${id}/`,
-    CATEGORIAS: '/productos/categorias/',
-    ALERTAS_STOCK: '/productos/alertas-stock/',
-    ACTUALIZAR_PRECIOS: '/productos/actualizar-precios/',
+    LIST: '/api/productos/productos/',
+    DETAIL: (id: number) => `/api/productos/productos/${id}/`,
+    CREATE: '/api/productos/productos/',
+    UPDATE: (id: number) => `/api/productos/productos/${id}/`,
+    DELETE: (id: number) => `/api/productos/productos/${id}/`,
+    CATEGORIAS: '/api/productos/categorias/',
+    TIPOS: '/api/productos/tipos-producto/',
+    ALERTAS_STOCK: '/api/productos/alertas-stock/',
+    ACTUALIZAR_PRECIOS: '/api/productos/actualizar-precios/',
   },
   
   // Facturación
@@ -371,6 +372,25 @@ export const PERMISOS = {
   // Dashboard
   VER_DASHBOARD: 'ver_dashboard',
 } as const;
+
+// =======================================================
+// CLIENTES POR DEFECTO
+// =======================================================
+
+/**
+ * Cliente genérico para ventas sin identificar
+ */
+export const CLIENTE_GENERICO = {
+  id: 0,
+  tipo_documento: '1' as const,
+  numero_documento: '00000000',
+  nombre_o_razon_social: 'Cliente Genérico',
+  direccion: 'Sin dirección',
+  distrito: 'Lima',
+  provincia: 'Lima',
+  departamento: 'Lima',
+  email: undefined,
+};
 
 // =======================================================
 // CONSTANTES DE UBICACIÓN PERÚ

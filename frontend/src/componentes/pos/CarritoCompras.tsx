@@ -16,12 +16,12 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { cn } from '../../utils/cn';
+import { cn } from '../../utils/cn.ts';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button, ButtonIcono } from '../ui/button';
 import { Input, InputCantidad, InputMonto } from '../ui/input';
 import { usePuntoDeVenta } from '../../hooks/useFacturacion';
-import type { ItemFactura } from '../types/factura';
+import type { ItemFactura } from '../../types/factura.ts';
 import { formatearMoneda } from '../../utils/formatos';
 import { calcularTotalesItem } from '../../utils/calculos';
 

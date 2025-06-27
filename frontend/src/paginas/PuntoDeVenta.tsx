@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
-import { cn } from '../utils/cn';
+import { cn } from '../utils/cn.ts';
 import { Button, ButtonIcono } from '../componentes/ui/button';
 import { Card, CardContent } from '../componentes/ui/card';
 

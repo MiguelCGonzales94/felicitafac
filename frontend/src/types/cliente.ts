@@ -443,6 +443,44 @@ export const OPCIONES_ESTADO_CLIENTE: OpcionSelect<EstadoCliente>[] = [
 ];
 
 // =======================================================
+// FUNCIONES UTILITARIAS
+// =======================================================
+
+/**
+ * Validar que un cliente es válido para facturación
+ */
+export const esClienteValidoParaFacturacion = (cliente: Partial<Cliente>): cliente is ClienteFacturacion => {
+  return !!(
+    cliente.id &&
+    cliente.tipo_documento &&
+    cliente.numero_documento &&
+    cliente.nombre_o_razon_social &&
+    cliente.direccion
+  );
+};
+
+/**
+ * Obtener nombre completo del cliente
+ */
+export const obtenerNombreCompletoCliente = (cliente: Cliente): string => {
+  if (cliente.tipo_persona === 'natural' && cliente.nombres) {
+    const apellidos = [cliente.apellido_paterno, cliente.apellido_materno]
+      .filter(Boolean)
+      .join(' ');
+    return `${cliente.nombres} ${apellidos}`.trim();
+  }
+  return cliente.nombre_o_razon_social;
+};
+
+/**
+ * Formatear documento con etiqueta
+ */
+export const formatearDocumentoConEtiqueta = (cliente: Cliente): string => {
+  const tipoLabel = TIPOS_DOCUMENTO_LABELS[cliente.tipo_documento];
+  return `${tipoLabel}: ${cliente.numero_documento}`;
+};
+
+// =======================================================
 // CLIENTES POR DEFECTO
 // =======================================================
 
