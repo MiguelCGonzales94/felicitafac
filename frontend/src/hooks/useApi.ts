@@ -502,7 +502,7 @@ export function useApiBusqueda<T = any>(
 
   const result = useApi<T>(requestFunction, {
     ejecutarInmediatamente: false,
-    dependencias: [terminoBusqueda],
+    dependencias: [],
     cachear: true,
     ...opciones,
   });
@@ -514,7 +514,7 @@ export function useApiBusqueda<T = any>(
     } else {
       result.limpiar();
     }
-  }, [terminoBusqueda, result]);
+  }, [terminoBusqueda]);
 
   return {
     ...result,
