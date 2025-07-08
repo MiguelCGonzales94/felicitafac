@@ -31,7 +31,7 @@ import BotonesAccion from '../componentes/pos/BotonesAccion';
 import CalculadoraTotales from '../componentes/pos/CalculadoraTotales';
 
 // Hooks y contextos
-import { ProviderFacturacion, useFacturacion } from '../contextos/FacturacionContext';
+import { ProviderFacturacion, useFacturacion } from '../context/FacturacionContext.tsx';
 import { usePuntoDeVenta } from '../hooks/useFacturacion';
 import { useApiGet } from '../hooks/useApi';
 

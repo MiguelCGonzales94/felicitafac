@@ -1,14 +1,220 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FELICITAFAC - Sistema de Facturación Electrónica</title>
-    <meta name="description" content="Sistema de Facturación Electrónica para Perú">
+    <meta name="description" content="FELICITAFAC - Sistema de Facturación Electrónica para Perú. Cumple 100% con SUNAT, gestiona tu inventario y lleva tu contabilidad de forma automática." />
+    <meta name="keywords" content="facturación electrónica, SUNAT, Perú, contabilidad, inventario, POS, factura electrónica" />
+    <meta name="author" content="FELICITAFAC Team" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://felicitafac.com/" />
+    <meta property="og:title" content="FELICITAFAC - Sistema de Facturación Electrónica para Perú" />
+    <meta property="og:description" content="Sistema completo de facturación electrónica para Perú. Cumple 100% con SUNAT, gestiona tu inventario y lleva tu contabilidad de forma automática." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="es_PE" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://felicitafac.com/" />
+    <meta property="twitter:title" content="FELICITAFAC - Sistema de Facturación Electrónica para Perú" />
+    <meta property="twitter:description" content="Sistema completo de facturación electrónica para Perú. Cumple 100% con SUNAT, gestiona tu inventario y lleva tu contabilidad de forma automática." />
+    <meta property="twitter:image" content="/twitter-image.png" />
+    
+    <!-- Favicon y iconos -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#3b82f6" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="theme-color" content="#3b82f6" />
+    
+    <!-- Preconnect para mejorar performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="//api.felicitafac.com" />
+    
+    <!-- Configuración PWA -->
+    <meta name="application-name" content="FELICITAFAC" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="FELICITAFAC" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- Seguridad -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    
+    <!-- Título dinámico (será actualizado por React) -->
+    <title>FELICITAFAC - Sistema de Facturación Electrónica para Perú</title>
+    
+    <!-- CSS inline crítico para evitar FOUC -->
+    <style>
+      /* Critical CSS para evitar flash of unstyled content */
+      #root {
+        min-height: 100vh;
+      }
+      
+      /* Loading spinner inicial */
+      .loading-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      .loading-text {
+        margin-top: 16px;
+        color: #6b7280;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Ocultar el loading cuando React tome control */
+      .loaded .loading-container {
+        display: none;
+      }
+      
+      /* Estilos base para evitar layout shift */
+      * {
+        box-sizing: border-box;
+      }
+      
+      html {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        line-height: 1.5;
+        -webkit-text-size-adjust: 100%;
+      }
+      
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: #f9fafb;
+        color: #374151;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+    </style>
   </head>
+  
   <body>
-    <div id="root"></div>
+    <!-- Contenedor principal de React -->
+    <div id="root">
+      <!-- Loading inicial mientras carga React -->
+      <div class="loading-container">
+        <div style="text-align: center;">
+          <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14,2 14,8 20,8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10,9 9,9 8,9"></polyline>
+            </svg>
+          </div>
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Cargando FELICITAFAC...</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Noscript fallback -->
+    <noscript>
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f9fafb; display: flex; align-items: center; justify-content: center; z-index: 10000;">
+        <div style="text-align: center; max-width: 400px; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+          <h1 style="color: #1f2937; margin-bottom: 16px;">JavaScript Requerido</h1>
+          <p style="color: #6b7280; margin-bottom: 24px;">
+            FELICITAFAC requiere JavaScript para funcionar correctamente. 
+            Por favor, habilita JavaScript en tu navegador.
+          </p>
+          <p style="color: #6b7280; font-size: 14px;">
+            Para obtener la mejor experiencia, te recomendamos usar:
+            <br>Chrome, Firefox, Safari o Edge actualizados.
+          </p>
+        </div>
+      </div>
+    </noscript>
+    
+    <!-- Scripts de terceros críticos (si los hay) -->
+    <!-- Por ejemplo, Google Analytics, Hotjar, etc. -->
+    
+    <!-- El script principal de React será inyectado aquí por Vite -->
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Service Worker registration (opcional para PWA) -->
+    <script>
+      // Registrar Service Worker si está disponible
+      if ('serviceWorker' in navigator && 'production' === 'production') {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('SW registered: ', registration);
+            })
+            .catch(function(registrationError) {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
+    
+    <!-- Schema.org estructurado para SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "FELICITAFAC",
+      "description": "Sistema de Facturación Electrónica para Perú. Cumple 100% con SUNAT, gestiona tu inventario y lleva tu contabilidad de forma automática.",
+      "url": "https://felicitafac.com",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "89",
+        "priceCurrency": "PEN",
+        "priceValidUntil": "2024-12-31"
+      },
+      "provider": {
+        "@type": "Organization",
+        "name": "FELICITAFAC",
+        "url": "https://felicitafac.com"
+      },
+      "screenshot": "https://felicitafac.com/screenshot.png",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "150"
+      }
+    }
+    </script>
   </body>
 </html>

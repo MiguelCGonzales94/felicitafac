@@ -1,18 +1,26 @@
 /**
- * Utility CN - FELICITAFAC
+ * Utilidad para combinar clases CSS - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Función utilitaria para combinar clases CSS de forma condicional
+ * Función helper para combinar clases CSS condicionalmente
  */
 
-import { clsx, type ClassValue } from 'clsx';
+import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 /**
- * Combina clases CSS de forma inteligente
- * Utiliza clsx para concatenación condicional y tailwind-merge para resolver conflictos
+ * Combina clases CSS usando clsx y tailwind-merge
+ * Permite combinar clases condicionalmente y resuelve conflictos de Tailwind
+ * 
+ * @param inputs - Array de clases CSS, strings, objetos condicionales
+ * @returns String con las clases CSS combinadas
+ * 
+ * @example
+ * cn('px-4 py-2', 'bg-blue-500', { 'text-white': isActive })
+ * cn('btn', isLoading && 'opacity-50', 'hover:bg-blue-600')
  */
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+// Exportar como default también
 export default cn;

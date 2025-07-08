@@ -2,43 +2,82 @@
   "name": "felicitafac-frontend",
   "private": true,
   "version": "1.0.0",
-  "description": "FELICITAFAC - Sistema de Facturación Electrónica para Perú - Frontend",
+  "description": "Sistema de Facturación Electrónica para Perú - Frontend React",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3000 --host 0.0.0.0",
     "build": "tsc && vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 3000",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint . --ext ts,tsx --fix"
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "clean": "rm -rf dist node_modules/.vite",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.263.1",
+    "@hookform/resolvers": "^3.3.2",
+    "@tanstack/react-query": "^5.8.4",
+    "@tanstack/react-query-devtools": "^5.8.4",
+    "@tensorflow/tfjs": "^4.15.0",
+    "chart.js": "^4.4.0",
+    "clsx": "^2.0.0",
+    "d3": "^7.8.5",
+    "date-fns": "^2.30.0",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.294.0",
+    "mammoth": "^1.6.0",
+    "mathjs": "^12.2.0",
+    "papaparse": "^5.4.1",
+    "plotly.js": "^2.27.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.30.1",
-    "tailwind-merge": "^2.6.0"
+    "react-helmet-async": "^2.0.4",
+    "react-hook-form": "^7.48.2",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.20.1",
+    "recharts": "^2.8.0",
+    "tailwind-merge": "^2.1.0",
+    "three": "^0.158.0",
+    "tone": "^14.8.49",
+    "xlsx": "^0.18.5",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@types/react-router-dom": "^5.3.3",
-    "@typescript-eslint/eslint-plugin": "^6.14.0",
-    "@typescript-eslint/parser": "^6.14.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/d3": "^7.4.3",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.9.0",
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/three": "^0.158.3",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "@vitest/ui": "^1.0.0",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.55.0",
+    "c8": "^8.0.1",
+    "eslint": "^8.53.0",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-react-refresh": "^0.4.4",
+    "jsdom": "^23.0.1",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
+    "prettier": "^3.1.0",
+    "prettier-plugin-tailwindcss": "^0.5.7",
+    "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
-    "vite": "^5.0.8"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "vite": "^4.5.0",
+    "vitest": "^1.0.0"
   },
   "browserslist": {
     "production": [
@@ -51,5 +90,34 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/macgonzales94/felicitafacmain.git",
+    "directory": "frontend"
+  },
+  "keywords": [
+    "react",
+    "typescript",
+    "vite",
+    "tailwindcss",
+    "facturacion-electronica",
+    "sunat",
+    "peru",
+    "contabilidad",
+    "inventario"
+  ],
+  "author": {
+    "name": "FELICITAFAC Team",
+    "email": "dev@felicitafac.com"
+  },
+  "license": "MIT",
+  "homepage": "https://felicitafac.com",
+  "bugs": {
+    "url": "https://github.com/macgonzales94/felicitafacmain/issues"
   }
 }

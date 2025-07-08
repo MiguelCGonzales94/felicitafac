@@ -5,7 +5,8 @@
  */
 
 import { useMemo } from 'react';
-import { useContextoAuth } from '../contextos/AuthContext';
+import { useAuth as useContextoAuth } from '../context/AuthContext';
+
 import { CodigoRol, Permiso, ResultadoUseAuth } from '../types/auth';
 
 /**

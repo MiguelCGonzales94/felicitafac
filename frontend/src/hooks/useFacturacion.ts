@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { useFacturacion as useContextoFacturacion } from '../contextos/FacturacionContext';
+import { useFacturacion as useContextoFacturacion } from '../context/FacturacionContext';
 import { useApiPost } from './useApi';
 import type { 
   Factura, 
