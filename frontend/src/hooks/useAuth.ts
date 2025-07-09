@@ -5,34 +5,44 @@
  */
 
 import { useMemo } from 'react';
-import { useAuth as useContextoAuth } from '../context/AuthContext';
-
-import { CodigoRol, Permiso, ResultadoUseAuth } from '../types/auth';
+import { useAuth as useAuthContext } from '../context/AuthContext';
+import { CodigoRol, Permiso } from '../types/auth';
 
 /**
  * Hook personalizado para autenticación
  * Proporciona métodos y estado de autenticación optimizados
  */
-export const useAuth = (): ResultadoUseAuth => {
+export const useAuth = () => {
+  // Usar el hook del contexto directamente
   const {
-    estado,
+    usuario,
+    estaAutenticado,
+    estaCargando,
+    error,
     iniciarSesion,
     cerrarSesion,
     registrarse,
     actualizarPerfil,
     cambiarPassword,
     limpiarError,
-  } = useContextoAuth();
+    tienePermiso,
+    esAdministrador,
+    esContador,
+    esVendedor,
+    esCliente,
+    obtenerToken,
+    refrescarToken
+  } = useAuthContext();
 
   // Memorizar funciones de validación de permisos para optimizar renders
   const funcionesPermisos = useMemo(() => {
     /**
      * Verificar si el usuario tiene un permiso específico
      */
-    const tienePermiso = (permiso: Permiso): boolean => {
-      if (!estado.usuario?.rol_detalle) return false;
+    const tienePermisoAvanzado = (permiso: Permiso): boolean => {
+      if (!usuario?.rol_detalle) return false;
 
-      const rol = estado.usuario.rol_detalle;
+      const rol = usuario.rol_detalle;
       
       // Administrador tiene todos los permisos
       if (rol.codigo === 'administrador') return true;
@@ -45,19 +55,25 @@ export const useAuth = (): ResultadoUseAuth => {
             'crear_facturas',
             'ver_dashboard',
             'exportar_datos',
-            'gestionar_inventario'
+            'gestionar_inventario',
+            'ver_contabilidad',
+            'generar_ple',
+            'validar_documentos'
           ].includes(permiso);
 
         case 'vendedor':
           return [
             'crear_facturas',
             'ver_dashboard',
-            'gestionar_inventario'
+            'gestionar_inventario',
+            'gestionar_clientes',
+            'ver_ventas'
           ].includes(permiso);
 
         case 'cliente':
           return [
-            'ver_dashboard'
+            'ver_dashboard',
+            'ver_mis_documentos'
           ].includes(permiso);
 
         default:
@@ -66,102 +82,89 @@ export const useAuth = (): ResultadoUseAuth => {
     };
 
     /**
-     * Verificar si es administrador
-     */
-    const esAdministrador = (): boolean => {
-      return estado.usuario?.rol_detalle?.codigo === 'administrador';
-    };
-
-    /**
-     * Verificar si es contador
-     */
-    const esContador = (): boolean => {
-      return estado.usuario?.rol_detalle?.codigo === 'contador';
-    };
-
-    /**
-     * Verificar si es vendedor
-     */
-    const esVendedor = (): boolean => {
-      return estado.usuario?.rol_detalle?.codigo === 'vendedor';
-    };
-
-    /**
-     * Verificar si es cliente
-     */
-    const esCliente = (): boolean => {
-      return estado.usuario?.rol_detalle?.codigo === 'cliente';
-    };
-
-    /**
-     * Verificar si tiene rol de administración (admin o contador)
+     * Verificar si es rol administrativo
      */
     const esRolAdministrativo = (): boolean => {
-      const codigo = estado.usuario?.rol_detalle?.codigo;
-      return codigo === 'administrador' || codigo === 'contador';
+      if (!usuario?.rol_detalle) return false;
+      return ['administrador', 'contador'].includes(usuario.rol_detalle.codigo);
     };
 
     /**
      * Verificar si puede acceder a un módulo específico
      */
     const puedeAccederModulo = (modulo: string): boolean => {
-      if (!estado.usuario?.rol_detalle) return false;
+      if (!usuario?.rol_detalle) return false;
 
-      const modulosPermitidos: Record<CodigoRol, string[]> = {
-        administrador: [
-          'dashboard', 'usuarios', 'clientes', 'productos', 
-          'facturacion', 'inventario', 'contabilidad', 'reportes', 'configuracion'
-        ],
-        contador: [
-          'dashboard', 'clientes', 'productos', 'facturacion', 
-          'inventario', 'contabilidad', 'reportes'
-        ],
-        vendedor: [
-          'dashboard', 'clientes', 'productos', 'facturacion', 'inventario'
-        ],
-        cliente: [
-          'dashboard', 'mis-comprobantes'
-        ],
-      };
+      const rol = usuario.rol_detalle.codigo;
 
-      const rol = estado.usuario.rol_detalle.codigo;
-      return modulosPermitidos[rol]?.includes(modulo) || false;
+      switch (modulo) {
+        case 'facturacion':
+          return ['administrador', 'contador', 'vendedor'].includes(rol);
+        
+        case 'inventario':
+          return ['administrador', 'contador', 'vendedor'].includes(rol);
+        
+        case 'contabilidad':
+          return ['administrador', 'contador'].includes(rol);
+        
+        case 'reportes':
+          return ['administrador', 'contador'].includes(rol);
+        
+        case 'configuracion':
+          return ['administrador'].includes(rol);
+        
+        case 'usuarios':
+          return ['administrador'].includes(rol);
+        
+        default:
+          return false;
+      }
     };
 
     /**
-     * Obtener nivel de acceso numérico
+     * Obtener nivel de acceso del usuario
      */
-    const obtenerNivelAcceso = (): number => {
-      return estado.usuario?.rol_detalle?.nivel_acceso || 0;
+    const obtenerNivelAcceso = (): 'completo' | 'intermedio' | 'basico' | 'restringido' => {
+      if (!usuario?.rol_detalle) return 'restringido';
+
+      switch (usuario.rol_detalle.codigo) {
+        case 'administrador':
+          return 'completo';
+        case 'contador':
+          return 'intermedio';
+        case 'vendedor':
+          return 'basico';
+        case 'cliente':
+          return 'restringido';
+        default:
+          return 'restringido';
+      }
     };
 
     /**
-     * Verificar si puede gestionar otros usuarios
+     * Verificar si puede gestionar usuarios
      */
     const puedeGestionarUsuarios = (): boolean => {
-      return esAdministrador();
+      return usuario?.rol_detalle?.codigo === 'administrador';
     };
 
     /**
      * Verificar si puede ver reportes avanzados
      */
     const puedeVerReportesAvanzados = (): boolean => {
-      return esAdministrador() || esContador();
+      if (!usuario?.rol_detalle) return false;
+      return ['administrador', 'contador'].includes(usuario.rol_detalle.codigo);
     };
 
     /**
      * Verificar si puede configurar el sistema
      */
     const puedeConfigurarSistema = (): boolean => {
-      return esAdministrador();
+      return usuario?.rol_detalle?.codigo === 'administrador';
     };
 
     return {
-      tienePermiso,
-      esAdministrador,
-      esContador,
-      esVendedor,
-      esCliente,
+      tienePermisoAvanzado,
       esRolAdministrativo,
       puedeAccederModulo,
       obtenerNivelAcceso,
@@ -169,122 +172,143 @@ export const useAuth = (): ResultadoUseAuth => {
       puedeVerReportesAvanzados,
       puedeConfigurarSistema,
     };
-  }, [estado.usuario]);
+  }, [usuario]);
 
-  // Memorizar información del usuario para optimizar renders
+  // Información adicional del usuario
   const infoUsuario = useMemo(() => {
-    if (!estado.usuario) return null;
+    if (!usuario) return null;
 
     return {
-      id: estado.usuario.id,
-      email: estado.usuario.email,
-      nombreCompleto: estado.usuario.nombre_completo,
-      nombres: estado.usuario.nombres,
-      apellidos: estado.usuario.apellidos,
-      rol: estado.usuario.rol_detalle?.nombre || 'Sin rol',
-      codigoRol: estado.usuario.rol_detalle?.codigo,
-      avatar: estado.usuario.perfil?.avatar,
-      temaOscuro: estado.usuario.perfil?.tema_oscuro || false,
-      idioma: estado.usuario.perfil?.idioma || 'es',
-      debecambiarPassword: estado.usuario.debe_cambiar_password,
-      estadoUsuario: estado.usuario.estado_usuario,
-      fechaUltimoLogin: estado.usuario.fecha_ultimo_login,
-      tiempoSinLogin: estado.usuario.tiempo_sin_login,
+      id: usuario.id,
+      email: usuario.email,
+      nombreCompleto: usuario.nombre_completo,
+      rolNombre: usuario.rol_detalle?.nombre || 'Sin rol',
+      rolCodigo: usuario.rol_detalle?.codigo || '',
+      estado: usuario.estado_usuario,
+      estaActivo: usuario.estado_usuario === 'activo',
+      fechaRegistro: usuario.fecha_creacion,
+      ultimoLogin: usuario.ultimo_login,
+      perfilCompleto: !!(usuario.nombre && usuario.apellidos),
     };
-  }, [estado.usuario]);
+  }, [usuario]);
 
-  // Memorizar estadísticas de sesión
+  // Estadísticas de sesión
   const estadisticasSesion = useMemo(() => {
-    return {
-      intentosFallidos: estado.usuario?.intentos_login_fallidos || 0,
-      puedeHacerLogin: estado.usuario?.puede_login || false,
-      notificacionesEmail: estado.usuario?.notificaciones_email || false,
-      notificacionesSistema: estado.usuario?.notificaciones_sistema || false,
-    };
-  }, [estado.usuario]);
+    if (!usuario) return null;
 
-  // Funciones de utilidad adicionales
+    const ahora = new Date();
+    const ultimoLogin = usuario.ultimo_login ? new Date(usuario.ultimo_login) : null;
+    
+    return {
+      tiempoSesion: ultimoLogin ? Math.floor((ahora.getTime() - ultimoLogin.getTime()) / (1000 * 60)) : 0,
+      esNuevaSesion: ultimoLogin ? (ahora.getTime() - ultimoLogin.getTime()) < (5 * 60 * 1000) : true,
+      intentosFallidos: usuario.intentos_login_fallidos || 0,
+      requiereCambioPassword: usuario.requiere_cambio_password || false,
+    };
+  }, [usuario]);
+
+  // Utilidades adicionales
   const utilidades = useMemo(() => {
     /**
-     * Obtener saludo personalizado según la hora
+     * Obtener saludo personalizado
      */
     const obtenerSaludo = (): string => {
+      if (!usuario) return 'Hola';
+      
       const hora = new Date().getHours();
-      const nombre = estado.usuario?.nombres || 'Usuario';
-
-      if (hora < 12) return `Buenos días, ${nombre}`;
-      if (hora < 18) return `Buenas tardes, ${nombre}`;
-      return `Buenas noches, ${nombre}`;
+      const nombre = usuario.nombre || 'Usuario';
+      
+      if (hora < 12) {
+        return `Buenos días, ${nombre}`;
+      } else if (hora < 18) {
+        return `Buenas tardes, ${nombre}`;
+      } else {
+        return `Buenas noches, ${nombre}`;
+      }
     };
 
     /**
-     * Obtener iniciales del usuario para avatar
+     * Obtener iniciales del usuario
      */
     const obtenerIniciales = (): string => {
-      if (!estado.usuario) return 'U';
+      if (!usuario?.nombre_completo) return 'U';
       
-      const nombres = estado.usuario.nombres || '';
-      const apellidos = estado.usuario.apellidos || '';
-      
-      return `${nombres.charAt(0)}${apellidos.charAt(0)}`.toUpperCase();
+      const nombres = usuario.nombre_completo.split(' ');
+      if (nombres.length >= 2) {
+        return `${nombres[0][0]}${nombres[1][0]}`.toUpperCase();
+      }
+      return nombres[0][0].toUpperCase();
     };
 
     /**
      * Verificar si la sesión está próxima a expirar
      */
     const sesionProximaAExpirar = (): boolean => {
-      // Implementar lógica de verificación de expiración
-      // Por ahora retornamos false
-      return false;
+      if (!usuario?.ultimo_login) return false;
+      
+      const ultimoLogin = new Date(usuario.ultimo_login);
+      const ahora = new Date();
+      const tiempoSesion = ahora.getTime() - ultimoLogin.getTime();
+      const limiteSesion = 8 * 60 * 60 * 1000; // 8 horas
+      
+      return tiempoSesion > (limiteSesion * 0.9); // 90% del tiempo límite
     };
 
     /**
-     * Obtener rutas permitidas para el usuario actual
+     * Obtener rutas permitidas para el usuario
      */
     const obtenerRutasPermitidas = (): string[] => {
-      if (!estado.usuario?.rol_detalle) return ['/'];
+      if (!usuario?.rol_detalle) return ['/dashboard'];
 
-      const rutasPorRol: Record<CodigoRol, string[]> = {
-        administrador: [
-          '/dashboard',
-          '/usuarios',
-          '/clientes', 
-          '/productos',
-          '/facturacion',
-          '/inventario',
-          '/contabilidad',
-          '/reportes',
-          '/configuracion',
-        ],
-        contador: [
-          '/dashboard',
-          '/clientes',
-          '/productos', 
-          '/facturacion',
-          '/inventario',
-          '/contabilidad',
-          '/reportes',
-        ],
-        vendedor: [
-          '/dashboard',
-          '/pos',
-          '/clientes',
-          '/productos',
-          '/facturacion',
-          '/inventario',
-        ],
-        cliente: [
-          '/dashboard',
-          '/mis-comprobantes',
-          '/perfil',
-        ],
-      };
-
-      return rutasPorRol[estado.usuario.rol_detalle.codigo] || ['/'];
+      const rutasBase = ['/dashboard', '/perfil'];
+      
+      switch (usuario.rol_detalle.codigo) {
+        case 'administrador':
+          return [
+            ...rutasBase,
+            '/facturacion',
+            '/inventario',
+            '/contabilidad',
+            '/reportes',
+            '/configuracion',
+            '/usuarios',
+            '/clientes',
+            '/productos'
+          ];
+        
+        case 'contador':
+          return [
+            ...rutasBase,
+            '/facturacion',
+            '/inventario',
+            '/contabilidad',
+            '/reportes',
+            '/clientes',
+            '/productos'
+          ];
+        
+        case 'vendedor':
+          return [
+            ...rutasBase,
+            '/facturacion',
+            '/inventario',
+            '/clientes',
+            '/productos'
+          ];
+        
+        case 'cliente':
+          return [
+            ...rutasBase,
+            '/mis-documentos'
+          ];
+        
+        default:
+          return rutasBase;
+      }
     };
 
     /**
-     * Verificar si una ruta específica está permitida
+     * Verificar si una ruta está permitida
      */
     const esRutaPermitida = (ruta: string): boolean => {
       const rutasPermitidas = obtenerRutasPermitidas();
@@ -302,15 +326,15 @@ export const useAuth = (): ResultadoUseAuth => {
       obtenerRutasPermitidas,
       esRutaPermitida,
     };
-  }, [estado.usuario]);
+  }, [usuario]);
 
   // Retornar interfaz completa del hook
   return {
     // Estado básico
-    usuario: estado.usuario,
-    estaAutenticado: estado.estaAutenticado,
-    estaCargando: estado.estaCargando,
-    error: estado.error,
+    usuario,
+    estaAutenticado,
+    estaCargando,
+    error,
 
     // Funciones de autenticación
     iniciarSesion,
@@ -320,20 +344,21 @@ export const useAuth = (): ResultadoUseAuth => {
     cambiarPassword,
     limpiarError,
 
-    // Funciones de permisos
-    tienePermiso: funcionesPermisos.tienePermiso,
-    esAdministrador: funcionesPermisos.esAdministrador,
-    esContador: funcionesPermisos.esContador,
-    esVendedor: funcionesPermisos.esVendedor,
-    esCliente: funcionesPermisos.esCliente,
+    // Funciones de permisos (del contexto)
+    tienePermiso,
+    esAdministrador,
+    esContador,
+    esVendedor,
+    esCliente,
 
-    // Funciones adicionales
+    // Funciones adicionales avanzadas
     esRolAdministrativo: funcionesPermisos.esRolAdministrativo,
     puedeAccederModulo: funcionesPermisos.puedeAccederModulo,
     obtenerNivelAcceso: funcionesPermisos.obtenerNivelAcceso,
     puedeGestionarUsuarios: funcionesPermisos.puedeGestionarUsuarios,
     puedeVerReportesAvanzados: funcionesPermisos.puedeVerReportesAvanzados,
     puedeConfigurarSistema: funcionesPermisos.puedeConfigurarSistema,
+    tienePermisoAvanzado: funcionesPermisos.tienePermisoAvanzado,
 
     // Información del usuario
     infoUsuario,
@@ -346,9 +371,9 @@ export const useAuth = (): ResultadoUseAuth => {
     obtenerRutasPermitidas: utilidades.obtenerRutasPermitidas,
     esRutaPermitida: utilidades.esRutaPermitida,
 
-    // Estados de carga específicos
-    estaLoginCargando: estado.estaLoginCargando,
-    estaRegistroCargando: estado.estaRegistroCargando,
+    // Utilidades del contexto
+    obtenerToken,
+    refrescarToken,
   };
 };
 

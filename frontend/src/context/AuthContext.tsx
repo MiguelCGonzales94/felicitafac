@@ -1,75 +1,31 @@
 /**
- * Contexto de Autenticación - FELICITAFAC
+ * AuthContext Corregido - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Provider global para manejo de autenticación y estado de usuario
+ * Provider global para manejo de autenticación consistente
  */
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import { Usuario, DatosLogin, DatosRegistro, EstadoAuth } from '../types/auth';
+import { Usuario, DatosLogin, DatosRegistro, EstadoAuth, AccionAuth, ContextoAuth, TokensAuth, Permiso } from '../types/auth';
 import { serviciosAuth } from '../servicios/authAPI';
 import toast from 'react-hot-toast';
 
 // =======================================================
-// TIPOS DEL CONTEXTO
-// =======================================================
-
-interface ContextoAuth {
-  // Estado
-  usuario: Usuario | null;
-  estaAutenticado: boolean;
-  estaCargando: boolean;
-  error: string | null;
-  
-  // Acciones
-  iniciarSesion: (datos: DatosLogin) => Promise<void>;
-  cerrarSesion: () => Promise<void>;
-  registrarse: (datos: DatosRegistro) => Promise<void>;
-  actualizarPerfil: (datos: Partial<Usuario>) => Promise<void>;
-  cambiarPassword: (passwordActual: string, passwordNueva: string) => Promise<void>;
-  limpiarError: () => void;
-  
-  // Verificaciones de permisos
-  tienePermiso: (permiso: string) => boolean;
-  esAdministrador: () => boolean;
-  esContador: () => boolean;
-  esVendedor: () => boolean;
-  esCliente: () => boolean;
-  
-  // Utilidades
-  obtenerToken: () => string | null;
-  refrescarToken: () => Promise<void>;
-}
-
-// =======================================================
-// ACTIONS DEL REDUCER
-// =======================================================
-
-type AccionAuth =
-  | { type: 'INICIAR_CARGA' }
-  | { type: 'LOGIN_EXITO'; payload: { usuario: Usuario; tokens: any } }
-  | { type: 'LOGOUT' }
-  | { type: 'ACTUALIZAR_USUARIO'; payload: Usuario }
-  | { type: 'ERROR'; payload: string }
-  | { type: 'LIMPIAR_ERROR' }
-  | { type: 'REFRESCAR_TOKEN'; payload: { access: string } };
-
-// =======================================================
-// ESTADO INICIAL
+// ESTADO INICIAL CORREGIDO
 // =======================================================
 
 const estadoInicial: EstadoAuth = {
   usuario: null,
-  estaAutenticado: false,
-  estaCargando: true,
-  error: null,
   tokens: {
     access: null,
     refresh: null
-  }
+  },
+  estaAutenticado: false,
+  estaCargando: true,
+  error: null
 };
 
 // =======================================================
-// REDUCER
+// REDUCER CORREGIDO
 // =======================================================
 
 const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
@@ -139,7 +95,7 @@ const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
 const AuthContext = createContext<ContextoAuth | undefined>(undefined);
 
 // =======================================================
-// PROVIDER
+// PROVIDER CORREGIDO
 // =======================================================
 
 interface PropiedadesAuthProvider {
@@ -157,9 +113,9 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
     return estado.tokens.access || localStorage.getItem('access_token');
   }, [estado.tokens.access]);
 
-  const guardarTokensEnStorage = useCallback((tokens: { access: string; refresh: string }) => {
-    localStorage.setItem('access_token', tokens.access);
-    localStorage.setItem('refresh_token', tokens.refresh);
+  const guardarTokensEnStorage = useCallback((tokens: TokensAuth) => {
+    if (tokens.access) localStorage.setItem('access_token', tokens.access);
+    if (tokens.refresh) localStorage.setItem('refresh_token', tokens.refresh);
   }, []);
 
   const limpiarTokensDelStorage = useCallback(() => {
@@ -182,25 +138,28 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
         const { access, refresh, user } = respuesta.data;
         
         // Guardar tokens
-        const tokens = { access, refresh };
+        const tokens: TokensAuth = { access, refresh };
         guardarTokensEnStorage(tokens);
         
-        // Guardar info del usuario
+        // Guardar info usuario
         localStorage.setItem('usuario_info', JSON.stringify(user));
-
+        
         dispatch({
           type: 'LOGIN_EXITO',
-          payload: { usuario: user, tokens }
+          payload: {
+            usuario: user,
+            tokens
+          }
         });
 
-        toast.success(`¡Bienvenido, ${user.nombres}!`);
+        toast.success(`¡Bienvenido, ${user.nombre}!`);
       } else {
-        throw new Error(respuesta.message || 'Error al iniciar sesión');
+        throw new Error(respuesta.message || 'Credenciales inválidas');
       }
     } catch (error: any) {
       const mensaje = error.response?.data?.message || 
                     error.message || 
-                    'Error al iniciar sesión';
+                    'Error en el inicio de sesión';
       
       dispatch({ type: 'ERROR', payload: mensaje });
       toast.error(mensaje);
@@ -210,29 +169,21 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
 
   const cerrarSesion = useCallback(async (): Promise<void> => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = estado.tokens.refresh;
       
       if (refreshToken) {
-        // Intentar hacer logout en el servidor
-        try {
-          await serviciosAuth.logout(refreshToken);
-        } catch (error) {
-          console.warn('Error al hacer logout en el servidor:', error);
-        }
+        // Notificar al servidor sobre el logout
+        await serviciosAuth.logout(refreshToken).catch(console.warn);
       }
-
-      // Limpiar estado local
+    } catch (error) {
+      console.warn('Error en logout del servidor:', error);
+    } finally {
+      // Limpiar estado local siempre
       limpiarTokensDelStorage();
       dispatch({ type: 'LOGOUT' });
-      
       toast.success('Sesión cerrada correctamente');
-    } catch (error: any) {
-      console.error('Error cerrando sesión:', error);
-      // Aunque haya error, limpiamos localmente
-      limpiarTokensDelStorage();
-      dispatch({ type: 'LOGOUT' });
     }
-  }, [limpiarTokensDelStorage]);
+  }, [estado.tokens.refresh, limpiarTokensDelStorage]);
 
   const registrarse = useCallback(async (datos: DatosRegistro): Promise<void> => {
     try {
@@ -241,8 +192,8 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
       const respuesta = await serviciosAuth.registro(datos);
 
       if (respuesta.success) {
+        dispatch({ type: 'LOGOUT' }); // Estado inicial sin login automático
         toast.success('Registro exitoso. Verifica tu email para activar la cuenta.');
-        // No iniciamos sesión automáticamente, el usuario debe verificar email
       } else {
         throw new Error(respuesta.message || 'Error en el registro');
       }
@@ -259,7 +210,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
 
   const refrescarToken = useCallback(async (): Promise<void> => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = estado.tokens.refresh || localStorage.getItem('refresh_token');
       
       if (!refreshToken) {
         throw new Error('No hay token de refresh');
@@ -280,7 +231,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
       // Si no se puede refrescar, cerrar sesión
       await cerrarSesion();
     }
-  }, [cerrarSesion]);
+  }, [estado.tokens.refresh, cerrarSesion]);
 
   const actualizarPerfil = useCallback(async (datos: Partial<Usuario>): Promise<void> => {
     try {
@@ -308,10 +259,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
     }
   }, []);
 
-  const cambiarPassword = useCallback(async (
-    passwordActual: string, 
-    passwordNueva: string
-  ): Promise<void> => {
+  const cambiarPassword = useCallback(async (passwordActual: string, passwordNueva: string): Promise<void> => {
     try {
       dispatch({ type: 'INICIAR_CARGA' });
 
@@ -321,6 +269,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
       });
 
       if (respuesta.success) {
+        dispatch({ type: 'LIMPIAR_ERROR' });
         toast.success('Contraseña cambiada correctamente');
       } else {
         throw new Error(respuesta.message || 'Error cambiando contraseña');
@@ -341,14 +290,50 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
   }, []);
 
   // =======================================================
-  // FUNCIONES DE VERIFICACIÓN DE PERMISOS
+  // FUNCIONES DE PERMISOS
   // =======================================================
 
-  const tienePermiso = useCallback((permiso: string): boolean => {
-    if (!estado.usuario) return false;
+  const tienePermiso = useCallback((permiso: Permiso): boolean => {
+    if (!estado.usuario?.rol_detalle) return false;
+
+    const rol = estado.usuario.rol_detalle;
     
-    const permisos = estado.usuario.rol_detalle?.permisos_especiales || {};
-    return permisos[permiso] === true;
+    // Administrador tiene todos los permisos
+    if (rol.codigo === 'administrador') return true;
+
+    // Verificar permisos específicos por rol
+    switch (rol.codigo) {
+      case 'contador':
+        return [
+          'ver_reportes',
+          'crear_facturas',
+          'ver_dashboard',
+          'exportar_datos',
+          'gestionar_inventario',
+          'ver_contabilidad',
+          'generar_ple',
+          'validar_documentos',
+          'gestionar_clientes'
+        ].includes(permiso);
+
+      case 'vendedor':
+        return [
+          'crear_facturas',
+          'ver_dashboard',
+          'gestionar_inventario',
+          'gestionar_clientes',
+          'ver_ventas'
+        ].includes(permiso);
+
+      case 'cliente':
+        return [
+          'ver_dashboard',
+          'ver_mis_documentos'
+        ].includes(permiso);
+
+      default:
+        return false;
+    }
   }, [estado.usuario]);
 
   const esAdministrador = useCallback((): boolean => {
