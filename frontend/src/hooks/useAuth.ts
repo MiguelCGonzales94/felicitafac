@@ -1,8 +1,8 @@
 /**
- * useAuth Hook - Hook Personalizado FELICITAFAC
+ * useAuth Hook - Hook Personalizado FELICITAFAC (ARREGLADO)
  * Sistema de Facturación Electrónica para Perú
  * Hook para manejo de autenticación con validaciones y permisos
- * VERSIÓN MEJORADA para integración con Login.tsx
+ * VERSIÓN CORREGIDA: Manejo robusto de errores de contexto
  */
 
 import { useMemo, useCallback } from 'react';
@@ -14,28 +14,37 @@ import { CodigoRol, Permiso, DatosLogin } from '../types/auth';
  * Proporciona métodos y estado de autenticación optimizados
  */
 export const useAuth = () => {
-  // Usar el hook del contexto directamente
-  const contextAuth = useAuthContext();
+  // ✅ SOLUCIÓN: Manejo robusto del contexto
+  let contextAuth;
+  let contextError = null;
   
-  // Destructuring con valores por defecto para evitar errores
+  try {
+    contextAuth = useAuthContext();
+  } catch (error) {
+    console.warn('useAuth: AuthContext no está disponible:', error);
+    contextError = 'Contexto de autenticación no disponible';
+    contextAuth = null;
+  }
+  
+  // ✅ SOLUCIÓN: Destructuring con manejo de undefined más robusto
   const {
-    usuario,
+    usuario = null,
     estaAutenticado = false,
     estaCargando = false,
-    error = null,
-    iniciarSesion: iniciarSesionOriginal,
-    cerrarSesion,
-    registrarse,
-    actualizarPerfil,
-    cambiarPassword,
-    limpiarError,
-    tienePermiso,
-    esAdministrador,
-    esContador,
-    esVendedor,
-    esCliente,
-    obtenerToken,
-    refrescarToken
+    error = contextError,
+    iniciarSesion: iniciarSesionOriginal = null,
+    cerrarSesion = null,
+    registrarse = null,
+    actualizarPerfil = null,
+    cambiarPassword = null,
+    limpiarError = null,
+    tienePermiso = null,
+    esAdministrador = null,
+    esContador = null,
+    esVendedor = null,
+    esCliente = null,
+    obtenerToken = null,
+    refrescarToken = null
   } = contextAuth || {};
 
   // =======================================================
@@ -43,10 +52,19 @@ export const useAuth = () => {
   // =======================================================
 
   /**
-   * Función mejorada de login con mejor manejo de errores
+   * ✅ SOLUCIÓN: Función mejorada de login con validación de contexto
    */
   const iniciarSesion = useCallback(async (credenciales: DatosLogin): Promise<void> => {
     try {
+      // ✅ SOLUCIÓN: Verificar que el contexto esté disponible
+      if (!contextAuth) {
+        throw new Error('Sistema de autenticación no disponible. Verifica la configuración.');
+      }
+
+      if (!iniciarSesionOriginal) {
+        throw new Error('Función de login no disponible. Verifica AuthContext.');
+      }
+
       // Validar datos antes de enviar
       if (!credenciales.email || !credenciales.password) {
         throw new Error('Email y contraseña son requeridos');
@@ -63,18 +81,20 @@ export const useAuth = () => {
         limpiarError();
       }
 
-      // Llamar a la función original del contexto
-      if (iniciarSesionOriginal) {
-        await iniciarSesionOriginal(credenciales);
-      } else {
-        throw new Error('Servicio de autenticación no disponible');
-      }
+      // ✅ SOLUCIÓN: Llamar a la función original con manejo de errores
+      console.log('🔐 useAuth: Iniciando sesión...', { email: credenciales.email });
+      await iniciarSesionOriginal(credenciales);
+      console.log('✅ useAuth: Login exitoso');
 
     } catch (error: any) {
+      console.error('❌ useAuth: Error en login:', error);
+      
       let mensajeError = 'Error inesperado durante el login';
       
-      // Manejo específico de errores
-      if (error.response?.status === 401) {
+      // ✅ SOLUCIÓN: Manejo específico de errores mejorado
+      if (error.message?.includes('AuthContext') || error.message?.includes('no disponible')) {
+        mensajeError = 'Sistema de autenticación no configurado. Contacta al administrador.';
+      } else if (error.response?.status === 401) {
         mensajeError = 'Credenciales inválidas';
       } else if (error.response?.status === 403) {
         mensajeError = 'Usuario bloqueado. Contacte al administrador.';
@@ -90,29 +110,41 @@ export const useAuth = () => {
         mensajeError = error.message;
       }
       
-      console.error('Error en login:', error);
       throw new Error(mensajeError);
     }
-  }, [iniciarSesionOriginal, limpiarError]);
+  }, [contextAuth, iniciarSesionOriginal, limpiarError]);
 
   /**
-   * Función de logout mejorada
+   * ✅ SOLUCIÓN: Función de logout mejorada con manejo de errores
    */
   const cerrarSesionMejorado = useCallback(async (): Promise<void> => {
     try {
-      // Limpiar localStorage específico de FELICITAFAC
+      console.log('🚪 useAuth: Cerrando sesión...');
+      
+      // ✅ SOLUCIÓN: Limpiar localStorage específico de FELICITAFAC primero
       localStorage.removeItem('felicitafac_access_token');
       localStorage.removeItem('felicitafac_refresh_token');
       localStorage.removeItem('felicitafac_user_data');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('usuario_info');
       
-      // Llamar al logout original
+      // Llamar al logout original si está disponible
       if (cerrarSesion) {
         await cerrarSesion();
+      } else {
+        console.warn('useAuth: Función cerrarSesion no disponible en contexto');
       }
+      
+      console.log('✅ useAuth: Logout completado');
     } catch (error) {
-      console.error('Error durante logout:', error);
+      console.error('❌ useAuth: Error durante logout:', error);
       // Incluso si hay error, limpiar localStorage
-      localStorage.clear();
+      try {
+        localStorage.clear();
+      } catch (storageError) {
+        console.error('Error limpiando localStorage:', storageError);
+      }
     }
   }, [cerrarSesion]);
 
@@ -123,10 +155,13 @@ export const useAuth = () => {
   // Memorizar funciones de validación de permisos para optimizar renders
   const funcionesPermisos = useMemo(() => {
     /**
-     * Verificar si el usuario tiene un permiso específico
+     * ✅ SOLUCIÓN: Verificar si el usuario tiene un permiso específico con validación
      */
     const tienePermisoAvanzado = (permiso: Permiso): boolean => {
-      if (!usuario?.rol_detalle) return false;
+      if (!contextAuth || !usuario?.rol_detalle) {
+        console.warn('useAuth: No se puede verificar permiso, contexto o usuario no disponible');
+        return false;
+      }
 
       const rol = usuario.rol_detalle;
       
@@ -171,18 +206,21 @@ export const useAuth = () => {
     };
 
     /**
-     * Verificar si es rol administrativo
+     * ✅ SOLUCIÓN: Verificar si es rol administrativo con validación
      */
     const esRolAdministrativo = (): boolean => {
-      if (!usuario?.rol_detalle) return false;
+      if (!contextAuth || !usuario?.rol_detalle) return false;
       return ['administrador', 'contador'].includes(usuario.rol_detalle.codigo);
     };
 
     /**
-     * Verificar si puede acceder a un módulo específico
+     * ✅ SOLUCIÓN: Verificar si puede acceder a un módulo específico
      */
     const puedeAccederModulo = (modulo: string): boolean => {
-      if (!usuario?.rol_detalle) return false;
+      if (!contextAuth || !usuario?.rol_detalle) {
+        console.warn('useAuth: No se puede verificar acceso a módulo, contexto no disponible');
+        return false;
+      }
 
       const rol = usuario.rol_detalle.codigo;
 
@@ -225,7 +263,7 @@ export const useAuth = () => {
      * Obtener nivel de acceso del usuario
      */
     const obtenerNivelAcceso = (): 'completo' | 'intermedio' | 'basico' | 'restringido' => {
-      if (!usuario?.rol_detalle) return 'restringido';
+      if (!contextAuth || !usuario?.rol_detalle) return 'restringido';
 
       switch (usuario.rol_detalle.codigo) {
         case 'administrador':
@@ -245,14 +283,14 @@ export const useAuth = () => {
      * Verificar si puede gestionar usuarios
      */
     const puedeGestionarUsuarios = (): boolean => {
-      return usuario?.rol_detalle?.codigo === 'administrador';
+      return contextAuth && usuario?.rol_detalle?.codigo === 'administrador';
     };
 
     /**
      * Verificar si puede ver reportes avanzados
      */
     const puedeVerReportesAvanzados = (): boolean => {
-      if (!usuario?.rol_detalle) return false;
+      if (!contextAuth || !usuario?.rol_detalle) return false;
       return ['administrador', 'contador'].includes(usuario.rol_detalle.codigo);
     };
 
@@ -260,7 +298,7 @@ export const useAuth = () => {
      * Verificar si puede configurar el sistema
      */
     const puedeConfigurarSistema = (): boolean => {
-      return usuario?.rol_detalle?.codigo === 'administrador';
+      return contextAuth && usuario?.rol_detalle?.codigo === 'administrador';
     };
 
     return {
@@ -272,7 +310,7 @@ export const useAuth = () => {
       puedeVerReportesAvanzados,
       puedeConfigurarSistema,
     };
-  }, [usuario]);
+  }, [contextAuth, usuario]);
 
   // =======================================================
   // INFORMACIÓN DEL USUARIO MEMOIZADA
@@ -280,7 +318,7 @@ export const useAuth = () => {
 
   // Información adicional del usuario
   const infoUsuario = useMemo(() => {
-    if (!usuario) return null;
+    if (!contextAuth || !usuario) return null;
 
     return {
       id: usuario.id,
@@ -297,11 +335,11 @@ export const useAuth = () => {
       perfilCompleto: !!(usuario.nombre && usuario.apellidos),
       requiereCambioPassword: usuario.requiere_cambio_password || false,
     };
-  }, [usuario]);
+  }, [contextAuth, usuario]);
 
   // Estadísticas de sesión
   const estadisticasSesion = useMemo(() => {
-    if (!usuario) return null;
+    if (!contextAuth || !usuario) return null;
 
     const ahora = new Date();
     const ultimoLogin = usuario.ultimo_login ? new Date(usuario.ultimo_login) : null;
@@ -313,7 +351,7 @@ export const useAuth = () => {
       requiereCambioPassword: usuario.requiere_cambio_password || false,
       sesionProximaAExpirar: ultimoLogin ? ((ahora.getTime() - ultimoLogin.getTime()) > (7 * 60 * 60 * 1000)) : false,
     };
-  }, [usuario]);
+  }, [contextAuth, usuario]);
 
   // =======================================================
   // UTILIDADES MEMOIZADAS
@@ -325,7 +363,7 @@ export const useAuth = () => {
      * Obtener saludo personalizado
      */
     const obtenerSaludo = (): string => {
-      if (!usuario) return 'Hola';
+      if (!contextAuth || !usuario) return 'Hola';
       
       const hora = new Date().getHours();
       const nombre = usuario.nombre || usuario.nombre_completo?.split(' ')[0] || 'Usuario';
@@ -343,7 +381,7 @@ export const useAuth = () => {
      * Obtener iniciales del usuario
      */
     const obtenerIniciales = (): string => {
-      if (!usuario) return 'U';
+      if (!contextAuth || !usuario) return 'U';
       
       if (usuario.nombre && usuario.apellidos) {
         return `${usuario.nombre[0]}${usuario.apellidos[0]}`.toUpperCase();
@@ -368,7 +406,7 @@ export const useAuth = () => {
      * Verificar si la sesión está próxima a expirar
      */
     const sesionProximaAExpirar = (): boolean => {
-      if (!usuario?.ultimo_login) return false;
+      if (!contextAuth || !usuario?.ultimo_login) return false;
       
       const ultimoLogin = new Date(usuario.ultimo_login);
       const ahora = new Date();
@@ -382,7 +420,7 @@ export const useAuth = () => {
      * Obtener rutas permitidas para el usuario
      */
     const obtenerRutasPermitidas = (): string[] => {
-      if (!usuario?.rol_detalle) return ['/dashboard'];
+      if (!contextAuth || !usuario?.rol_detalle) return ['/dashboard'];
 
       const rutasBase = ['/dashboard', '/perfil'];
       
@@ -463,7 +501,7 @@ export const useAuth = () => {
      * Obtener ruta de redirección por defecto según el rol
      */
     const obtenerRutaDefault = (): string => {
-      if (!usuario?.rol_detalle) return '/dashboard';
+      if (!contextAuth || !usuario?.rol_detalle) return '/dashboard';
       
       switch (usuario.rol_detalle.codigo) {
         case 'administrador':
@@ -486,18 +524,18 @@ export const useAuth = () => {
       esRutaPermitida,
       obtenerRutaDefault,
     };
-  }, [usuario]);
+  }, [contextAuth, usuario]);
 
   // =======================================================
   // FUNCIONES DE VALIDACIÓN
   // =======================================================
 
   /**
-   * Verificar si el contexto de auth está disponible
+   * ✅ SOLUCIÓN: Verificar si el contexto de auth está disponible
    */
   const estaDisponible = useMemo(() => {
-    return !!contextAuth;
-  }, [contextAuth]);
+    return !!contextAuth && !contextError;
+  }, [contextAuth, contextError]);
 
   /**
    * Obtener información de depuración
@@ -507,20 +545,26 @@ export const useAuth = () => {
     
     return {
       contextDisponible: estaDisponible,
+      contextError,
       usuarioId: usuario?.id,
       rolCodigo: usuario?.rol_detalle?.codigo,
       estaAutenticado,
       estaCargando,
       tieneError: !!error,
       mensajeError: error,
+      funcionesDisponibles: {
+        iniciarSesion: !!iniciarSesionOriginal,
+        cerrarSesion: !!cerrarSesion,
+        limpiarError: !!limpiarError,
+      }
     };
-  }, [estaDisponible, usuario, estaAutenticado, estaCargando, error]);
+  }, [estaDisponible, contextError, usuario, estaAutenticado, estaCargando, error, iniciarSesionOriginal, cerrarSesion, limpiarError]);
 
   // =======================================================
   // INTERFAZ DEL HOOK
   // =======================================================
 
-  // Retornar interfaz completa del hook
+  // ✅ SOLUCIÓN: Retornar interfaz completa con manejo de errores
   return {
     // Estado básico
     usuario,
@@ -537,12 +581,12 @@ export const useAuth = () => {
     cambiarPassword,
     limpiarError,
 
-    // Funciones de permisos (del contexto)
-    tienePermiso,
-    esAdministrador,
-    esContador,
-    esVendedor,
-    esCliente,
+    // Funciones de permisos (del contexto con fallbacks)
+    tienePermiso: tienePermiso || (() => false),
+    esAdministrador: esAdministrador || (() => false),
+    esContador: esContador || (() => false),
+    esVendedor: esVendedor || (() => false),
+    esCliente: esCliente || (() => false),
 
     // Funciones adicionales avanzadas
     esRolAdministrativo: funcionesPermisos.esRolAdministrativo,
@@ -565,9 +609,9 @@ export const useAuth = () => {
     esRutaPermitida: utilidades.esRutaPermitida,
     obtenerRutaDefault: utilidades.obtenerRutaDefault,
 
-    // Utilidades del contexto
-    obtenerToken,
-    refrescarToken,
+    // Utilidades del contexto con fallbacks
+    obtenerToken: obtenerToken || (() => null),
+    refrescarToken: refrescarToken || (() => Promise.resolve()),
 
     // Información de debug (solo en desarrollo)
     infoDebug,

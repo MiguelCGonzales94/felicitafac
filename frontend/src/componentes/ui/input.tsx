@@ -1,7 +1,8 @@
 /**
- * Input Component - FELICITAFAC
+ * Input Component - FELICITAFAC (ARREGLADO)
  * Sistema de Facturación Electrónica para Perú
  * Componente base de input con validaciones y variantes
+ * VERSIÓN CORREGIDA: Compatible con react-hook-form
  */
 
 import React from 'react';
@@ -74,7 +75,7 @@ const baseInputClasses = [
 ].join(' ');
 
 // =======================================================
-// COMPONENTE PRINCIPAL - INPUT
+// COMPONENTE PRINCIPAL - INPUT (ARREGLADO)
 // =======================================================
 
 const Input = React.forwardRef<HTMLInputElement, PropiedadesInput>(
@@ -94,29 +95,47 @@ const Input = React.forwardRef<HTMLInputElement, PropiedadesInput>(
       onClear,
       disabled,
       value,
+      onChange,
       ...props
     },
     ref
   ) => {
-    // Estado interno para clearable
-    const [valorInterno, setValorInterno] = React.useState(value || '');
-    const valorActual = value !== undefined ? value : valorInterno;
+    // ✅ SOLUCIÓN: Solo usar estado interno si NO hay value prop (uncontrolled)
+    // Si hay value prop (controlled), confiar completamente en el padre
+    const esControlado = value !== undefined;
+    const [valorInternoUncontrolled, setValorInternoUncontrolled] = React.useState('');
+    
+    // ✅ SOLUCIÓN: Valor actual basado en si es controlado o no
+    const valorActual = esControlado ? value : valorInternoUncontrolled;
 
-    // Manejar cambio de valor
-    const manejarCambio = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (value === undefined) {
-        setValorInterno(e.target.value);
+    // ✅ SOLUCIÓN: Manejar cambio sin interferir con controlled components
+    const manejarCambio = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      // Si es uncontrolled, actualizar estado interno
+      if (!esControlado) {
+        setValorInternoUncontrolled(e.target.value);
       }
-      props.onChange?.(e);
-    };
+      
+      // Siempre llamar al onChange del padre (react-hook-form lo necesita)
+      onChange?.(e);
+    }, [esControlado, onChange]);
 
-    // Manejar limpiar
-    const manejarLimpiar = () => {
-      if (value === undefined) {
-        setValorInterno('');
+    // ✅ SOLUCIÓN: Manejar limpiar sin conflictos
+    const manejarLimpiar = React.useCallback(() => {
+      if (!esControlado) {
+        setValorInternoUncontrolled('');
       }
+      
+      // Crear evento sintético para react-hook-form
+      if (onChange) {
+        const syntheticEvent = {
+          target: { value: '' },
+          currentTarget: { value: '' },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(syntheticEvent);
+      }
+      
       onClear?.();
-    };
+    }, [esControlado, onChange, onClear]);
 
     // Determinar si mostrar ícono de limpiar
     const mostrarLimpiar = clearable && valorActual && !disabled && !loading;
@@ -136,7 +155,7 @@ const Input = React.forwardRef<HTMLInputElement, PropiedadesInput>(
       className
     );
 
-    // Contenedor con posición relativa
+    // ✅ SOLUCIÓN: Contenedor con posición relativa
     return (
       <div className="relative">
         {/* Prefijo */}
@@ -153,7 +172,7 @@ const Input = React.forwardRef<HTMLInputElement, PropiedadesInput>(
           </div>
         )}
 
-        {/* Input principal */}
+        {/* ✅ SOLUCIÓN: Input principal sin conflictos de estado */}
         <input
           type={type}
           className={clases}
@@ -205,7 +224,7 @@ const Input = React.forwardRef<HTMLInputElement, PropiedadesInput>(
 Input.displayName = 'Input';
 
 // =======================================================
-// COMPONENTE INPUT GROUP
+// COMPONENTE INPUT GROUP (SIN CAMBIOS)
 // =======================================================
 
 const InputGroup = React.forwardRef<HTMLDivElement, PropiedadesInputGroup>(
@@ -255,7 +274,7 @@ const InputGroup = React.forwardRef<HTMLDivElement, PropiedadesInputGroup>(
 InputGroup.displayName = 'InputGroup';
 
 // =======================================================
-// COMPONENTE TEXTAREA
+// COMPONENTE TEXTAREA (SIN CAMBIOS SIGNIFICATIVOS)
 // =======================================================
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, PropiedadesTextarea>(
@@ -281,11 +300,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, PropiedadesTextarea>(
 Textarea.displayName = 'Textarea';
 
 // =======================================================
-// COMPONENTES ESPECIALIZADOS PARA POS
+// COMPONENTES ESPECIALIZADOS PARA POS (ARREGLADOS)
 // =======================================================
 
 /**
- * Input de búsqueda para productos
+ * Input de búsqueda para productos (ARREGLADO)
  */
 export interface PropiedadesInputBusqueda extends PropiedadesInput {
   onBuscar?: (termino: string) => void;
@@ -293,26 +312,36 @@ export interface PropiedadesInputBusqueda extends PropiedadesInput {
 }
 
 export const InputBusqueda = React.forwardRef<HTMLInputElement, PropiedadesInputBusqueda>(
-  ({ onBuscar, debounceMs = 300, ...props }, ref) => {
+  ({ onBuscar, debounceMs = 300, onChange, ...props }, ref) => {
     const [termino, setTermino] = React.useState('');
     const timeoutRef = React.useRef<NodeJS.Timeout>();
 
-    // Debounce para búsqueda
-    React.useEffect(() => {
+    // ✅ SOLUCIÓN: Manejar onChange sin conflictos
+    const manejarCambio = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const nuevoTermino = e.target.value;
+      setTermino(nuevoTermino);
+      
+      // Llamar onChange del padre si existe
+      onChange?.(e);
+      
+      // Debounce para búsqueda
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-
+      
       timeoutRef.current = setTimeout(() => {
-        onBuscar?.(termino);
+        onBuscar?.(nuevoTermino);
       }, debounceMs);
+    }, [onChange, onBuscar, debounceMs]);
 
+    // Cleanup
+    React.useEffect(() => {
       return () => {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
         }
       };
-    }, [termino, onBuscar, debounceMs]);
+    }, []);
 
     return (
       <Input
@@ -320,7 +349,7 @@ export const InputBusqueda = React.forwardRef<HTMLInputElement, PropiedadesInput
         type="search"
         placeholder="Buscar productos..."
         value={termino}
-        onChange={(e) => setTermino(e.target.value)}
+        onChange={manejarCambio}
         clearable
         onClear={() => setTermino('')}
         icono={
@@ -337,7 +366,7 @@ export const InputBusqueda = React.forwardRef<HTMLInputElement, PropiedadesInput
 InputBusqueda.displayName = 'InputBusqueda';
 
 /**
- * Input para cantidades
+ * Input para cantidades (MEJORADO)
  */
 export interface PropiedadesInputCantidad extends Omit<PropiedadesInput, 'type'> {
   min?: number;
@@ -349,26 +378,35 @@ export interface PropiedadesInputCantidad extends Omit<PropiedadesInput, 'type'>
 
 export const InputCantidad = React.forwardRef<HTMLInputElement, PropiedadesInputCantidad>(
   ({ min = 0, max = 999999, paso = 1, onIncrement, onDecrement, value, onChange, ...props }, ref) => {
-    const [cantidad, setCantidad] = React.useState(Number(value) || 0);
-    const cantidadActual = value !== undefined ? Number(value) : cantidad;
+    const cantidadActual = Number(value) || 0;
 
-    const incrementar = () => {
+    const incrementar = React.useCallback(() => {
       const nuevaCantidad = Math.min(cantidadActual + paso, max);
-      if (value === undefined) setCantidad(nuevaCantidad);
       onIncrement?.();
-      // Simular evento de cambio
-      const event = { target: { value: nuevaCantidad.toString() } } as React.ChangeEvent<HTMLInputElement>;
-      onChange?.(event);
-    };
+      
+      // ✅ SOLUCIÓN: Crear evento sintético compatible
+      if (onChange) {
+        const syntheticEvent = {
+          target: { value: nuevaCantidad.toString() },
+          currentTarget: { value: nuevaCantidad.toString() },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(syntheticEvent);
+      }
+    }, [cantidadActual, paso, max, onIncrement, onChange]);
 
-    const decrementar = () => {
+    const decrementar = React.useCallback(() => {
       const nuevaCantidad = Math.max(cantidadActual - paso, min);
-      if (value === undefined) setCantidad(nuevaCantidad);
       onDecrement?.();
-      // Simular evento de cambio
-      const event = { target: { value: nuevaCantidad.toString() } } as React.ChangeEvent<HTMLInputElement>;
-      onChange?.(event);
-    };
+      
+      // ✅ SOLUCIÓN: Crear evento sintético compatible
+      if (onChange) {
+        const syntheticEvent = {
+          target: { value: nuevaCantidad.toString() },
+          currentTarget: { value: nuevaCantidad.toString() },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onChange(syntheticEvent);
+      }
+    }, [cantidadActual, paso, min, onDecrement, onChange]);
 
     return (
       <div className="flex">
@@ -409,7 +447,7 @@ export const InputCantidad = React.forwardRef<HTMLInputElement, PropiedadesInput
 InputCantidad.displayName = 'InputCantidad';
 
 /**
- * Input para montos
+ * Input para montos (SIN CAMBIOS)
  */
 export interface PropiedadesInputMonto extends Omit<PropiedadesInput, 'type'> {
   moneda?: string;

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import HomePage from "./paginas/PaginaPrincipal";
-import LoginPage from "./paginas/Login"; 
+import LoginPage from "./paginas/Login";
+import DashboardPage from "./paginas/Dashboard"; // <-- crea este componente
 
 export const router = createBrowserRouter([
   {
@@ -9,6 +10,14 @@ export const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: <LoginPage />, 
+    element: <LoginPage />,
+  },
+  {
+    path: "/dashboard",
+    element: <DashboardPage />,
+  },
+  {
+    path: "*",
+    element: <h1>404 - Página no encontrada</h1>,
   },
 ]);

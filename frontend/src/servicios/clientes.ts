@@ -1,353 +1,392 @@
 /**
- * Servicio de Clientes - FELICITAFAC
- * Gestión completa de clientes con validaciones SUNAT
- * Optimizado para facturación electrónica Perú
+ * Servicios de Autenticación - FELICITAFAC
+ * Sistema de Facturación Electrónica para Perú
+ * Comunicación con el backend Django para autenticación
+ * 
+ * ✅ ARREGLADO: URLs corregidas para coincidir con backend Django
  */
 
-import apiClient from './api';
-import type { 
-  Cliente, 
-  CrearClienteRequest,
-  ActualizarClienteRequest,
-  BuscarClienteResponse,
-  ValidarDocumentoResponse,
-  ClientesPaginados
-} from '../types/cliente';
+import { Usuario, DatosLogin, DatosRegistro } from '../types/auth';
 
-// Tipos específicos del servicio
-interface FiltrosClientes {
-  busqueda?: string;
-  tipo_documento?: '1' | '6'; // DNI o RUC
-  estado?: 'activo' | 'inactivo';
-  fecha_desde?: string;
-  fecha_hasta?: string;
-  pagina?: number;
-  limite?: number;
-}
+// =======================================================
+// CONFIGURACIÓN BASE (CORREGIDA)
+// =======================================================
 
-interface ConsultaSunatRequest {
-  tipo_documento: '1' | '6';
-  numero_documento: string;
-}
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// ✅ CAMBIO PRINCIPAL: Corregir prefijo de API
+const API_AUTH_PREFIX = '/api/usuarios/auth';  // ANTES: '/api/auth'
 
-class ServicioClientes {
-  private readonly baseUrl = '/api/clientes';
+/**
+ * Configuración por defecto para fetch
+ */
+const configuracionFetchBase = {
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
 
-  /**
-   * Obtener lista paginada de clientes
-   */
-  async obtenerClientes(filtros: FiltrosClientes = {}): Promise<ClientesPaginados> {
-    try {
-      const params = new URLSearchParams();
-      
-      // Aplicar filtros
-      if (filtros.busqueda) params.append('search', filtros.busqueda);
-      if (filtros.tipo_documento) params.append('tipo_documento', filtros.tipo_documento);
-      if (filtros.estado) params.append('estado', filtros.estado);
-      if (filtros.fecha_desde) params.append('fecha_desde', filtros.fecha_desde);
-      if (filtros.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta);
-      if (filtros.pagina) params.append('page', filtros.pagina.toString());
-      if (filtros.limite) params.append('page_size', filtros.limite.toString());
+/**
+ * Obtener token de autenticación
+ */
+const obtenerToken = (): string | null => {
+  return localStorage.getItem('access_token');
+};
 
-      const response = await apiClient.get(`${this.baseUrl}/?${params.toString()}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener clientes:', error);
-      throw this.manejarError(error);
+/**
+ * Configurar headers con autenticación
+ */
+const configurarHeaders = (incluirAuth: boolean = true): HeadersInit => {
+  const headers: HeadersInit = {
+    ...configuracionFetchBase.headers,
+  };
+
+  if (incluirAuth) {
+    const token = obtenerToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
   }
 
-  /**
-   * Obtener cliente por ID
-   */
-  async obtenerClientePorId(clienteId: number): Promise<Cliente> {
-    try {
-      const response = await apiClient.get(`${this.baseUrl}/${clienteId}/`);
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
+  return headers;
+};
 
-  /**
-   * Buscar cliente por documento
-   */
-  async buscarClientePorDocumento(tipoDocumento: '1' | '6', numeroDocumento: string): Promise<BuscarClienteResponse> {
-    try {
-      const response = await apiClient.get(
-        `${this.baseUrl}/buscar-por-documento/`,
-        {
-          params: {
-            tipo_documento: tipoDocumento,
-            numero_documento: numeroDocumento
-          }
+/**
+ * ✅ MEJORADO: Función base para realizar peticiones de autenticación
+ */
+const peticionAuth = async <T>(
+  endpoint: string,
+  opciones: RequestInit = {},
+  incluirAuth: boolean = true
+): Promise<T> => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const configuracion: RequestInit = {
+    ...opciones,
+    headers: {
+      ...configurarHeaders(incluirAuth),
+      ...opciones.headers,
+    },
+  };
+
+  // ✅ AGREGADO: Logging para debug
+  console.log(`🌐 authAPI: ${opciones.method || 'GET'} ${url}`);
+
+  try {
+    const respuesta = await fetch(url, configuracion);
+    
+    // ✅ MEJORADO: Verificar Content-Type antes de parsear JSON
+    const contentType = respuesta.headers.get('Content-Type') || '';
+    
+    if (!respuesta.ok) {
+      // ✅ MEJORADO: Manejar respuestas HTML (403 Forbidden)
+      if (contentType.includes('text/html')) {
+        console.error('❌ Respuesta HTML recibida. Verificar URL del endpoint.');
+        
+        if (respuesta.status === 403) {
+          throw new Error('Endpoint no encontrado. URL incorrecta en la API.');
+        } else if (respuesta.status === 404) {
+          throw new Error('Endpoint no existe. Verificar rutas del backend.');
+        } else {
+          throw new Error(`Error del servidor: ${respuesta.status}`);
         }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Error al buscar cliente por documento:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Crear nuevo cliente
-   */
-  async crearCliente(datosCliente: CrearClienteRequest): Promise<Cliente> {
-    try {
-      // Validar datos antes de enviar
-      this.validarDatosCliente(datosCliente);
-
-      const response = await apiClient.post(`${this.baseUrl}/`, datosCliente);
-      return response.data;
-    } catch (error) {
-      console.error('Error al crear cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Actualizar cliente existente
-   */
-  async actualizarCliente(clienteId: number, datosCliente: ActualizarClienteRequest): Promise<Cliente> {
-    try {
-      this.validarDatosCliente(datosCliente);
-
-      const response = await apiClient.put(`${this.baseUrl}/${clienteId}/`, datosCliente);
-      return response.data;
-    } catch (error) {
-      console.error('Error al actualizar cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Eliminar cliente
-   */
-  async eliminarCliente(clienteId: number): Promise<void> {
-    try {
-      await apiClient.delete(`${this.baseUrl}/${clienteId}/`);
-    } catch (error) {
-      console.error('Error al eliminar cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Activar/Desactivar cliente
-   */
-  async cambiarEstadoCliente(clienteId: number, activo: boolean): Promise<Cliente> {
-    try {
-      const response = await apiClient.patch(`${this.baseUrl}/${clienteId}/`, {
-        activo
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error al cambiar estado del cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Consultar datos en SUNAT/RENIEC
-   */
-  async consultarSunat(datos: ConsultaSunatRequest): Promise<ValidarDocumentoResponse> {
-    try {
-      const response = await apiClient.post(`${this.baseUrl}/consultar-sunat/`, datos);
-      return response.data;
-    } catch (error) {
-      console.error('Error al consultar SUNAT:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Validar número de documento
-   */
-  async validarDocumento(tipoDocumento: '1' | '6', numeroDocumento: string): Promise<ValidarDocumentoResponse> {
-    try {
-      const response = await apiClient.post(`${this.baseUrl}/validar-documento/`, {
-        tipo_documento: tipoDocumento,
-        numero_documento: numeroDocumento
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error al validar documento:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Obtener historial de facturas del cliente
-   */
-  async obtenerHistorialFacturas(clienteId: number, limite = 10): Promise<any[]> {
-    try {
-      const response = await apiClient.get(
-        `${this.baseUrl}/${clienteId}/historial-facturas/`,
-        { params: { limite } }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener historial de facturas:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Obtener estadísticas del cliente
-   */
-  async obtenerEstadisticasCliente(clienteId: number): Promise<any> {
-    try {
-      const response = await apiClient.get(`${this.baseUrl}/${clienteId}/estadisticas/`);
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener estadísticas del cliente:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Exportar clientes a Excel
-   */
-  async exportarClientes(filtros: FiltrosClientes = {}): Promise<Blob> {
-    try {
-      const params = new URLSearchParams();
+      }
       
-      if (filtros.busqueda) params.append('search', filtros.busqueda);
-      if (filtros.tipo_documento) params.append('tipo_documento', filtros.tipo_documento);
-      if (filtros.estado) params.append('estado', filtros.estado);
-      if (filtros.fecha_desde) params.append('fecha_desde', filtros.fecha_desde);
-      if (filtros.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta);
-
-      const response = await apiClient.get(
-        `${this.baseUrl}/exportar-excel/?${params.toString()}`,
-        { responseType: 'blob' }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Error al exportar clientes:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Importar clientes desde Excel
-   */
-  async importarClientes(archivo: File): Promise<any> {
-    try {
-      const formData = new FormData();
-      formData.append('archivo', archivo);
-
-      const response = await apiClient.post(
-        `${this.baseUrl}/importar-excel/`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+      // ✅ MEJORADO: Solo parsear JSON si el Content-Type es correcto
+      let data;
+      if (contentType.includes('application/json')) {
+        try {
+          data = await respuesta.json();
+        } catch (parseError) {
+          console.error('❌ Error parseando JSON de error:', parseError);
+          throw new Error(`Error ${respuesta.status}: ${respuesta.statusText}`);
         }
-      );
-      return response.data;
-    } catch (error) {
-      console.error('Error al importar clientes:', error);
-      throw this.manejarError(error);
-    }
-  }
-
-  /**
-   * Validaciones de datos del cliente
-   */
-  private validarDatosCliente(datos: CrearClienteRequest | ActualizarClienteRequest): void {
-    // Validar tipo de documento
-    if (!['1', '6'].includes(datos.tipo_documento)) {
-      throw new Error('Tipo de documento debe ser DNI (1) o RUC (6)');
-    }
-
-    // Validar formato del documento
-    if (datos.tipo_documento === '1') {
-      // DNI: 8 dígitos
-      if (!/^\d{8}$/.test(datos.numero_documento)) {
-        throw new Error('DNI debe tener 8 dígitos');
+      } else {
+        throw new Error(`Error ${respuesta.status}: ${respuesta.statusText}`);
       }
-    } else if (datos.tipo_documento === '6') {
-      // RUC: 11 dígitos
-      if (!/^\d{11}$/.test(datos.numero_documento)) {
-        throw new Error('RUC debe tener 11 dígitos');
+
+      // Manejar errores específicos de autenticación
+      if (respuesta.status === 401) {
+        // Token expirado o inválido
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('usuario_info');
+        
+        throw new Error(data.message || data.detail || 'Sesión expirada');
       }
-      
-      // Validar estructura RUC
-      if (!this.validarEstructuraRuc(datos.numero_documento)) {
-        throw new Error('Estructura de RUC inválida');
+
+      if (respuesta.status === 403) {
+        throw new Error(data.message || data.detail || 'Acceso denegado');
       }
-    }
 
-    // Validar campos obligatorios
-    if (!datos.razon_social || datos.razon_social.trim().length < 2) {
-      throw new Error('Razón social es obligatoria (mínimo 2 caracteres)');
-    }
-
-    // Validar email si se proporciona
-    if (datos.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email)) {
-      throw new Error('Formato de email inválido');
-    }
-
-    // Validar teléfono si se proporciona
-    if (datos.telefono && !/^[\d\s\-\+\(\)]{6,15}$/.test(datos.telefono)) {
-      throw new Error('Formato de teléfono inválido');
-    }
-  }
-
-  /**
-   * Validar estructura del RUC
-   */
-  private validarEstructuraRuc(ruc: string): boolean {
-    // Algoritmo de validación de RUC peruano
-    const digitos = ruc.split('').map(Number);
-    const factores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-    
-    let suma = 0;
-    for (let i = 0; i < 10; i++) {
-      suma += digitos[i] * factores[i];
-    }
-    
-    const resto = suma % 11;
-    const digitoVerificador = resto < 2 ? resto : 11 - resto;
-    
-    return digitoVerificador === digitos[10];
-  }
-
-  /**
-   * Manejo centralizado de errores
-   */
-  private manejarError(error: any): Error {
-    if (error.response) {
-      // Error del servidor
-      const status = error.response.status;
-      const data = error.response.data;
-      
-      switch (status) {
-        case 400:
-          return new Error(data.detail || 'Datos de cliente inválidos');
-        case 404:
-          return new Error('Cliente no encontrado');
-        case 409:
-          return new Error('Ya existe un cliente con este documento');
-        case 422:
-          return new Error(data.detail || 'Error en validación de datos');
-        default:
-          return new Error(`Error del servidor: ${status}`);
+      if (respuesta.status >= 500) {
+        throw new Error('Error del servidor. Por favor, intenta más tarde.');
       }
-    } else if (error.request) {
-      // Error de red
-      return new Error('Error de conexión. Verifica tu conexión a internet');
+
+      throw new Error(data.message || data.detail || `Error ${respuesta.status}`);
+    }
+
+    // ✅ MEJORADO: Solo parsear JSON si el Content-Type es correcto
+    if (contentType.includes('application/json')) {
+      try {
+        const data = await respuesta.json();
+        console.log(`✅ authAPI: Petición exitosa a ${endpoint}`);
+        return data;
+      } catch (parseError) {
+        console.error('❌ Error parseando JSON de respuesta exitosa:', parseError);
+        throw new Error('Respuesta del servidor no es JSON válido');
+      }
     } else {
-      // Error interno
-      return new Error(error.message || 'Error interno del sistema');
+      console.warn('⚠️ Respuesta exitosa pero no es JSON:', contentType);
+      throw new Error('Respuesta del servidor no es JSON');
     }
-  }
-}
 
-// Exportar instancia única del servicio
-export const servicioClientes = new ServicioClientes();
-export default servicioClientes;
+  } catch (error) {
+    console.error(`❌ Error en petición de autenticación ${endpoint}:`, error);
+    throw error;
+  }
+};
+
+// =======================================================
+// SERVICIOS DE AUTENTICACIÓN (MANTENIENDO TU ESTRUCTURA)
+// =======================================================
+
+/**
+ * ✅ CORREGIDO: Iniciar sesión con URL correcta
+ */
+const login = async (datos: DatosLogin) => {
+  try {
+    console.log('🔐 Iniciando login para:', datos.email);
+    
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      data?: {
+        access: string;
+        refresh: string;
+        user: Usuario;
+      };
+      access?: string;  // ✅ AGREGADO: Para manejar formato directo
+      refresh?: string; // ✅ AGREGADO: Para manejar formato directo
+      usuario?: Usuario; // ✅ AGREGADO: Para formato alternativo
+      user?: Usuario;   // ✅ AGREGADO: Para formato alternativo
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/login/`, {  // ✅ Ahora llama a /api/usuarios/auth/login/
+      method: 'POST',
+      body: JSON.stringify({
+        email: datos.email,
+        password: datos.password,
+        remember_me: datos.recordar_sesion || false
+      })
+    }, false);
+
+    console.log('✅ Login exitoso para:', datos.email);
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error en login:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ CORREGIDO: Cerrar sesión con URL correcta
+ */
+const logout = async (refreshToken: string) => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/logout/`, {  // ✅ Ahora llama a /api/usuarios/auth/logout/
+      method: 'POST',
+      body: JSON.stringify({
+        refresh: refreshToken
+      })
+    });
+
+    console.log('✅ Logout exitoso');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error en logout:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ CORREGIDO: Registrar nuevo usuario con URL correcta
+ */
+const registro = async (datos: DatosRegistro) => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      data?: Usuario;
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/registro/`, {  // ✅ Ahora llama a /api/usuarios/auth/registro/
+      method: 'POST',
+      body: JSON.stringify({
+        email: datos.email,
+        password: datos.password,
+        nombres: datos.nombres,
+        apellidos: datos.apellidos,
+        tipo_documento: datos.tipo_documento,
+        numero_documento: datos.numero_documento,
+        telefono: datos.telefono,
+        empresa_nombre: datos.empresa_nombre,
+        acepta_terminos: datos.acepta_terminos,
+        acepta_marketing: datos.acepta_marketing
+      })
+    }, false);
+
+    console.log('✅ Registro exitoso para:', datos.email);
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error en registro:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ CORREGIDO: Refrescar token de acceso con URL correcta
+ */
+const refrescarToken = async (refreshToken: string) => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      data?: {
+        access: string;
+      };
+      access?: string;  // ✅ AGREGADO: Para formato directo
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/refresh/`, {  // ✅ Ahora llama a /api/usuarios/auth/refresh/
+      method: 'POST',
+      body: JSON.stringify({
+        refresh: refreshToken
+      })
+    }, false);
+
+    console.log('✅ Token refrescado exitosamente');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error refrescando token:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ CORREGIDO: Obtener perfil del usuario actual con URL correcta
+ */
+const obtenerPerfil = async () => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      data?: Usuario;
+      message?: string;
+    }>(`/api/usuarios/perfil/`);  // ✅ URL específica para perfil
+
+    console.log('✅ Perfil obtenido exitosamente');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error obteniendo perfil:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ CORREGIDO: Actualizar perfil del usuario con URL correcta
+ */
+const actualizarPerfil = async (datos: Partial<Usuario>) => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      data?: Usuario;
+      message?: string;
+    }>(`/api/usuarios/perfil/actualizar/`, {  // ✅ URL específica para actualizar
+      method: 'PATCH',
+      body: JSON.stringify(datos)
+    });
+
+    console.log('✅ Perfil actualizado exitosamente');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error actualizando perfil:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ AGREGADO: Validar token (nueva función útil)
+ */
+const validarToken = async () => {
+  try {
+    const respuesta = await peticionAuth<{
+      valido: boolean;
+      usuario?: Usuario;
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/validar/`, {  // ✅ /api/usuarios/auth/validar/
+      method: 'GET'
+    });
+
+    console.log('✅ Token validado exitosamente');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error validando token:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ AGREGADO: Cambiar contraseña (nueva función útil)
+ */
+const cambiarPassword = async (datos: {
+  password_actual: string;
+  password_nueva: string;
+  confirmar_password_nueva: string;
+}) => {
+  try {
+    const respuesta = await peticionAuth<{
+      success: boolean;
+      message?: string;
+    }>(`${API_AUTH_PREFIX}/cambiar-password/`, {  // ✅ /api/usuarios/auth/cambiar-password/
+      method: 'POST',
+      body: JSON.stringify(datos)
+    });
+
+    console.log('✅ Contraseña cambiada exitosamente');
+    return respuesta;
+  } catch (error) {
+    console.error('❌ Error cambiando contraseña:', error);
+    throw error;
+  }
+};
+
+// =======================================================
+// EXPORTAR SERVICIOS (MANTENIENDO TU ESTRUCTURA)
+// =======================================================
+
+export default {
+  // Funciones principales (mantener nombres existentes)
+  login,
+  logout,
+  registro,
+  refrescarToken,
+  obtenerPerfil,
+  actualizarPerfil,
+  
+  // ✅ AGREGADAS: Nuevas funciones útiles
+  validarToken,
+  cambiarPassword,
+  
+  // Utilidades
+  obtenerToken,
+  configurarHeaders,
+};
+
+// ✅ AGREGADO: Exportaciones individuales también
+export {
+  login,
+  logout,
+  registro,
+  refrescarToken,
+  obtenerPerfil,
+  actualizarPerfil,
+  validarToken,
+  cambiarPassword,
+  obtenerToken,
+  configurarHeaders,
+};

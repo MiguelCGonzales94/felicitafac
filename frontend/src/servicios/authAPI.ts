@@ -11,7 +11,7 @@ import { Usuario, DatosLogin, DatosRegistro } from '../types/auth';
 // =======================================================
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_AUTH_PREFIX = '/api/auth';
+const API_AUTH_PREFIX = '/api/usuarios/auth';
 
 /**
  * Configuración por defecto para fetch
@@ -106,14 +106,23 @@ const peticionAuth = async <T>(
  */
 const login = async (datos: DatosLogin) => {
   try {
+    console.log('🔐 authAPI: Iniciando login para:', datos.email);
+    
     const respuesta = await peticionAuth<{
-      success: boolean;
+      // ✅ Formato directo que envía el backend
+      access?: string;
+      refresh?: string;
+      usuario?: Usuario;
+      user?: Usuario;
+      mensaje?: string;
+      message?: string;
+      // Mantener compatibilidad con formato wrapper
+      success?: boolean;
       data?: {
         access: string;
         refresh: string;
         user: Usuario;
       };
-      message?: string;
     }>(`${API_AUTH_PREFIX}/login/`, {
       method: 'POST',
       body: JSON.stringify({
@@ -123,9 +132,45 @@ const login = async (datos: DatosLogin) => {
       })
     }, false);
 
-    return respuesta;
+    console.log('✅ authAPI: Respuesta del backend:', respuesta);
+
+    // ✅ SOLUCIÓN: Manejar formato directo del backend
+    let accessToken, refreshToken, usuario;
+
+    // Formato wrapper (por si acaso)
+    if (respuesta.success && respuesta.data) {
+      accessToken = respuesta.data.access;
+      refreshToken = respuesta.data.refresh;
+      usuario = respuesta.data.user;
+    }
+    // ✅ Formato directo (lo que realmente envía el backend)
+    else {
+      accessToken = respuesta.access;
+      refreshToken = respuesta.refresh;
+      usuario = respuesta.usuario || respuesta.user;
+    }
+
+    // ✅ Validar que tenemos los tokens
+    if (!accessToken) {
+      console.error('❌ authAPI: No se recibió access token:', respuesta);
+      throw new Error('Token de acceso no recibido del servidor');
+    }
+
+    console.log('✅ authAPI: Login exitoso, tokens recibidos');
+
+    // ✅ RETORNAR en el formato que espera el AuthContext
+    return {
+      success: true,
+      data: {
+        access: accessToken,
+        refresh: refreshToken,
+        user: usuario
+      },
+      message: respuesta.mensaje || respuesta.message || 'Login exitoso'
+    };
+
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error('❌ authAPI: Error en login:', error);
     throw error;
   }
 };
