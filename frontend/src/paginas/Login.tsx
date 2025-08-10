@@ -1,18 +1,7 @@
-/**
- * Login Component - Formulario de Login FELICITAFAC
- * Sistema de Facturación Electrónica para Perú
- * Componente de autenticación con validaciones
- */
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
-
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle, FileText, ArrowRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { DatosLogin } from '../types/auth';
 import { Button } from '../componentes/ui/button';
 import { Input } from '../componentes/ui/input';
 import { Label } from '../componentes/ui/label';
@@ -20,350 +9,292 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Alert, AlertDescription } from '../componentes/ui/alert';
 import { Checkbox } from '../componentes/ui/checkbox';
 
-// Esquema de validación con Zod
-const esquemaLogin = z.object({
-  email: z
-    .string()
-    .min(1, 'El email es requerido')
-    .email('Email inválido')
-    .toLowerCase(),
-  password: z
-    .string()
-    .min(1, 'La contraseña es requerida')
-    .min(6, 'La contraseña debe tener al menos 6 caracteres'),
-  recordar_sesion: z.boolean().optional().default(false),
-});
+// =======================================================
+// TIPOS Y INTERFACES
+// =======================================================
 
-type DatosFormularioLogin = z.infer<typeof esquemaLogin>;
-
-interface PropiedadesLogin {
-  redirigirDespuesLogin?: string;
-  mostrarRegistro?: boolean;
-  titulo?: string;
-  subtitulo?: string;
+interface FormularioLogin {
+  email: string;
+  password: string;
+  recordarme: boolean;
 }
 
-const Login: React.FC<PropiedadesLogin> = ({
-  redirigirDespuesLogin = '/dashboard',
-  mostrarRegistro = true,
-  titulo = 'Iniciar Sesión',
-  subtitulo = 'Accede a tu cuenta de FELICITAFAC',
-}) => {
+interface ErroresFormulario {
+  email?: string;
+  password?: string;
+  general?: string;
+}
+
+// =======================================================
+// COMPONENTE PRINCIPAL
+// =======================================================
+
+const Login: React.FC = () => {
+  // Estados
+  const [formulario, setFormulario] = useState<FormularioLogin>({
+    email: '',
+    password: '',
+    recordarme: false
+  });
+  const [errores, setErrores] = useState<ErroresFormulario>({});
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState('');
+
   // Hooks
+  const { iniciarSesion, estaAutenticado, usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { iniciarSesion, estado } = useAuth();
 
-  // Estados locales
-  const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [recordarCredenciales, setRecordarCredenciales] = useState(false);
+  // =======================================================
+  // EFECTOS
+  // =======================================================
 
-  // Formulario con React Hook Form
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-    setValue,
-    watch,
-  } = useForm<DatosFormularioLogin>({
-    resolver: zodResolver(esquemaLogin),
-    mode: 'onChange',
-  });
-
-  // Obtener valores del formulario
-  const emailValue = watch('email');
-  const passwordValue = watch('password');
-
-  // Efectos
+  // Redireccionar si ya está autenticado
   useEffect(() => {
-    // Cargar credenciales recordadas
-    cargarCredencialesRecordadas();
-  }, []);
-
-  useEffect(() => {
-    // Redirigir si ya está autenticado
-    if (estado.estaAutenticado) {
-      const destino = location.state?.from?.pathname || redirigirDespuesLogin;
-      navigate(destino, { replace: true });
+    if (estaAutenticado && usuario) {
+      const origen = location.state?.from?.pathname || '/admin';
+      navigate(origen, { replace: true });
     }
-  }, [estado.estaAutenticado, navigate, location.state, redirigirDespuesLogin]);
+  }, [estaAutenticado, usuario, navigate, location]);
 
-  /**
-   * Cargar credenciales recordadas del localStorage
-   */
-  const cargarCredencialesRecordadas = (): void => {
-    try {
-      const credencialesGuardadas = localStorage.getItem('felicitafac_credenciales_recordadas');
-      
-      if (credencialesGuardadas) {
-        const { email, recordar } = JSON.parse(credencialesGuardadas);
-        
-        if (recordar && email) {
-          setValue('email', email);
-          setRecordarCredenciales(true);
-          setValue('recordar_sesion', true);
-        }
-      }
-    } catch (error) {
-      console.warn('Error cargando credenciales recordadas:', error);
+  // Mostrar mensaje de éxito desde registro
+  useEffect(() => {
+    if (location.state?.mensaje) {
+      setMensajeExito(location.state.mensaje);
+      // Limpiar el mensaje después de 5 segundos
+      setTimeout(() => setMensajeExito(''), 5000);
+    }
+  }, [location.state]);
+
+  // =======================================================
+  // FUNCIONES
+  // =======================================================
+
+  const validarFormulario = (): boolean => {
+    const nuevosErrores: ErroresFormulario = {};
+
+    // Validar email
+    if (!formulario.email.trim()) {
+      nuevosErrores.email = 'El email es requerido';
+    } else if (!/\S+@\S+\.\S+/.test(formulario.email)) {
+      nuevosErrores.email = 'Email inválido';
+    }
+
+    // Validar password
+    if (!formulario.password.trim()) {
+      nuevosErrores.password = 'La contraseña es requerida';
+    } else if (formulario.password.length < 6) {
+      nuevosErrores.password = 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
+  };
+
+  const manejarCambioFormulario = (campo: keyof FormularioLogin, valor: any) => {
+    setFormulario(prev => ({ ...prev, [campo]: valor }));
+    // Limpiar error específico
+    if (errores[campo]) {
+      setErrores(prev => ({ ...prev, [campo]: undefined }));
     }
   };
 
-  /**
-   * Guardar credenciales si el usuario lo solicita
-   */
-  const guardarCredenciales = (email: string, recordar: boolean): void => {
-    try {
-      if (recordar) {
-        const credenciales = {
-          email,
-          recordar: true,
-        };
-        localStorage.setItem('felicitafac_credenciales_recordadas', JSON.stringify(credenciales));
-      } else {
-        localStorage.removeItem('felicitafac_credenciales_recordadas');
-      }
-    } catch (error) {
-      console.warn('Error guardando credenciales:', error);
-    }
-  };
+  const manejarSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validarFormulario()) return;
 
-  /**
-   * Manejar envío del formulario
-   */
-  const onSubmit = async (datos: DatosFormularioLogin): Promise<void> => {
-    try {
-      // Guardar credenciales si es necesario
-      guardarCredenciales(datos.email, datos.recordar_sesion || false);
+    setCargando(true);
+    setErrores({});
 
-      // Intentar login
+    try {
       await iniciarSesion({
-        email: datos.email,
-        password: datos.password,
-        recordar_sesion: datos.recordar_sesion,
+        email: formulario.email.trim(),
+        password: formulario.password,
+        recordarme: formulario.recordarme
       });
 
       // La redirección se maneja en el useEffect
-    } catch (error) {
-      console.error('Error en login:', error);
-      // El error se maneja en el contexto de autenticación
+    } catch (error: any) {
+      console.error('Error al iniciar sesión:', error);
+      
+      const mensajeError = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          'Error al iniciar sesión. Verifique sus credenciales.';
+      
+      setErrores({ general: mensajeError });
+    } finally {
+      setCargando(false);
     }
   };
 
-  /**
-   * Alternar visibilidad de contraseña
-   */
-  const alternarVisibilidadPassword = (): void => {
-    setMostrarPassword(!mostrarPassword);
-  };
-
-  /**
-   * Manejar cambio de checkbox recordar sesión
-   */
-  const manejarRecordarSesion = (checked: boolean): void => {
-    setRecordarCredenciales(checked);
-    setValue('recordar_sesion', checked);
-  };
-
-  /**
-   * Obtener mensaje de error amigable
-   */
-  const obtenerMensajeError = (error: string): string => {
-    const mensajesError: Record<string, string> = {
-      'Credenciales inválidas.': 'Email o contraseña incorrectos',
-      'Usuario bloqueado. Contacte al administrador.': 'Tu cuenta ha sido bloqueada',
-      'Usuario suspendido temporalmente.': 'Tu cuenta está suspendida',
-      'Usuario desactivado.': 'Tu cuenta está desactivada',
-      'Error de conexión': 'No se pudo conectar con el servidor',
-    };
-
-    return mensajesError[error] || error || 'Error desconocido';
-  };
+  // =======================================================
+  // RENDER
+  // =======================================================
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo y Branding */}
+        {/* Logo y título */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
-            <span className="text-2xl font-bold text-white">F</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl mb-4">
+            <FileText className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">FELICITAFAC</h1>
-          <p className="text-gray-600 mt-2">Sistema de Facturación Electrónica</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">FELICITAFAC</h1>
+          <p className="text-gray-600">Sistema de Facturación Electrónica</p>
         </div>
 
-        {/* Formulario de Login */}
-        <Card className="shadow-lg border-0">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl font-bold text-center">{titulo}</CardTitle>
-            <CardDescription className="text-center text-gray-600">
-              {subtitulo}
+        {/* Mensaje de éxito */}
+        {mensajeExito && (
+          <Alert className="mb-6 border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              {mensajeExito}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Formulario de login */}
+        <Card className="shadow-lg">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl text-center">Iniciar Sesión</CardTitle>
+            <CardDescription className="text-center">
+              Ingresa tus credenciales para acceder al sistema
             </CardDescription>
           </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={manejarSubmit} className="space-y-4">
+              {/* Error general */}
+              {errores.general && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    {errores.general}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-          <CardContent className="space-y-6">
-            {/* Mensaje de error */}
-            {estado.error && (
-              <Alert variant="destructive" className="border-red-200 bg-red-50">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-red-800">
-                  {obtenerMensajeError(estado.error)}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Formulario */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Campo Email */}
+              {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email
-                </Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="tu@email.com"
-                    className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
-                    disabled={estado.estaLoginCargando}
-                    autoComplete="email"
-                    autoFocus
-                    {...register('email')}
+                    value={formulario.email}
+                    onChange={(e) => manejarCambioFormulario('email', e.target.value)}
+                    className={`pl-10 ${errores.email ? 'border-red-300' : ''}`}
+                    disabled={cargando}
                   />
                 </div>
-                {errors.email && (
-                  <p className="text-sm text-red-600">{errors.email.message}</p>
+                {errores.email && (
+                  <p className="text-sm text-red-600">{errores.email}</p>
                 )}
               </div>
 
-              {/* Campo Contraseña */}
+              {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Contraseña
-                </Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
                     type={mostrarPassword ? 'text' : 'password'}
                     placeholder="Tu contraseña"
-                    className={`pl-10 pr-10 ${errors.password ? 'border-red-500 focus:border-red-500' : ''}`}
-                    disabled={estado.estaLoginCargando}
-                    autoComplete="current-password"
-                    {...register('password')}
+                    value={formulario.password}
+                    onChange={(e) => manejarCambioFormulario('password', e.target.value)}
+                    className={`pl-10 pr-10 ${errores.password ? 'border-red-300' : ''}`}
+                    disabled={cargando}
                   />
                   <button
                     type="button"
-                    onClick={alternarVisibilidadPassword}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                    disabled={estado.estaLoginCargando}
-                    tabIndex={-1}
+                    onClick={() => setMostrarPassword(!mostrarPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    disabled={cargando}
                   >
-                    {mostrarPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {mostrarPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.password && (
-                  <p className="text-sm text-red-600">{errors.password.message}</p>
+                {errores.password && (
+                  <p className="text-sm text-red-600">{errores.password}</p>
                 )}
               </div>
 
-              {/* Recordar sesión */}
+              {/* Recordarme y recuperar contraseña */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Checkbox
-                    id="recordar_sesion"
-                    checked={recordarCredenciales}
-                    onCheckedChange={manejarRecordarSesion}
-                    disabled={estado.estaLoginCargando}
+                    id="recordarme"
+                    checked={formulario.recordarme}
+                    onCheckedChange={(checked) => manejarCambioFormulario('recordarme', checked)}
+                    disabled={cargando}
                   />
-                  <Label
-                    htmlFor="recordar_sesion"
-                    className="text-sm text-gray-600 cursor-pointer"
-                  >
-                    Recordar credenciales
+                  <Label htmlFor="recordarme" className="text-sm">
+                    Recordarme
                   </Label>
                 </div>
-
                 <Link
                   to="/recuperar-password"
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                 >
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
 
-              {/* Botón de Login */}
+              {/* Botón de submit */}
               <Button
                 type="submit"
-                disabled={estado.estaLoginCargando || !isValid}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                disabled={cargando}
               >
-                {estado.estaLoginCargando ? (
+                {cargando ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Iniciando sesión...
                   </>
                 ) : (
                   <>
-                    <LogIn className="mr-2 h-4 w-4" />
                     Iniciar Sesión
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
             </form>
 
-            {/* Separador */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">o</span>
-              </div>
-            </div>
-
             {/* Enlaces adicionales */}
-            <div className="space-y-4">
-              {/* Demo login */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Cuentas de demostración:</h4>
-                <div className="space-y-1 text-xs text-gray-600">
-                  <p><strong>Admin:</strong> admin@felicitafac.com / admin123</p>
-                  <p><strong>Vendedor:</strong> vendedor@felicitafac.com / vendedor123</p>
-                  <p><strong>Cliente:</strong> cliente@felicitafac.com / cliente123</p>
-                </div>
-              </div>
-
-              {/* Registro */}
-              {mostrarRegistro && (
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    ¿No tienes una cuenta?{' '}
-                    <Link
-                      to="/registro"
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Regístrate aquí
-                    </Link>
-                  </p>
-                </div>
-              )}
+            <div className="mt-6 text-center space-y-2">
+              <p className="text-sm text-gray-600">
+                ¿No tienes una cuenta?{' '}
+                <Link
+                  to="/registro"
+                  className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                >
+                  Regístrate aquí
+                </Link>
+              </p>
+              <p className="text-sm text-gray-600">
+                <Link
+                  to="/"
+                  className="text-gray-500 hover:text-gray-700 hover:underline"
+                >
+                  Volver al inicio
+                </Link>
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-xs text-gray-500">
-          <p>FELICITAFAC © 2024 - Sistema de Facturación Electrónica para Perú</p>
-          <p className="mt-1">
-            <Link to="/terminos" className="hover:text-gray-700">Términos de Uso</Link>
-            {' • '}
-            <Link to="/privacidad" className="hover:text-gray-700">Política de Privacidad</Link>
+        {/* Información adicional */}
+        <div className="mt-8 text-center">
+          <p className="text-xs text-gray-500">
+            Sistema seguro con certificado SSL
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Compatible con normativa SUNAT
           </p>
         </div>
       </div>
