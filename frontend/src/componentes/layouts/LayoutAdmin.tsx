@@ -1,343 +1,504 @@
 /**
- * Layout Administrativo Principal - FELICITAFAC
+ * Layout Administrativo - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Layout base para todas las páginas administrativas
+ * Layout principal para la zona administrativa
  */
 
-import React, { useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useDashboardAdmin } from '../../hooks/useDashboardAdmin';
-import { useAuth } from '../../hooks/useAuth';
-import SidebarAdmin from '../admin/SidebarAdmin';
-import HeaderAdmin from '../admin/HeaderAdmin';
-import { cn } from '../../utils/cn';
+import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '../utils/cn';
+import { useAuth } from '../hooks/useAuth';
+import useDashboardAdmin from '../hooks/useDashboardAdmin';
+import SidebarAdmin from '../componentes/admin/sidebarAdmin';
+import HeaderAdmin from '../componentes/admin/HeaderAdmin';
+import { Alert, AlertDescription } from '../componentes/ui/alert';
+import { PageLoader } from '../componentes/ui/spinner';
 
 // =======================================================
 // INTERFACES
 // =======================================================
 
-interface PropiedadesLayoutAdmin {
+export interface PropiedadesLayoutAdmin {
   children?: React.ReactNode;
-  titulo?: string;
-  descripcion?: string;
-  mostrarSidebar?: boolean;
-  mostrarHeader?: boolean;
+  title?: string;
+  description?: string;
+  showSidebar?: boolean;
+  showHeader?: boolean;
+  breadcrumbs?: Array<{
+    label: string;
+    href?: string;
+  }>;
+  rightContent?: React.ReactNode;
   className?: string;
 }
 
-interface PropiedadesErrorBoundary {
-  children: React.ReactNode;
-}
-
-interface EstadoErrorBoundary {
-  hasError: boolean;
-  error: Error | null;
+interface ConfiguracionResponsive {
+  breakpoint: number;
+  isMobile: boolean;
+  sidebarCollapsed: boolean;
 }
 
 // =======================================================
-// COMPONENTE ERROR BOUNDARY
+// CONFIGURACIÓN
 // =======================================================
 
-class ErrorBoundaryAdmin extends React.Component<PropiedadesErrorBoundary, EstadoErrorBoundary> {
-  constructor(props: PropiedadesErrorBoundary) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): EstadoErrorBoundary {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error en Layout Admin:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Error en el Sistema
-              </h2>
-              <p className="text-gray-600 mb-4">
-                Ocurrió un error inesperado. Por favor, recarga la página.
-              </p>
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Recargar Página
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
+const SIDEBAR_WIDTH = 280;
+const SIDEBAR_COLLAPSED_WIDTH = 64;
+const HEADER_HEIGHT = 64;
+const MOBILE_BREAKPOINT = 768;
 
 // =======================================================
-// COMPONENTE LOADING
-// =======================================================
-
-const LoadingLayout: React.FC = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-      <p className="text-gray-600">Cargando sistema administrativo...</p>
-    </div>
-  </div>
-);
-
-// =======================================================
-// COMPONENTE BREADCRUMBS
-// =======================================================
-
-interface PropiedadesBreadcrumbs {
-  items: Array<{
-    texto: string;
-    enlace?: string;
-  }>;
-}
-
-const Breadcrumbs: React.FC<PropiedadesBreadcrumbs> = ({ items }) => {
-  if (items.length === 0) return null;
-
-  return (
-    <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-      </svg>
-      {items.map((item, index) => (
-        <React.Fragment key={index}>
-          {index > 0 && <span>/</span>}
-          {item.enlace ? (
-            <a
-              href={item.enlace}
-              className="hover:text-gray-700 transition-colors"
-            >
-              {item.texto}
-            </a>
-          ) : (
-            <span className="text-gray-900 font-medium">{item.texto}</span>
-          )}
-        </React.Fragment>
-      ))}
-    </nav>
-  );
-};
-
-// =======================================================
-// COMPONENTE PRINCIPAL LAYOUT
+// COMPONENTE LAYOUT ADMIN
 // =======================================================
 
 const LayoutAdmin: React.FC<PropiedadesLayoutAdmin> = ({
   children,
-  titulo,
-  descripcion,
-  mostrarSidebar = true,
-  mostrarHeader = true,
-  className
+  title,
+  description,
+  showSidebar = true,
+  showHeader = true,
+  breadcrumbs,
+  rightContent,
+  className,
 }) => {
-  // Hooks
+  // =======================================================
+  // HOOKS Y ESTADO
+  // =======================================================
+  
   const location = useLocation();
-  const { usuario, estaAutenticado, estaCargando } = useAuth();
-  const { estado, acciones } = useDashboardAdmin();
-
+  const { 
+    usuario, 
+    estaAutenticado, 
+    estaCargando,
+    puedeAccederModulo 
+  } = useAuth();
+  
+  const {
+    estado: estadoAdmin,
+    acciones: accionesAdmin,
+  } = useDashboardAdmin();
+  
+  // Estado local
+  const [responsiveConfig, setResponsiveConfig] = useState<ConfiguracionResponsive>({
+    breakpoint: MOBILE_BREAKPOINT,
+    isMobile: false,
+    sidebarCollapsed: false,
+  });
+  
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
+  
   // =======================================================
   // EFECTOS
   // =======================================================
-
-  // Verificar autenticación
+  
+  // Detectar cambios de tamaño de pantalla
   useEffect(() => {
-    if (!estaCargando && !estaAutenticado) {
-      window.location.href = '/login';
+    const handleResize = () => {
+      const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setResponsiveConfig(prev => ({
+        ...prev,
+        isMobile,
+        sidebarCollapsed: isMobile ? true : prev.sidebarCollapsed,
+      }));
+      
+      // Cerrar sidebar móvil en desktop
+      if (!isMobile) {
+        setSidebarMobileOpen(false);
+      }
+    };
+    
+    // Configuración inicial
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Cerrar sidebar móvil al cambiar de ruta
+  useEffect(() => {
+    setSidebarMobileOpen(false);
+  }, [location.pathname]);
+  
+  // Sincronizar con estado global del sidebar
+  useEffect(() => {
+    if (!responsiveConfig.isMobile) {
+      setResponsiveConfig(prev => ({
+        ...prev,
+        sidebarCollapsed: !estadoAdmin.sidebarAbierto,
+      }));
     }
-  }, [estaAutenticado, estaCargando]);
-
-  // Actualizar título de la página
+  }, [estadoAdmin.sidebarAbierto, responsiveConfig.isMobile]);
+  
+  // Obtener notificaciones no leídas
   useEffect(() => {
-    const tituloBase = 'FELICITAFAC - Sistema de Facturación';
-    if (titulo) {
-      document.title = `${titulo} - ${tituloBase}`;
-    } else {
-      document.title = tituloBase;
-    }
-  }, [titulo]);
-
-  // Detectar cambios de ruta para analytics
-  useEffect(() => {
-    // TODO: Implementar tracking de navegación
-    console.log('Navegación a:', location.pathname);
-  }, [location]);
-
+    const noLeidas = estadoAdmin.notificaciones.filter(n => !n.leida).length;
+    setNotificacionesNoLeidas(noLeidas);
+  }, [estadoAdmin.notificaciones]);
+  
   // =======================================================
-  // ESTADOS DE CARGA
+  // VERIFICACIONES DE ACCESO
   // =======================================================
-
+  
+  // Loading state
   if (estaCargando) {
-    return <LoadingLayout />;
+    return <PageLoader show={true} message="Verificando acceso..." />;
   }
-
-  if (!estaAutenticado || !usuario) {
-    return <LoadingLayout />;
+  
+  // Verificar autenticación
+  if (!estaAutenticado) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
-  // =======================================================
-  // GENERAR BREADCRUMBS AUTOMÁTICOS
-  // =======================================================
-
-  const generarBreadcrumbs = () => {
-    const pathSegments = location.pathname.split('/').filter(Boolean);
-    const breadcrumbs = [{ texto: 'Dashboard', enlace: '/admin' }];
-
-    if (pathSegments.length > 1) {
-      const modulosMap: Record<string, string> = {
-        facturacion: 'Facturación',
-        comercial: 'Gestión Comercial',
-        inventario: 'Inventario',
-        contabilidad: 'Contabilidad',
-        reportes: 'Reportes',
-        sistema: 'Administración'
-      };
-
-      if (pathSegments[1] && modulosMap[pathSegments[1]]) {
-        breadcrumbs.push({
-          texto: modulosMap[pathSegments[1]],
-          enlace: `/admin/${pathSegments[1]}`
-        });
-      }
-
-      // Agregar submódulos si existen
-      if (pathSegments[2]) {
-        const submodoulo = pathSegments[2].replace('-', ' ');
-        breadcrumbs.push({
-          texto: submodoulo.charAt(0).toUpperCase() + submodoulo.slice(1)
-        });
-      }
-    }
-
-    return breadcrumbs;
-  };
-
-  // =======================================================
-  // RENDER PRINCIPAL
-  // =======================================================
-
-  return (
-    <ErrorBoundaryAdmin>
-      <Helmet>
-        <title>{titulo ? `${titulo} - FELICITAFAC` : 'FELICITAFAC - Sistema de Facturación'}</title>
-        {descripcion && <meta name="description" content={descripcion} />}
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="theme-color" content="#2563eb" />
-      </Helmet>
-
-      <div className={cn('min-h-screen bg-gray-50 flex', className)}>
-        {/* Sidebar */}
-        {mostrarSidebar && (
-          <SidebarAdmin
-            abierto={estado.sidebarAbierto}
-            onToggle={acciones.toggleSidebar}
-          />
-        )}
-
-        {/* Contenido Principal */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
-          {mostrarHeader && (
-            <HeaderAdmin
-              titulo={titulo || 'Dashboard Administrativo'}
-              subtitulo={descripcion}
-              mostrarBreadcrumbs={true}
-            />
-          )}
-
-          {/* Área de Contenido */}
-          <main className="flex-1 overflow-y-auto">
-            {children || <Outlet />}
-          </main>
-
-          {/* Footer opcional */}
-          <footer className="bg-white border-t border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <div>
-                <span>© 2024 FELICITAFAC - Sistema de Facturación Electrónica</span>
-              </div>
-              <div className="flex items-center space-x-4">
-                <span>Usuario: {usuario.nombres} {usuario.apellidos}</span>
-                <span>•</span>
-                <span>Rol: {usuario.rol_detalle?.nombre}</span>
-                <span>•</span>
-                <span>
-                  Última sesión: {usuario.fecha_ultimo_login ? 
-                    new Date(usuario.fecha_ultimo_login).toLocaleString('es-PE') : 
-                    'Primera vez'
-                  }
-                </span>
-              </div>
-            </div>
-          </footer>
+  
+  // Verificar acceso a zona admin
+  if (!puedeAccederModulo('admin')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md w-full">
+          <Alert variant="error">
+            <AlertDescription>
+              No tienes permisos para acceder al panel administrativo.
+              <br />
+              <a href="/" className="text-blue-600 hover:underline mt-2 inline-block">
+                Volver al inicio
+              </a>
+            </AlertDescription>
+          </Alert>
         </div>
       </div>
-
-      {/* Overlay para móvil cuando sidebar está abierto */}
-      {estado.sidebarAbierto && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
-          onClick={acciones.toggleSidebar}
-        />
-      )}
-    </ErrorBoundaryAdmin>
+    );
+  }
+  
+  // =======================================================
+  // MANEJADORES DE EVENTOS
+  // =======================================================
+  
+  const handleToggleSidebar = () => {
+    if (responsiveConfig.isMobile) {
+      setSidebarMobileOpen(!sidebarMobileOpen);
+    } else {
+      accionesAdmin.toggleSidebar();
+    }
+  };
+  
+  const handleCloseMobileSidebar = () => {
+    setSidebarMobileOpen(false);
+  };
+  
+  // =======================================================
+  // CONFIGURACIÓN DE CLASES CSS
+  // =======================================================
+  
+  const layoutClasses = cn(
+    'min-h-screen bg-gray-50 flex',
+    className
+  );
+  
+  const sidebarClasses = cn(
+    'fixed inset-y-0 left-0 z-30 bg-white border-r border-gray-200 transition-all duration-300',
+    responsiveConfig.isMobile
+      ? cn(
+          'w-80 transform',
+          sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )
+      : cn(
+          'relative',
+          responsiveConfig.sidebarCollapsed 
+            ? `w-${SIDEBAR_COLLAPSED_WIDTH}px` 
+            : `w-${SIDEBAR_WIDTH}px`
+        )
+  );
+  
+  const mainClasses = cn(
+    'flex-1 flex flex-col min-w-0',
+    !responsiveConfig.isMobile && showSidebar && (
+      responsiveConfig.sidebarCollapsed 
+        ? `ml-${SIDEBAR_COLLAPSED_WIDTH}px` 
+        : `ml-${SIDEBAR_WIDTH}px`
+    )
+  );
+  
+  const headerClasses = cn(
+    'bg-white border-b border-gray-200 shadow-sm z-20',
+    `h-${HEADER_HEIGHT}px`
+  );
+  
+  const contentClasses = cn(
+    'flex-1 overflow-auto',
+    showHeader && `mt-${HEADER_HEIGHT}px`,
+    'relative'
+  );
+  
+  // =======================================================
+  // TÍTULO DINÁMICO
+  // =======================================================
+  
+  const pageTitle = React.useMemo(() => {
+    if (title) return `${title} - FELICITAFAC Admin`;
+    
+    // Títulos automáticos basados en la ruta
+    const pathTitles: Record<string, string> = {
+      '/admin': 'Dashboard',
+      '/admin/facturacion': 'Facturación',
+      '/admin/clientes': 'Clientes',
+      '/admin/productos': 'Productos',
+      '/admin/inventario': 'Inventario',
+      '/admin/contabilidad': 'Contabilidad',
+      '/admin/reportes': 'Reportes',
+      '/admin/usuarios': 'Usuarios',
+      '/admin/configuracion': 'Configuración',
+    };
+    
+    const currentTitle = pathTitles[location.pathname] || 'Administración';
+    return `${currentTitle} - FELICITAFAC`;
+  }, [title, location.pathname]);
+  
+  // =======================================================
+  // RENDER
+  // =======================================================
+  
+  return (
+    <>
+      {/* Meta tags dinámicos */}
+      <Helmet>
+        <title>{pageTitle}</title>
+        {description && <meta name="description" content={description} />}
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      
+      <div className={layoutClasses}>
+        {/* Overlay para móvil */}
+        {responsiveConfig.isMobile && sidebarMobileOpen && (
+          <div
+            className="fixed inset-0 z-20 bg-black bg-opacity-50 transition-opacity"
+            onClick={handleCloseMobileSidebar}
+          />
+        )}
+        
+        {/* Sidebar */}
+        {showSidebar && (
+          <aside className={sidebarClasses}>
+            <SidebarAdmin
+              abierto={responsiveConfig.isMobile ? sidebarMobileOpen : !responsiveConfig.sidebarCollapsed}
+              onToggle={handleToggleSidebar}
+              onClose={handleCloseMobileSidebar}
+              isMobile={responsiveConfig.isMobile}
+              usuario={usuario}
+              moduloActivo={estadoAdmin.moduloActual}
+              notificacionesNoLeidas={notificacionesNoLeidas}
+            />
+          </aside>
+        )}
+        
+        {/* Contenido principal */}
+        <div className={mainClasses}>
+          {/* Header */}
+          {showHeader && (
+            <header className={headerClasses}>
+              <HeaderAdmin
+                usuario={usuario}
+                onToggleSidebar={handleToggleSidebar}
+                showMenuButton={showSidebar}
+                breadcrumbs={breadcrumbs}
+                rightContent={rightContent}
+                notificacionesNoLeidas={notificacionesNoLeidas}
+                sidebarAbierto={responsiveConfig.isMobile ? sidebarMobileOpen : !responsiveConfig.sidebarCollapsed}
+              />
+            </header>
+          )}
+          
+          {/* Contenido de la página */}
+          <main className={contentClasses}>
+            {children || <Outlet />}
+          </main>
+        </div>
+      </div>
+    </>
   );
 };
 
 // =======================================================
-// COMPONENTES AUXILIARES EXPORTADOS
+// COMPONENTES AUXILIARES
 // =======================================================
 
 /**
- * Layout mínimo sin sidebar para páginas especiales
+ * Layout Admin con configuración específica
  */
-export const LayoutAdminMinimo: React.FC<{
-  children: React.ReactNode;
-  titulo?: string;
-}> = ({ children, titulo }) => (
-  <LayoutAdmin
-    mostrarSidebar={false}
-    mostrarHeader={false}
-    titulo={titulo}
+export const LayoutAdminPage: React.FC<PropiedadesLayoutAdmin> = (props) => (
+  <LayoutAdmin {...props} />
+);
+
+/**
+ * Layout para dashboards con padding estándar
+ */
+export const LayoutAdminDashboard: React.FC<PropiedadesLayoutAdmin> = ({ 
+  children, 
+  className,
+  ...props 
+}) => (
+  <LayoutAdmin 
+    className={cn('p-6', className)}
+    {...props}
   >
-    {children}
+    <div className="max-w-7xl mx-auto w-full">
+      {children}
+    </div>
   </LayoutAdmin>
 );
 
 /**
- * Layout solo con header para páginas que no necesitan sidebar
+ * Layout para formularios centrados
  */
-export const LayoutAdminSoloHeader: React.FC<{
-  children: React.ReactNode;
-  titulo?: string;
-  descripcion?: string;
-}> = ({ children, titulo, descripcion }) => (
-  <LayoutAdmin
-    mostrarSidebar={false}
-    mostrarHeader={true}
-    titulo={titulo}
-    descripcion={descripcion}
+export const LayoutAdminForm: React.FC<PropiedadesLayoutAdmin & {
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
+}> = ({ 
+  children, 
+  maxWidth = 'lg',
+  className,
+  ...props 
+}) => {
+  const maxWidthClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md', 
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    full: 'max-w-full',
+  };
+  
+  return (
+    <LayoutAdmin 
+      className={cn('p-6', className)}
+      {...props}
+    >
+      <div className={cn('mx-auto w-full', maxWidthClasses[maxWidth])}>
+        {children}
+      </div>
+    </LayoutAdmin>
+  );
+};
+
+/**
+ * Layout para páginas de listado con herramientas
+ */
+export const LayoutAdminList: React.FC<PropiedadesLayoutAdmin & {
+  toolbar?: React.ReactNode;
+  filters?: React.ReactNode;
+}> = ({ 
+  children, 
+  toolbar,
+  filters,
+  className,
+  ...props 
+}) => (
+  <LayoutAdmin 
+    className={className}
+    {...props}
   >
-    {children}
+    <div className="p-6 space-y-6">
+      {/* Barra de herramientas */}
+      {toolbar && (
+        <div className="flex items-center justify-between">
+          {toolbar}
+        </div>
+      )}
+      
+      {/* Filtros */}
+      {filters && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          {filters}
+        </div>
+      )}
+      
+      {/* Contenido principal */}
+      <div className="bg-white rounded-lg border border-gray-200">
+        {children}
+      </div>
+    </div>
   </LayoutAdmin>
 );
+
+// =======================================================
+// HOC PARA PROTECCIÓN DE RUTAS
+// =======================================================
+
+/**
+ * HOC para proteger rutas administrativas
+ */
+export const withAdminAuth = <P extends object>(
+  Component: React.ComponentType<P>,
+  requiredPermissions?: string[]
+) => {
+  const WrappedComponent: React.FC<P> = (props) => {
+    const { usuario, estaAutenticado, puedeAccederModulo, tienePermiso } = useAuth();
+    
+    if (!estaAutenticado) {
+      return <Navigate to="/login" replace />;
+    }
+    
+    if (!puedeAccederModulo('admin')) {
+      return <Navigate to="/" replace />;
+    }
+    
+    if (requiredPermissions) {
+      const hasPermissions = requiredPermissions.every(permission => 
+        tienePermiso(permission)
+      );
+      
+      if (!hasPermissions) {
+        return (
+          <LayoutAdmin>
+            <div className="flex items-center justify-center min-h-[400px]">
+              <Alert variant="error">
+                <AlertDescription>
+                  No tienes permisos suficientes para acceder a esta sección.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </LayoutAdmin>
+        );
+      }
+    }
+    
+    return <Component {...props} />;
+  };
+  
+  WrappedComponent.displayName = `withAdminAuth(${Component.displayName || Component.name})`;
+  
+  return WrappedComponent;
+};
+
+// =======================================================
+// HOOK PERSONALIZADO PARA LAYOUT
+// =======================================================
+
+/**
+ * Hook para manejar configuración del layout
+ */
+export const useLayoutAdmin = () => {
+  const { estado, acciones } = useDashboardAdmin();
+  const [configuracion, setConfiguracion] = useState({
+    sidebarAbierto: estado.sidebarAbierto,
+    tema: 'claro',
+    densidad: 'normal',
+  });
+  
+  const actualizarConfiguracion = React.useCallback((nuevaConfig: Partial<typeof configuracion>) => {
+    setConfiguracion(prev => ({ ...prev, ...nuevaConfig }));
+  }, []);
+  
+  return {
+    configuracion,
+    actualizarConfiguracion,
+    toggleSidebar: acciones.toggleSidebar,
+    estado: estado,
+  };
+};
+
+// =======================================================
+// EXPORTACIONES
+// =======================================================
 
 export default LayoutAdmin;

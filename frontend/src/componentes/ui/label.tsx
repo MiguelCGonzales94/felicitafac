@@ -1,21 +1,40 @@
 /**
- * Label Component - FELICITAFAC
+ * Componente Label - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Componente base de label compatible con react-hook-form
+ * Componente label con soporte para estados y validaciones
  */
 
 import React from 'react';
-import { cn } from '../../utils/cn.ts';
+import { cn } from '../../utils/cn';
 
 // =======================================================
-// TIPOS E INTERFACES
+// INTERFACES Y TIPOS
 // =======================================================
 
 export interface PropiedadesLabel extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  requerido?: boolean;
+  // Propiedades específicas del label
+  children: React.ReactNode;
+  htmlFor?: string;
+  
+  // Estados
+  required?: boolean;
+  disabled?: boolean;
   error?: boolean;
-  descripcion?: string;
-  variant?: 'default' | 'small' | 'large';
+  
+  // Variantes de estilo
+  size?: 'sm' | 'md' | 'lg';
+  variant?: 'default' | 'secondary' | 'muted';
+  weight?: 'normal' | 'medium' | 'semibold' | 'bold';
+  
+  // Funcionalidades adicionales
+  tooltip?: string;
+  description?: string;
+  
+  // Clases CSS
+  className?: string;
+  
+  // Callbacks
+  onClick?: (event: React.MouseEvent<HTMLLabelElement>) => void;
 }
 
 // =======================================================
@@ -23,60 +42,134 @@ export interface PropiedadesLabel extends React.LabelHTMLAttributes<HTMLLabelEle
 // =======================================================
 
 const labelVariants = {
-  variant: {
-    default: 'text-sm font-medium',
-    small: 'text-xs font-medium',
-    large: 'text-base font-medium',
+  size: {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base',
   },
-  estado: {
-    default: 'text-gray-700',
-    error: 'text-red-700',
-    disabled: 'text-gray-400',
+  variant: {
+    default: 'text-gray-900',
+    secondary: 'text-gray-700',
+    muted: 'text-gray-500',
+  },
+  weight: {
+    normal: 'font-normal',
+    medium: 'font-medium',
+    semibold: 'font-semibold',
+    bold: 'font-bold',
   },
 };
 
 // =======================================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE LABEL PRINCIPAL
 // =======================================================
 
-const Label = React.forwardRef<HTMLLabelElement, PropiedadesLabel>(
+export const Label = React.forwardRef<HTMLLabelElement, PropiedadesLabel>(
   (
     {
-      className,
       children,
-      requerido = false,
+      htmlFor,
+      required = false,
+      disabled = false,
       error = false,
-      descripcion,
+      size = 'md',
       variant = 'default',
+      weight = 'medium',
+      tooltip,
+      description,
+      className,
+      onClick,
       ...props
     },
     ref
   ) => {
-    // Determinar estado
-    const estado = error ? 'error' : 'default';
-
-    // Combinar clases
-    const clases = cn(
-      'block',
+    // =======================================================
+    // CLASES CSS
+    // =======================================================
+    
+    const labelClasses = cn(
+      // Clases base
+      'block leading-tight transition-colors duration-150',
+      
+      // Variantes
+      labelVariants.size[size],
       labelVariants.variant[variant],
-      labelVariants.estado[estado],
-      'mb-1',
+      labelVariants.weight[weight],
+      
+      // Estados
+      disabled && 'opacity-50 cursor-not-allowed',
+      error && 'text-red-600',
+      !disabled && 'cursor-pointer',
+      
+      // Hover effects
+      !disabled && !error && 'hover:text-gray-700',
+      
+      // Custom className
       className
     );
-
+    
+    // =======================================================
+    // MANEJADORES DE EVENTOS
+    // =======================================================
+    
+    const handleClick = (event: React.MouseEvent<HTMLLabelElement>) => {
+      if (disabled) {
+        event.preventDefault();
+        return;
+      }
+      
+      onClick?.(event);
+    };
+    
+    // =======================================================
+    // RENDER
+    // =======================================================
+    
     return (
       <div className="space-y-1">
-        <label className={clases} ref={ref} {...props}>
-          {children}
-          {requerido && (
-            <span className="text-red-500 ml-1" aria-label="Requerido">
-              *
-            </span>
-          )}
+        <label
+          ref={ref}
+          htmlFor={htmlFor}
+          className={labelClasses}
+          onClick={handleClick}
+          title={tooltip}
+          {...props}
+        >
+          <span className="flex items-center gap-1">
+            {children}
+            
+            {/* Indicador de campo requerido */}
+            {required && (
+              <span 
+                className="text-red-500 ml-1"
+                aria-label="Campo requerido"
+              >
+                *
+              </span>
+            )}
+            
+            {/* Tooltip icon */}
+            {tooltip && (
+              <span 
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-xs cursor-help"
+                title={tooltip}
+                aria-label={`Información: ${tooltip}`}
+              >
+                ?
+              </span>
+            )}
+          </span>
         </label>
         
-        {descripcion && (
-          <p className="text-xs text-gray-500">{descripcion}</p>
+        {/* Descripción adicional */}
+        {description && (
+          <p className={cn(
+            'text-xs leading-relaxed',
+            error ? 'text-red-500' : 'text-gray-500',
+            disabled && 'opacity-50'
+          )}>
+            {description}
+          </p>
         )}
       </div>
     );
@@ -90,53 +183,199 @@ Label.displayName = 'Label';
 // =======================================================
 
 /**
- * Label para formularios con estado de error
+ * Label para formularios con mejor accesibilidad
  */
-export const LabelFormulario = React.forwardRef<HTMLLabelElement, PropiedadesLabel>(
-  ({ error, ...props }, ref) => (
-    <Label
-      ref={ref}
-      error={error}
-      {...props}
-    />
-  )
+export const FormLabel = React.forwardRef<HTMLLabelElement, PropiedadesLabel & {
+  fieldId: string;
+  errorId?: string;
+  helpId?: string;
+}>(
+  ({ fieldId, errorId, helpId, children, required, ...props }, ref) => {
+    // Construir aria-describedby
+    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    
+    return (
+      <Label
+        ref={ref}
+        htmlFor={fieldId}
+        required={required}
+        aria-describedby={describedBy}
+        {...props}
+      >
+        {children}
+      </Label>
+    );
+  }
 );
 
-LabelFormulario.displayName = 'LabelFormulario';
+FormLabel.displayName = 'FormLabel';
 
 /**
- * Label pequeño para inputs compactos
+ * Label para checkboxes y radios
  */
-export const LabelPequeno = React.forwardRef<HTMLLabelElement, PropiedadesLabel>(
-  (props, ref) => (
+export const CheckboxLabel = React.forwardRef<HTMLLabelElement, PropiedadesLabel & {
+  position?: 'left' | 'right';
+}>(
+  ({ children, position = 'right', className, ...props }, ref) => (
     <Label
       ref={ref}
-      variant="small"
+      className={cn(
+        'flex items-center gap-2 cursor-pointer',
+        position === 'left' && 'flex-row-reverse justify-end',
+        className
+      )}
+      weight="normal"
       {...props}
-    />
+    >
+      {children}
+    </Label>
   )
 );
 
-LabelPequeno.displayName = 'LabelPequeno';
+CheckboxLabel.displayName = 'CheckboxLabel';
 
 /**
- * Label grande para títulos de sección
+ * Label con indicador de estado
  */
-export const LabelGrande = React.forwardRef<HTMLLabelElement, PropiedadesLabel>(
-  (props, ref) => (
-    <Label
-      ref={ref}
-      variant="large"
-      {...props}
-    />
+export const StatusLabel = React.forwardRef<HTMLLabelElement, PropiedadesLabel & {
+  status?: 'success' | 'warning' | 'error' | 'info';
+  statusText?: string;
+}>(
+  ({ children, status, statusText, className, ...props }, ref) => {
+    const statusColors = {
+      success: 'text-green-600',
+      warning: 'text-yellow-600',
+      error: 'text-red-600',
+      info: 'text-blue-600',
+    };
+    
+    return (
+      <Label
+        ref={ref}
+        className={cn('flex items-center justify-between', className)}
+        {...props}
+      >
+        <span>{children}</span>
+        {status && statusText && (
+          <span className={cn('text-xs font-normal', statusColors[status])}>
+            {statusText}
+          </span>
+        )}
+      </Label>
+    );
+  }
+);
+
+StatusLabel.displayName = 'StatusLabel';
+
+/**
+ * Label para grupos de campos
+ */
+export const FieldGroupLabel = React.forwardRef<HTMLDivElement, {
+  children: React.ReactNode;
+  className?: string;
+  required?: boolean;
+  description?: string;
+}>(
+  ({ children, className, required, description, ...props }, ref) => (
+    <div ref={ref} className={cn('space-y-2', className)} {...props}>
+      <div className={cn(
+        'text-sm font-semibold text-gray-900',
+        'border-b border-gray-200 pb-1'
+      )}>
+        {children}
+        {required && (
+          <span className="text-red-500 ml-1" aria-label="Grupo requerido">
+            *
+          </span>
+        )}
+      </div>
+      {description && (
+        <p className="text-xs text-gray-500 leading-relaxed">
+          {description}
+        </p>
+      )}
+    </div>
   )
 );
 
-LabelGrande.displayName = 'LabelGrande';
+FieldGroupLabel.displayName = 'FieldGroupLabel';
+
+/**
+ * Label para secciones de formulario
+ */
+export const SectionLabel = React.forwardRef<HTMLDivElement, {
+  children: React.ReactNode;
+  subtitle?: string;
+  className?: string;
+  icon?: React.ReactNode;
+}>(
+  ({ children, subtitle, className, icon, ...props }, ref) => (
+    <div ref={ref} className={cn('space-y-1', className)} {...props}>
+      <div className="flex items-center gap-2">
+        {icon && (
+          <div className="flex-shrink-0 text-gray-600">
+            {icon}
+          </div>
+        )}
+        <h3 className="text-lg font-semibold text-gray-900">
+          {children}
+        </h3>
+      </div>
+      {subtitle && (
+        <p className="text-sm text-gray-600">
+          {subtitle}
+        </p>
+      )}
+      <div className="border-b border-gray-200 mt-2" />
+    </div>
+  )
+);
+
+SectionLabel.displayName = 'SectionLabel';
+
+// =======================================================
+// UTILIDADES PARA ACCESIBILIDAD
+// =======================================================
+
+/**
+ * Hook para generar IDs únicos para labels y campos
+ */
+export const useFieldIds = (baseId?: string) => {
+  const id = React.useId();
+  const fieldId = baseId || `field-${id}`;
+  
+  return {
+    fieldId,
+    labelId: `${fieldId}-label`,
+    errorId: `${fieldId}-error`,
+    helpId: `${fieldId}-help`,
+    describedBy: `${fieldId}-help ${fieldId}-error`,
+  };
+};
+
+/**
+ * Función para validar asociación de labels
+ */
+export const validateLabelAssociation = (labelElement: HTMLLabelElement) => {
+  const htmlFor = labelElement.getAttribute('for');
+  
+  if (!htmlFor) {
+    console.warn('Label sin atributo "for". Considera usar htmlFor para mejor accesibilidad.');
+    return false;
+  }
+  
+  const associatedField = document.getElementById(htmlFor);
+  if (!associatedField) {
+    console.warn(`Label apunta a campo con id "${htmlFor}" que no existe.`);
+    return false;
+  }
+  
+  return true;
+};
 
 // =======================================================
 // EXPORTACIONES
 // =======================================================
 
-export { Label };
 export default Label;

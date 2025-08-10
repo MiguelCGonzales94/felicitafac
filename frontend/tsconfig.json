@@ -1,25 +1,117 @@
 {
   "compilerOptions": {
+    // Configuración básica
     "target": "ES2020",
-    "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
+    "allowJs": true,
     "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Configuración de módulos
+    "module": "ESNext",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
+    
+    // Configuración de paths y aliases
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": ["src/*"],
+      "@/components/*": ["src/componentes/*"],
+      "@/pages/*": ["src/paginas/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/services/*": ["src/servicios/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/assets/*": ["src/assets/*"],
+      "@/context/*": ["src/context/*"],
+      "@/router/*": ["src/router/*"],
+      "@/layout/*": ["src/layout/*"],
+      "@/config/*": ["src/config/*"],
+      "@/styles/*": ["src/styles/*"]
+    },
+    
+    // Configuración de tipos
+    "types": [
+      "vite/client",
+      "node",
+      "@testing-library/jest-dom",
+      "@types/react",
+      "@types/react-dom"
+    ],
+    "typeRoots": [
+      "node_modules/@types",
+      "src/types"
+    ],
+    
+    // Configuración estricta de TypeScript
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    
+    // Configuración de imports
+    "allowUmdGlobalAccess": false,
+    "preserveConstEnums": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    
+    // Configuración de experimentales
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    
+    // Configuración de performance
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    
+    // Configuración específica para React
+    "jsxImportSource": "react"
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  
+  "include": [
+    "src/**/*",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.js",
+    "postcss.config.js"
+  ],
+  
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "public",
+    ".vite",
+    "storybook-static"
+  ],
+  
+  "references": [],
+  
+  // Configuración específica para el workspace
+  "compileOnSave": false,
+  
+  // Configuración adicional para IDEs
+  "ts-node": {
+    "esm": true,
+    "files": true
+  }
 }
