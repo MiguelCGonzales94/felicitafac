@@ -179,7 +179,13 @@ configurar_credenciales() {
     
     # Probar conexión
     mostrar_paso "Probando conexión a MySQL..."
-    if mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" &>/dev/null; then
+    if [ -n "$DB_PASSWORD" ]; then
+        mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" &>/dev/null
+    else
+        mysql -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -e "SELECT 1;" &>/dev/null
+    fi
+
+    if [ $? -eq 0 ]; then
         mostrar_exito "Conexión MySQL exitosa"
     else
         mostrar_error "No se pudo conectar a MySQL con las credenciales proporcionadas"
