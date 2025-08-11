@@ -1,362 +1,496 @@
 /**
  * Error Boundary - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Componente para capturar y manejar errores de React
+ * Componente para captura y manejo de errores de React
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, Mail } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, Bug, Copy, CheckCircle } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 
 // =======================================================
-// INTERFACES
+// TIPOS E INTERFACES
 // =======================================================
 
-interface Props {
+interface PropiedadesErrorBoundary {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  mostrarDetalles?: boolean;
+  permitirReintento?: boolean;
+  redirigirHome?: boolean;
+  tituloPersonalizado?: string;
+  mensajePersonalizado?: string;
+  className?: string;
 }
 
-interface State {
-  hasError: boolean;
+interface EstadoErrorBoundary {
+  hayError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
-  errorId: string;
+  intentosReintento: number;
+  mostrarDetallesTecnicos: boolean;
+  reporteEnviado: boolean;
+  copiandoError: boolean;
+}
+
+interface DetallesError {
+  timestamp: string;
+  userAgent: string;
+  url: string;
+  userId?: string;
+  sessionId?: string;
+  buildVersion?: string;
 }
 
 // =======================================================
-// COMPONENTE FALLBACK POR DEFECTO
+// UTILIDADES
 // =======================================================
 
-const FallbackErrorUI: React.FC<{
-  error: Error | null;
-  errorInfo: ErrorInfo | null;
-  errorId: string;
-  onRetry: () => void;
-  onReportError: () => void;
-}> = ({ error, errorInfo, errorId, onRetry, onReportError }) => {
-  const [mostrarDetalles, setMostrarDetalles] = React.useState(false);
-  const [reporteEnviado, setReporteEnviado] = React.useState(false);
+const generarReporteError = (
+  error: Error,
+  errorInfo: ErrorInfo,
+  detalles: DetallesError
+): string => {
+  return `
+=== REPORTE DE ERROR - FELICITAFAC ===
+Timestamp: ${detalles.timestamp}
+URL: ${detalles.url}
+User Agent: ${detalles.userAgent}
+Usuario ID: ${detalles.userId || 'No autenticado'}
+Session ID: ${detalles.sessionId || 'N/A'}
+Build Version: ${detalles.buildVersion || 'N/A'}
 
-  const handleReportarError = () => {
-    onReportError();
-    setReporteEnviado(true);
-    
-    // Simular envío de reporte
-    setTimeout(() => {
-      setReporteEnviado(false);
-    }, 3000);
-  };
+=== ERROR ===
+Nombre: ${error.name}
+Mensaje: ${error.message}
+Stack: ${error.stack || 'No disponible'}
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8">
-        {/* Icono y título principal */}
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            ¡Oops! Algo salió mal
-          </h1>
-          <p className="text-gray-600">
-            Ocurrió un error inesperado en la aplicación. No te preocupes, 
-            estamos trabajando para solucionarlo.
-          </p>
-        </div>
+=== COMPONENT STACK ===
+${errorInfo.componentStack}
 
-        {/* ID del error */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
-          <p className="text-sm text-gray-600 mb-1">ID del error:</p>
-          <p className="font-mono text-sm text-gray-900 bg-white p-2 rounded border">
-            {errorId}
-          </p>
-        </div>
-
-        {/* Botones de acción */}
-        <div className="space-y-3 mb-6">
-          <button
-            onClick={onRetry}
-            className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Intentar Nuevamente
-          </button>
-
-          <button
-            onClick={() => window.location.href = '/'}
-            className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Home className="w-4 h-4 mr-2" />
-            Ir al Inicio
-          </button>
-
-          <button
-            onClick={handleReportarError}
-            disabled={reporteEnviado}
-            className="w-full flex items-center justify-center px-4 py-3 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Mail className="w-4 h-4 mr-2" />
-            {reporteEnviado ? 'Reporte Enviado' : 'Reportar Error'}
-          </button>
-        </div>
-
-        {/* Toggle detalles técnicos */}
-        <div className="border-t border-gray-200 pt-4">
-          <button
-            onClick={() => setMostrarDetalles(!mostrarDetalles)}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            {mostrarDetalles ? 'Ocultar' : 'Mostrar'} detalles técnicos
-          </button>
-
-          {mostrarDetalles && (
-            <div className="mt-4 space-y-4">
-              {error && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Error:</h4>
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-sm text-red-800 font-mono">
-                      {error.name}: {error.message}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {error?.stack && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Stack Trace:</h4>
-                  <div className="bg-gray-50 border border-gray-200 rounded p-3 max-h-40 overflow-y-auto">
-                    <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                      {error.stack}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              {errorInfo?.componentStack && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Component Stack:</h4>
-                  <div className="bg-gray-50 border border-gray-200 rounded p-3 max-h-40 overflow-y-auto">
-                    <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                      {errorInfo.componentStack}
-                    </pre>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Información adicional */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500">
-            FELICITAFAC v1.0.0 | {new Date().toLocaleString('es-PE')}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+=== INFORMACIÓN ADICIONAL ===
+Intentos de reintento: ${detalles.timestamp}
+Navegador: ${navigator.userAgent}
+Resolución: ${screen.width}x${screen.height}
+Memoria: ${(performance as any).memory ? `${Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)}MB` : 'N/A'}
+`.trim();
 };
+
+const obtenerDetallesEntorno = (): DetallesError => ({
+  timestamp: new Date().toISOString(),
+  userAgent: navigator.userAgent,
+  url: window.location.href,
+  userId: localStorage.getItem('felicitafac_user_id') || undefined,
+  sessionId: sessionStorage.getItem('felicitafac_session_id') || undefined,
+  buildVersion: process.env.REACT_APP_VERSION || undefined
+});
 
 // =======================================================
 // COMPONENTE ERROR BOUNDARY
 // =======================================================
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends Component<PropiedadesErrorBoundary, EstadoErrorBoundary> {
+  private reintentoTimeoutId: NodeJS.Timeout | null = null;
+
+  constructor(props: PropiedadesErrorBoundary) {
     super(props);
-    
     this.state = {
-      hasError: false,
+      hayError: false,
       error: null,
       errorInfo: null,
-      errorId: ''
+      intentosReintento: 0,
+      mostrarDetallesTecnicos: false,
+      reporteEnviado: false,
+      copiandoError: false
     };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
-    // Generar ID único para el error
-    const errorId = `ERR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+  static getDerivedStateFromError(error: Error): Partial<EstadoErrorBoundary> {
     return {
-      hasError: true,
-      error,
-      errorId
+      hayError: true,
+      error
     };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Actualizar estado con información del error
     this.setState({
       error,
       errorInfo
     });
+
+    // Registrar error en consola
+    console.error('ErrorBoundary capturó un error:', error, errorInfo);
 
     // Llamar callback personalizado si existe
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
 
-    // Log del error
-    console.error('ErrorBoundary capturó un error:', error, errorInfo);
-
-    // TODO: Enviar error a servicio de logging (ej: Sentry, LogRocket)
-    this.reportarErrorAServicio(error, errorInfo);
+    // Enviar error a servicio de monitoreo (opcional)
+    this.enviarErrorAServicio(error, errorInfo);
   }
 
-  private reportarErrorAServicio = (error: Error, errorInfo: ErrorInfo) => {
+  private enviarErrorAServicio = async (error: Error, errorInfo: ErrorInfo) => {
     try {
-      // En producción, aquí enviarías el error a un servicio como Sentry
-      const errorData = {
-        message: error.message,
-        stack: error.stack,
+      const detalles = obtenerDetallesEntorno();
+      const reporte = generarReporteError(error, errorInfo, detalles);
+      
+      // Aquí se podría enviar a un servicio como Sentry, LogRocket, etc.
+      // Por ahora solo guardamos en localStorage para debug
+      const erroresGuardados = JSON.parse(localStorage.getItem('felicitafac_errores') || '[]');
+      erroresGuardados.push({
+        timestamp: detalles.timestamp,
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        },
         componentStack: errorInfo.componentStack,
-        errorId: this.state.errorId,
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-        userId: localStorage.getItem('usuario_id') || 'anonymous'
-      };
-
-      // Enviar a servicio de logging
-      if (import.meta.env.PROD) {
-        // fetch('/api/errores/reportar', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify(errorData)
-        // }).catch(console.error);
+        detalles
+      });
+      
+      // Mantener solo los últimos 10 errores
+      if (erroresGuardados.length > 10) {
+        erroresGuardados.splice(0, erroresGuardados.length - 10);
       }
-
-      console.log('Error reportado:', errorData);
-    } catch (reportError) {
-      console.error('Error reportando error:', reportError);
+      
+      localStorage.setItem('felicitafac_errores', JSON.stringify(erroresGuardados));
+    } catch (e) {
+      console.error('Error al guardar reporte de error:', e);
     }
   };
 
-  private handleRetry = () => {
-    this.setState({
-      hasError: false,
-      error: null,
-      errorInfo: null,
-      errorId: ''
-    });
-  };
+  private manejarReintento = () => {
+    const { intentosReintento } = this.state;
+    
+    if (intentosReintento < 3) {
+      this.setState(prevState => ({
+        hayError: false,
+        error: null,
+        errorInfo: null,
+        intentosReintento: prevState.intentosReintento + 1,
+        mostrarDetallesTecnicos: false,
+        reporteEnviado: false
+      }));
 
-  private handleReportError = () => {
-    if (this.state.error && this.state.errorInfo) {
-      this.reportarErrorAServicio(this.state.error, this.state.errorInfo);
+      // Auto-reintento después de 5 segundos si falla nuevamente
+      this.reintentoTimeoutId = setTimeout(() => {
+        if (this.state.hayError && this.state.intentosReintento < 3) {
+          this.manejarReintento();
+        }
+      }, 5000);
     }
   };
+
+  private manejarIrHome = () => {
+    window.location.href = '/admin';
+  };
+
+  private manejarCopiarError = async () => {
+    const { error, errorInfo } = this.state;
+    if (!error || !errorInfo) return;
+
+    this.setState({ copiandoError: true });
+
+    try {
+      const detalles = obtenerDetallesEntorno();
+      const reporte = generarReporteError(error, errorInfo, detalles);
+      
+      await navigator.clipboard.writeText(reporte);
+      
+      this.setState({ copiandoError: false });
+      
+      // Mostrar feedback temporal
+      setTimeout(() => {
+        this.setState({ copiandoError: false });
+      }, 2000);
+    } catch (e) {
+      console.error('Error al copiar al portapapeles:', e);
+      this.setState({ copiandoError: false });
+    }
+  };
+
+  private manejarEnviarReporte = async () => {
+    // Simular envío de reporte
+    this.setState({ reporteEnviado: true });
+    
+    // En una implementación real, aquí se enviaría a un endpoint
+    setTimeout(() => {
+      this.setState({ reporteEnviado: false });
+    }, 3000);
+  };
+
+  componentWillUnmount() {
+    if (this.reintentoTimeoutId) {
+      clearTimeout(this.reintentoTimeoutId);
+    }
+  }
 
   render() {
-    if (this.state.hasError) {
-      // Usar fallback personalizado si se proporciona
-      if (this.props.fallback) {
-        return this.props.fallback;
+    const { 
+      hayError, 
+      error, 
+      errorInfo, 
+      intentosReintento, 
+      mostrarDetallesTecnicos,
+      reporteEnviado,
+      copiandoError
+    } = this.state;
+
+    const {
+      children,
+      fallback,
+      mostrarDetalles = true,
+      permitirReintento = true,
+      redirigirHome = true,
+      tituloPersonalizado,
+      mensajePersonalizado,
+      className
+    } = this.props;
+
+    if (hayError) {
+      // Renderizar fallback personalizado si se proporciona
+      if (fallback) {
+        return <>{fallback}</>;
       }
 
-      // Usar UI de error por defecto
+      // Renderizar interfaz de error por defecto
       return (
-        <FallbackErrorUI
-          error={this.state.error}
-          errorInfo={this.state.errorInfo}
-          errorId={this.state.errorId}
-          onRetry={this.handleRetry}
-          onReportError={this.handleReportError}
-        />
+        <div className={`min-h-screen bg-gray-50 flex items-center justify-center p-4 ${className || ''}`}>
+          <Card className="w-full max-w-2xl shadow-lg">
+            <CardHeader className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-red-100 rounded-full">
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
+                </div>
+              </div>
+              
+              <CardTitle className="text-xl font-semibold text-gray-900">
+                {tituloPersonalizado || 'Oops! Algo salió mal'}
+              </CardTitle>
+              
+              <p className="text-gray-600 mt-2">
+                {mensajePersonalizado || 
+                  'Ha ocurrido un error inesperado en la aplicación. Nuestro equipo ha sido notificado automáticamente.'}
+              </p>
+
+              {intentosReintento > 0 && (
+                <Badge variant="secondary" className="mt-2">
+                  Intento {intentosReintento} de 3
+                </Badge>
+              )}
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              {/* Información básica del error */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-red-800 mb-2">
+                    Error: {error.name}
+                  </h4>
+                  <p className="text-sm text-red-700">
+                    {error.message}
+                  </p>
+                </div>
+              )}
+
+              {/* Botones de acción */}
+              <div className="flex flex-wrap gap-3 justify-center">
+                {permitirReintento && intentosReintento < 3 && (
+                  <Button onClick={this.manejarReintento} className="flex items-center">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reintentar
+                  </Button>
+                )}
+
+                {redirigirHome && (
+                  <Button 
+                    variant="outline" 
+                    onClick={this.manejarIrHome}
+                    className="flex items-center"
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    Ir al Inicio
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  onClick={this.manejarEnviarReporte}
+                  disabled={reporteEnviado}
+                  className="flex items-center"
+                >
+                  {reporteEnviado ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                      Reporte Enviado
+                    </>
+                  ) : (
+                    <>
+                      <Bug className="h-4 w-4 mr-2" />
+                      Reportar Error
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Detalles técnicos colapsables */}
+              {mostrarDetalles && error && errorInfo && (
+                <Collapsible 
+                  open={mostrarDetallesTecnicos} 
+                  onOpenChange={this.setState.bind(this, { mostrarDetallesTecnicos: !mostrarDetallesTecnicos })}
+                >
+                  <CollapsibleTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full justify-center text-gray-500"
+                    >
+                      {mostrarDetallesTecnicos ? 'Ocultar' : 'Mostrar'} detalles técnicos
+                    </Button>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className="space-y-4 mt-4">
+                    {/* Botón copiar error */}
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={this.manejarCopiarError}
+                        disabled={copiandoError}
+                        className="flex items-center"
+                      >
+                        {copiandoError ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                            Copiado
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copiar Error
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Stack trace del error */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Stack Trace:</h4>
+                      <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-40">
+                        <pre className="whitespace-pre-wrap">
+                          {error.stack || 'Stack trace no disponible'}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* Component stack */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Component Stack:</h4>
+                      <div className="bg-gray-100 p-4 rounded-lg overflow-x-auto text-xs font-mono max-h-32">
+                        <pre className="whitespace-pre-wrap text-gray-700">
+                          {errorInfo.componentStack}
+                        </pre>
+                      </div>
+                    </div>
+
+                    {/* Información del entorno */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Información del Entorno:</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg text-xs space-y-1">
+                        <div><strong>URL:</strong> {window.location.href}</div>
+                        <div><strong>Timestamp:</strong> {new Date().toISOString()}</div>
+                        <div><strong>User Agent:</strong> {navigator.userAgent}</div>
+                        <div><strong>Resolución:</strong> {screen.width}x{screen.height}</div>
+                        {(performance as any).memory && (
+                          <div>
+                            <strong>Memoria:</strong> {Math.round((performance as any).memory.usedJSHeapSize / 1024 / 1024)}MB
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Información de contacto */}
+              <div className="text-center text-sm text-gray-500 pt-4 border-t">
+                <p>
+                  Si el problema persiste, contacta al soporte técnico de FELICITAFAC
+                </p>
+                <p className="mt-1">
+                  Email: soporte@felicitafac.com | Teléfono: +51 999 888 777
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       );
     }
 
-    return this.props.children;
+    return children;
   }
 }
 
 // =======================================================
-// HOC PARA WRAP COMPONENTES
+// HOC PARA ENVOLVER COMPONENTES
 // =======================================================
 
-export const withErrorBoundary = <P extends object>(
+export const conErrorBoundary = <P extends object>(
   Component: React.ComponentType<P>,
-  fallback?: ReactNode,
-  onError?: (error: Error, errorInfo: ErrorInfo) => void
+  opciones?: Partial<PropiedadesErrorBoundary>
 ) => {
-  const WrappedComponent = (props: P) => (
-    <ErrorBoundary fallback={fallback} onError={onError}>
+  const ComponenteConErrorBoundary = (props: P) => (
+    <ErrorBoundary {...opciones}>
       <Component {...props} />
     </ErrorBoundary>
   );
 
-  WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
+  ComponenteConErrorBoundary.displayName = `conErrorBoundary(${Component.displayName || Component.name})`;
   
-  return WrappedComponent;
+  return ComponenteConErrorBoundary;
 };
 
 // =======================================================
-// HOOK PARA MANEJAR ERRORES
+// HOOK PARA MANEJO DE ERRORES ASÍNCRONOS
 // =======================================================
 
 export const useErrorHandler = () => {
-  const [error, setError] = React.useState<Error | null>(null);
-
-  const resetError = React.useCallback(() => {
-    setError(null);
-  }, []);
-
-  const captureError = React.useCallback((error: Error | string) => {
-    const errorObj = typeof error === 'string' ? new Error(error) : error;
-    setError(errorObj);
-    console.error('Error capturado:', errorObj);
-  }, []);
-
-  // Lanzar error para que ErrorBoundary lo capture
-  React.useEffect(() => {
-    if (error) {
-      throw error;
+  const manejarError = React.useCallback((error: Error, contexto?: string) => {
+    console.error(`Error${contexto ? ` en ${contexto}` : ''}:`, error);
+    
+    // Guardar error para debugging
+    const erroresGuardados = JSON.parse(localStorage.getItem('felicitafac_errores_async') || '[]');
+    erroresGuardados.push({
+      timestamp: new Date().toISOString(),
+      contexto,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    });
+    
+    if (erroresGuardados.length > 20) {
+      erroresGuardados.splice(0, erroresGuardados.length - 20);
     }
-  }, [error]);
+    
+    localStorage.setItem('felicitafac_errores_async', JSON.stringify(erroresGuardados));
+    
+    // Aquí se podría mostrar una notificación toast o modal
+    // dependiendo de la implementación del sistema de notificaciones
+  }, []);
 
-  return {
-    captureError,
-    resetError,
-    hasError: !!error
-  };
+  return { manejarError };
 };
 
 // =======================================================
-// COMPONENTE SIMPLE PARA ERRORES MENORES
+// EXPORT DEFAULT
 // =======================================================
-
-interface PropiedadesErrorSimple {
-  titulo?: string;
-  mensaje?: string;
-  mostrarBotonReintentar?: boolean;
-  onReintentar?: () => void;
-  className?: string;
-}
-
-export const ErrorSimple: React.FC<PropiedadesErrorSimple> = ({
-  titulo = 'Error',
-  mensaje = 'Ocurrió un error inesperado',
-  mostrarBotonReintentar = true,
-  onReintentar,
-  className = ''
-}) => (
-  <div className={`text-center py-8 ${className}`}>
-    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-      <AlertTriangle className="w-6 h-6 text-red-600" />
-    </div>
-    <h3 className="text-lg font-semibold text-gray-900 mb-2">{titulo}</h3>
-    <p className="text-gray-600 mb-4">{mensaje}</p>
-    {mostrarBotonReintentar && onReintentar && (
-      <button
-        onClick={onReintentar}
-        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <RefreshCw className="w-4 h-4 mr-2" />
-        Reintentar
-      </button>
-    )}
-  </div>
-);
 
 export default ErrorBoundary;

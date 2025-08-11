@@ -1,387 +1,640 @@
 /**
  * Componente de Carga - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Componentes para mostrar estados de carga
+ * Estados de carga globales y específicos
  */
 
-import React from 'react';
-import { Loader2, FileText, Zap, Clock } from 'lucide-react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Loader, CheckCircle, AlertCircle, X, FileText, Users, Package, Calculator } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { Card, CardContent } from '../ui/card';
+import { Button } from '../ui/button';
+import { Progress } from '../ui/progress';
+import { Badge } from '../ui/badge';
 
 // =======================================================
-// INTERFACES
+// TIPOS E INTERFACES
 // =======================================================
 
-interface PropiedadesComponenteCarga {
-  mensaje?: string;
-  tamaño?: 'pequeño' | 'mediano' | 'grande';
-  tipo?: 'spinner' | 'dots' | 'pulse' | 'skeleton';
-  mostrarMensaje?: boolean;
-  className?: string;
-  centrado?: boolean;
-}
+export type TipoCarga = 
+  | 'pagina' 
+  | 'modal' 
+  | 'overlay' 
+  | 'inline' 
+  | 'skeleton'
+  | 'determinate'
+  | 'indeterminate';
 
-interface PropiedadesCargaInline {
-  texto?: string;
-  tamaño?: 'xs' | 'sm' | 'md' | 'lg';
-  className?: string;
-}
+export type EstadoCarga = 
+  | 'cargando' 
+  | 'completado' 
+  | 'error' 
+  | 'cancelado';
 
-interface PropiedadesCargaPagina {
+export interface ConfiguracionCarga {
+  id: string;
+  tipo: TipoCarga;
   titulo?: string;
   mensaje?: string;
   progreso?: number;
+  indeterminado?: boolean;
+  cancelable?: boolean;
+  duracionMinima?: number;
+  onCancelar?: () => void;
+  icono?: React.ReactNode;
+  color?: 'default' | 'primary' | 'success' | 'warning' | 'error';
+  posicion?: 'center' | 'top' | 'bottom';
+  transparente?: boolean;
   mostrarProgreso?: boolean;
+  etapas?: EtapaCarga[];
+  etapaActual?: number;
 }
 
-interface PropiedadesSkeleton {
-  filas?: number;
-  altura?: string;
-  ancho?: string;
-  mostrarAvatar?: boolean;
-  className?: string;
+export interface EtapaCarga {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  icono?: React.ReactNode;
+  duracionEstimada?: number;
+}
+
+export interface EstadoGlobalCarga {
+  cargas: Record<string, ConfiguracionCarga & { estado: EstadoCarga; timestampInicio: number }>;
+  cargaGeneral: boolean;
 }
 
 // =======================================================
-// COMPONENTE PRINCIPAL DE CARGA
+// CONFIGURACIONES PREDEFINIDAS
 // =======================================================
 
-const ComponenteCarga: React.FC<PropiedadesComponenteCarga> = ({
-  mensaje = 'Cargando...',
-  tamaño = 'mediano',
-  tipo = 'spinner',
-  mostrarMensaje = true,
-  className,
-  centrado = true
-}) => {
-  const tamañosSpinner = {
-    pequeño: 'w-4 h-4',
-    mediano: 'w-8 h-8',
-    grande: 'w-12 h-12'
-  };
+const ETAPAS_FACTURACION: EtapaCarga[] = [
+  {
+    id: 'validacion',
+    nombre: 'Validando datos',
+    descripcion: 'Verificando información de la factura',
+    icono: <CheckCircle className="h-4 w-4" />
+  },
+  {
+    id: 'calculo',
+    nombre: 'Calculando totales',
+    descripcion: 'Procesando impuestos y descuentos',
+    icono: <Calculator className="h-4 w-4" />
+  },
+  {
+    id: 'generacion',
+    nombre: 'Generando documento',
+    descripcion: 'Creando archivo XML para SUNAT',
+    icono: <FileText className="h-4 w-4" />
+  },
+  {
+    id: 'envio',
+    nombre: 'Enviando a SUNAT',
+    descripcion: 'Transmitiendo documento electrónico',
+    icono: <Users className="h-4 w-4" />
+  },
+  {
+    id: 'confirmacion',
+    nombre: 'Confirmando recepción',
+    descripcion: 'Esperando respuesta de SUNAT',
+    icono: <CheckCircle className="h-4 w-4" />
+  }
+];
 
-  const tamañosTexto = {
-    pequeño: 'text-sm',
-    mediano: 'text-base',
-    grande: 'text-lg'
-  };
+const ICONOS_CONTEXTO: Record<string, React.ReactNode> = {
+  factura: <FileText className="h-5 w-5" />,
+  cliente: <Users className="h-5 w-5" />,
+  producto: <Package className="h-5 w-5" />,
+  reporte: <Calculator className="h-5 w-5" />,
+  default: <Loader className="h-5 w-5 animate-spin" />
+};
 
-  const renderSpinner = () => (
-    <Loader2 className={cn(
-      'animate-spin text-blue-600',
-      tamañosSpinner[tamaño]
-    )} />
-  );
-
-  const renderDots = () => (
-    <div className="flex space-x-1">
-      {[0, 1, 2].map((index) => (
-        <div
-          key={index}
-          className={cn(
-            'bg-blue-600 rounded-full animate-pulse',
-            tamaño === 'pequeño' ? 'w-2 h-2' : 
-            tamaño === 'mediano' ? 'w-3 h-3' : 'w-4 h-4'
-          )}
-          style={{
-            animationDelay: `${index * 0.2}s`,
-            animationDuration: '1s'
-          }}
-        />
-      ))}
-    </div>
-  );
-
-  const renderPulse = () => (
-    <div className={cn(
-      'bg-blue-600 rounded-full animate-pulse',
-      tamaño === 'pequeño' ? 'w-8 h-8' : 
-      tamaño === 'mediano' ? 'w-12 h-12' : 'w-16 h-16'
-    )} />
-  );
-
-  const renderSkeleton = () => (
-    <div className="animate-pulse space-y-3">
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gray-300 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-gray-300 rounded w-3/4" />
-          <div className="h-3 bg-gray-300 rounded w-1/2" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <div className="h-4 bg-gray-300 rounded" />
-        <div className="h-4 bg-gray-300 rounded w-5/6" />
-      </div>
-    </div>
-  );
-
-  const renderLoader = () => {
-    switch (tipo) {
-      case 'dots':
-        return renderDots();
-      case 'pulse':
-        return renderPulse();
-      case 'skeleton':
-        return renderSkeleton();
-      default:
-        return renderSpinner();
-    }
-  };
-
-  return (
-    <div className={cn(
-      'flex flex-col items-center justify-center space-y-3',
-      centrado && 'min-h-[200px]',
-      className
-    )}>
-      {renderLoader()}
-      {mostrarMensaje && tipo !== 'skeleton' && (
-        <p className={cn(
-          'text-gray-600 font-medium',
-          tamañosTexto[tamaño]
-        )}>
-          {mensaje}
-        </p>
-      )}
-    </div>
-  );
+const COLORES_ESTADO = {
+  default: 'text-blue-600',
+  primary: 'text-blue-600',
+  success: 'text-green-600',
+  warning: 'text-yellow-600',
+  error: 'text-red-600'
 };
 
 // =======================================================
-// COMPONENTE DE CARGA INLINE
+// CONTEXT
 // =======================================================
 
-export const CargaInline: React.FC<PropiedadesCargaInline> = ({
-  texto = 'Cargando',
-  tamaño = 'sm',
-  className
-}) => {
-  const tamañosClases = {
-    xs: { spinner: 'w-3 h-3', texto: 'text-xs' },
-    sm: { spinner: 'w-4 h-4', texto: 'text-sm' },
-    md: { spinner: 'w-5 h-5', texto: 'text-base' },
-    lg: { spinner: 'w-6 h-6', texto: 'text-lg' }
-  };
+interface ContextoCarga {
+  estado: EstadoGlobalCarga;
+  mostrarCarga: (config: Partial<ConfiguracionCarga>) => string;
+  actualizarCarga: (id: string, actualizacion: Partial<ConfiguracionCarga>) => void;
+  completarCarga: (id: string, exito?: boolean) => void;
+  cancelarCarga: (id: string) => void;
+  ocultarCarga: (id: string) => void;
+  limpiarCargas: () => void;
+  obtenerCarga: (id: string) => (ConfiguracionCarga & { estado: EstadoCarga }) | null;
+}
 
-  return (
-    <div className={cn('flex items-center space-x-2', className)}>
-      <Loader2 className={cn(
-        'animate-spin text-blue-600',
-        tamañosClases[tamaño].spinner
-      )} />
-      <span className={cn(
-        'text-gray-600',
-        tamañosClases[tamaño].texto
-      )}>
-        {texto}
-      </span>
-    </div>
-  );
+const ContextoCarga = createContext<ContextoCarga | undefined>(undefined);
+
+// =======================================================
+// HOOK PERSONALIZADO
+// =======================================================
+
+export const useCarga = () => {
+  const contexto = useContext(ContextoCarga);
+  if (!contexto) {
+    throw new Error('useCarga debe ser usado dentro de CargaProvider');
+  }
+  return contexto;
 };
 
 // =======================================================
-// COMPONENTE DE CARGA DE PÁGINA COMPLETA
+// COMPONENTES DE CARGA ESPECÍFICOS
 // =======================================================
 
-export const CargaPagina: React.FC<PropiedadesCargaPagina> = ({
-  titulo = 'FELICITAFAC',
-  mensaje = 'Cargando aplicación...',
-  progreso,
-  mostrarProgreso = false
-}) => {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center max-w-md w-full px-4">
-        {/* Logo */}
-        <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-6">
-          <FileText className="h-8 w-8 text-white" />
+const CargaPagina: React.FC<{ config: ConfiguracionCarga }> = ({ config }) => (
+  <div className={cn(
+    "fixed inset-0 z-50 flex items-center justify-center",
+    config.transparente ? "bg-white/70" : "bg-white",
+    "backdrop-blur-sm"
+  )}>
+    <Card className="w-full max-w-md mx-4 shadow-lg">
+      <CardContent className="p-6 text-center space-y-4">
+        <div className={cn("flex justify-center", COLORES_ESTADO[config.color || 'default'])}>
+          {config.icono || ICONOS_CONTEXTO.default}
         </div>
-
-        {/* Título */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{titulo}</h1>
         
-        {/* Mensaje */}
-        <p className="text-gray-600 mb-8">{mensaje}</p>
-
-        {/* Spinner */}
-        <div className="flex justify-center mb-6">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-
-        {/* Barra de progreso */}
-        {mostrarProgreso && typeof progreso === 'number' && (
+        {config.titulo && (
+          <h3 className="text-lg font-semibold text-gray-900">
+            {config.titulo}
+          </h3>
+        )}
+        
+        {config.mensaje && (
+          <p className="text-sm text-gray-600">
+            {config.mensaje}
+          </p>
+        )}
+        
+        {config.mostrarProgreso && config.progreso !== undefined && (
           <div className="space-y-2">
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(100, Math.max(0, progreso))}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-500">{Math.round(progreso)}%</p>
+            <Progress value={config.progreso} className="w-full" />
+            <span className="text-xs text-gray-500">{config.progreso}%</span>
           </div>
         )}
-
-        {/* Información adicional */}
-        <div className="mt-8 text-xs text-gray-400">
-          <p>Sistema de Facturación Electrónica para Perú</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =======================================================
-// COMPONENTE SKELETON
-// =======================================================
-
-export const Skeleton: React.FC<PropiedadesSkeleton> = ({
-  filas = 3,
-  altura = 'h-4',
-  ancho = 'w-full',
-  mostrarAvatar = false,
-  className
-}) => {
-  return (
-    <div className={cn('animate-pulse', className)}>
-      {mostrarAvatar && (
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-gray-300 rounded-full" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 bg-gray-300 rounded w-1/4" />
-            <div className="h-3 bg-gray-300 rounded w-1/6" />
-          </div>
-        </div>
-      )}
-      
-      <div className="space-y-3">
-        {Array.from({ length: filas }).map((_, index) => (
-          <div
-            key={index}
-            className={cn(
-              'bg-gray-300 rounded',
-              altura,
-              index === filas - 1 ? 'w-5/6' : ancho
-            )}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// =======================================================
-// COMPONENTE DE CARGA PARA TABLAS
-// =======================================================
-
-export const CargaTabla: React.FC<{
-  columnas: number;
-  filas?: number;
-  mostrarHeader?: boolean;
-}> = ({
-  columnas,
-  filas = 5,
-  mostrarHeader = true
-}) => {
-  return (
-    <div className="animate-pulse">
-      {/* Header de tabla */}
-      {mostrarHeader && (
-        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: `repeat(${columnas}, 1fr)` }}>
-          {Array.from({ length: columnas }).map((_, index) => (
-            <div key={index} className="h-4 bg-gray-300 rounded" />
-          ))}
-        </div>
-      )}
-      
-      {/* Filas de tabla */}
-      <div className="space-y-3">
-        {Array.from({ length: filas }).map((_, filaIndex) => (
-          <div key={filaIndex} className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columnas}, 1fr)` }}>
-            {Array.from({ length: columnas }).map((_, colIndex) => (
-              <div key={colIndex} className="h-4 bg-gray-300 rounded" />
+        
+        {config.etapas && config.etapaActual !== undefined && (
+          <div className="space-y-2">
+            {config.etapas.map((etapa, index) => (
+              <div 
+                key={etapa.id}
+                className={cn(
+                  "flex items-center space-x-3 p-2 rounded",
+                  index === config.etapaActual ? "bg-blue-50 text-blue-700" : "text-gray-500",
+                  index < (config.etapaActual || 0) && "text-green-600"
+                )}
+              >
+                <div className="flex-shrink-0">
+                  {index < (config.etapaActual || 0) ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : index === config.etapaActual ? (
+                    <Loader className="h-4 w-4 animate-spin" />
+                  ) : (
+                    etapa.icono || <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                  )}
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium">{etapa.nombre}</div>
+                  {etapa.descripcion && (
+                    <div className="text-xs opacity-75">{etapa.descripcion}</div>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
-        ))}
+        )}
+        
+        {config.cancelable && config.onCancelar && (
+          <Button
+            variant="outline"
+            onClick={config.onCancelar}
+            className="mt-4"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancelar
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+);
+
+const CargaModal: React.FC<{ config: ConfiguracionCarga; onCerrar: () => void }> = ({ config, onCerrar }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <Card className="w-full max-w-sm mx-4 shadow-xl">
+      <CardContent className="p-6 text-center space-y-4">
+        <div className="flex justify-between items-start">
+          <div className={cn("flex-shrink-0", COLORES_ESTADO[config.color || 'default'])}>
+            {config.icono || ICONOS_CONTEXTO.default}
+          </div>
+          <button
+            onClick={onCerrar}
+            className="text-gray-400 hover:text-gray-600 p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        
+        {config.titulo && (
+          <h3 className="text-base font-semibold text-gray-900">
+            {config.titulo}
+          </h3>
+        )}
+        
+        {config.mensaje && (
+          <p className="text-sm text-gray-600">
+            {config.mensaje}
+          </p>
+        )}
+        
+        {config.mostrarProgreso && config.progreso !== undefined && (
+          <div className="space-y-2">
+            <Progress value={config.progreso} className="w-full" />
+            <span className="text-xs text-gray-500">{config.progreso}%</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+);
+
+const CargaOverlay: React.FC<{ config: ConfiguracionCarga }> = ({ config }) => (
+  <div className={cn(
+    "absolute inset-0 z-10 flex items-center justify-center",
+    config.transparente ? "bg-white/80" : "bg-white/95",
+    "backdrop-blur-sm"
+  )}>
+    <div className="text-center space-y-3">
+      <div className={cn("flex justify-center", COLORES_ESTADO[config.color || 'default'])}>
+        {config.icono || ICONOS_CONTEXTO.default}
+      </div>
+      
+      {config.titulo && (
+        <h4 className="text-sm font-medium text-gray-900">
+          {config.titulo}
+        </h4>
+      )}
+      
+      {config.mensaje && (
+        <p className="text-xs text-gray-600">
+          {config.mensaje}
+        </p>
+      )}
+      
+      {config.mostrarProgreso && config.progreso !== undefined && (
+        <div className="w-32 mx-auto space-y-1">
+          <Progress value={config.progreso} className="w-full h-1" />
+          <span className="text-xs text-gray-500">{config.progreso}%</span>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const CargaInline: React.FC<{ config: ConfiguracionCarga }> = ({ config }) => (
+  <div className="flex items-center space-x-3 p-2">
+    <div className={cn("flex-shrink-0", COLORES_ESTADO[config.color || 'default'])}>
+      {config.icono || <Loader className="h-4 w-4 animate-spin" />}
+    </div>
+    
+    <div className="flex-1 min-w-0">
+      {config.titulo && (
+        <div className="text-sm font-medium text-gray-900 truncate">
+          {config.titulo}
+        </div>
+      )}
+      
+      {config.mensaje && (
+        <div className="text-xs text-gray-600 truncate">
+          {config.mensaje}
+        </div>
+      )}
+      
+      {config.mostrarProgreso && config.progreso !== undefined && (
+        <div className="mt-1 space-y-1">
+          <Progress value={config.progreso} className="w-full h-1" />
+          <span className="text-xs text-gray-500">{config.progreso}%</span>
+        </div>
+      )}
+    </div>
+    
+    {config.cancelable && config.onCancelar && (
+      <button
+        onClick={config.onCancelar}
+        className="text-gray-400 hover:text-gray-600 p-1"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    )}
+  </div>
+);
+
+const CargaSkeleton: React.FC<{ config: ConfiguracionCarga }> = ({ config }) => (
+  <div className="space-y-3 animate-pulse">
+    <div className="flex items-center space-x-3">
+      <div className="h-8 w-8 bg-gray-200 rounded"></div>
+      <div className="flex-1 space-y-2">
+        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
       </div>
     </div>
+    <div className="space-y-2">
+      <div className="h-3 bg-gray-200 rounded"></div>
+      <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/6"></div>
+    </div>
+  </div>
+);
+
+// =======================================================
+// RENDERIZADOR DE CARGAS
+// =======================================================
+
+const RenderizadorCargas: React.FC<{
+  cargas: Record<string, ConfiguracionCarga & { estado: EstadoCarga; timestampInicio: number }>;
+  onOcultar: (id: string) => void;
+}> = ({ cargas, onOcultar }) => {
+  const cargasArray = Object.entries(cargas);
+  
+  if (cargasArray.length === 0) return null;
+
+  return (
+    <>
+      {cargasArray.map(([id, carga]) => {
+        if (carga.estado !== 'cargando') return null;
+
+        const props = {
+          key: id,
+          config: carga
+        };
+
+        switch (carga.tipo) {
+          case 'pagina':
+            return createPortal(<CargaPagina {...props} />, document.body);
+          
+          case 'modal':
+            return createPortal(
+              <CargaModal {...props} onCerrar={() => onOcultar(id)} />, 
+              document.body
+            );
+          
+          case 'overlay':
+            return <CargaOverlay {...props} />;
+          
+          case 'inline':
+            return <CargaInline {...props} />;
+          
+          case 'skeleton':
+            return <CargaSkeleton {...props} />;
+          
+          default:
+            return <CargaInline {...props} />;
+        }
+      })}
+    </>
   );
 };
 
 // =======================================================
-// COMPONENTE DE CARGA PARA BOTONES
+// PROVIDER
 // =======================================================
 
-export const CargaBoton: React.FC<{
-  texto?: string;
-  tamaño?: 'sm' | 'md' | 'lg';
-}> = ({
-  texto = 'Cargando...',
-  tamaño = 'md'
-}) => {
-  const tamañosSpinner = {
-    sm: 'w-3 h-3',
-    md: 'w-4 h-4',
-    lg: 'w-5 h-5'
+export const CargaProvider: React.FC<{
+  children: React.ReactNode;
+  duracionMinimaDefecto?: number;
+}> = ({ children, duracionMinimaDefecto = 500 }) => {
+  const [estado, setEstado] = useState<EstadoGlobalCarga>({
+    cargas: {},
+    cargaGeneral: false
+  });
+
+  const generarId = useCallback(() => `carga_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, []);
+
+  const mostrarCarga = useCallback((config: Partial<ConfiguracionCarga>): string => {
+    const id = config.id || generarId();
+    const configCompleta: ConfiguracionCarga = {
+      tipo: 'inline',
+      indeterminado: true,
+      cancelable: false,
+      duracionMinima: duracionMinimaDefecto,
+      color: 'default',
+      mostrarProgreso: false,
+      ...config,
+      id
+    };
+
+    setEstado(prev => ({
+      ...prev,
+      cargas: {
+        ...prev.cargas,
+        [id]: {
+          ...configCompleta,
+          estado: 'cargando',
+          timestampInicio: Date.now()
+        }
+      },
+      cargaGeneral: true
+    }));
+
+    return id;
+  }, [generarId, duracionMinimaDefecto]);
+
+  const actualizarCarga = useCallback((id: string, actualizacion: Partial<ConfiguracionCarga>) => {
+    setEstado(prev => {
+      const cargaExistente = prev.cargas[id];
+      if (!cargaExistente) return prev;
+
+      return {
+        ...prev,
+        cargas: {
+          ...prev.cargas,
+          [id]: {
+            ...cargaExistente,
+            ...actualizacion
+          }
+        }
+      };
+    });
+  }, []);
+
+  const completarCarga = useCallback((id: string, exito: boolean = true) => {
+    setEstado(prev => {
+      const cargaExistente = prev.cargas[id];
+      if (!cargaExistente) return prev;
+
+      const tiempoTranscurrido = Date.now() - cargaExistente.timestampInicio;
+      const esperarTiempo = Math.max(0, (cargaExistente.duracionMinima || 0) - tiempoTranscurrido);
+
+      setTimeout(() => {
+        setEstado(prevInner => {
+          const { [id]: cargaEliminada, ...restanteCargas } = prevInner.cargas;
+          return {
+            ...prevInner,
+            cargas: restanteCargas,
+            cargaGeneral: Object.keys(restanteCargas).length > 0
+          };
+        });
+      }, esperarTiempo);
+
+      return {
+        ...prev,
+        cargas: {
+          ...prev.cargas,
+          [id]: {
+            ...cargaExistente,
+            estado: exito ? 'completado' : 'error'
+          }
+        }
+      };
+    });
+  }, []);
+
+  const cancelarCarga = useCallback((id: string) => {
+    setEstado(prev => {
+      const cargaExistente = prev.cargas[id];
+      if (!cargaExistente) return prev;
+
+      if (cargaExistente.onCancelar) {
+        cargaExistente.onCancelar();
+      }
+
+      const { [id]: cargaEliminada, ...restanteCargas } = prev.cargas;
+      
+      return {
+        ...prev,
+        cargas: restanteCargas,
+        cargaGeneral: Object.keys(restanteCargas).length > 0
+      };
+    });
+  }, []);
+
+  const ocultarCarga = useCallback((id: string) => {
+    setEstado(prev => {
+      const { [id]: cargaEliminada, ...restanteCargas } = prev.cargas;
+      
+      return {
+        ...prev,
+        cargas: restanteCargas,
+        cargaGeneral: Object.keys(restanteCargas).length > 0
+      };
+    });
+  }, []);
+
+  const limpiarCargas = useCallback(() => {
+    setEstado({
+      cargas: {},
+      cargaGeneral: false
+    });
+  }, []);
+
+  const obtenerCarga = useCallback((id: string) => {
+    return estado.cargas[id] || null;
+  }, [estado.cargas]);
+
+  const valor: ContextoCarga = {
+    estado,
+    mostrarCarga,
+    actualizarCarga,
+    completarCarga,
+    cancelarCarga,
+    ocultarCarga,
+    limpiarCargas,
+    obtenerCarga
   };
 
   return (
-    <div className="flex items-center space-x-2">
-      <Loader2 className={cn('animate-spin', tamañosSpinner[tamaño])} />
-      <span>{texto}</span>
-    </div>
+    <ContextoCarga.Provider value={valor}>
+      {children}
+      <RenderizadorCargas
+        cargas={estado.cargas}
+        onOcultar={ocultarCarga}
+      />
+    </ContextoCarga.Provider>
   );
 };
 
 // =======================================================
-// COMPONENTE DE CARGA CON TEMPORIZADOR
+// HOOKS AUXILIARES
 // =======================================================
 
-export const CargaConTemporizador: React.FC<{
+export const useCargaFacturacion = () => {
+  const { mostrarCarga, actualizarCarga, completarCarga } = useCarga();
+
+  const iniciarFacturacion = useCallback(() => {
+    return mostrarCarga({
+      tipo: 'pagina',
+      titulo: 'Procesando Factura',
+      mensaje: 'Generando documento electrónico...',
+      etapas: ETAPAS_FACTURACION,
+      etapaActual: 0,
+      cancelable: false,
+      color: 'primary'
+    });
+  }, [mostrarCarga]);
+
+  const siguienteEtapa = useCallback((id: string, etapa: number) => {
+    actualizarCarga(id, { etapaActual: etapa });
+  }, [actualizarCarga]);
+
+  const finalizar = useCallback((id: string, exito: boolean = true) => {
+    if (exito) {
+      actualizarCarga(id, {
+        titulo: 'Factura Generada',
+        mensaje: 'Documento enviado exitosamente a SUNAT',
+        color: 'success',
+        etapaActual: ETAPAS_FACTURACION.length - 1
+      });
+    }
+    
+    setTimeout(() => completarCarga(id, exito), 1500);
+  }, [actualizarCarga, completarCarga]);
+
+  return { iniciarFacturacion, siguienteEtapa, finalizar };
+};
+
+// =======================================================
+// COMPONENTES AUXILIARES
+// =======================================================
+
+export const CargaCondicional: React.FC<{
+  cargando: boolean;
+  children: React.ReactNode;
+  tipo?: TipoCarga;
   mensaje?: string;
-  tiempoEstimado?: number; // en segundos
-}> = ({
-  mensaje = 'Procesando...',
-  tiempoEstimado = 10
-}) => {
-  const [tiempoTranscurrido, setTiempoTranscurrido] = React.useState(0);
+}> = ({ cargando, children, tipo = 'overlay', mensaje = 'Cargando...' }) => {
+  const { mostrarCarga, ocultarCarga } = useCarga();
+  const [idCarga, setIdCarga] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    const intervalo = setInterval(() => {
-      setTiempoTranscurrido(prev => prev + 1);
-    }, 1000);
+  useEffect(() => {
+    if (cargando && !idCarga) {
+      const id = mostrarCarga({
+        tipo,
+        mensaje
+      });
+      setIdCarga(id);
+    } else if (!cargando && idCarga) {
+      ocultarCarga(idCarga);
+      setIdCarga(null);
+    }
+  }, [cargando, idCarga, mostrarCarga, ocultarCarga, tipo, mensaje]);
 
-    return () => clearInterval(intervalo);
-  }, []);
+  if (tipo === 'skeleton' && cargando) {
+    return <CargaSkeleton config={{ id: 'skeleton', tipo: 'skeleton' }} />;
+  }
 
-  const progreso = Math.min(100, (tiempoTranscurrido / tiempoEstimado) * 100);
-
-  return (
-    <div className="text-center space-y-4">
-      <div className="flex justify-center">
-        <div className="relative">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Clock className="w-5 h-5 text-blue-800" />
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <p className="text-gray-700 font-medium">{mensaje}</p>
-        <p className="text-sm text-gray-500">
-          {tiempoTranscurrido}s / {tiempoEstimado}s estimados
-        </p>
-        
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
-            style={{ width: `${progreso}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
+  return <>{children}</>;
 };
 
-export default ComponenteCarga;
+// =======================================================
+// EXPORT DEFAULT
+// =======================================================
+
+export default CargaProvider;
