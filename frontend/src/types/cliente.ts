@@ -1,533 +1,479 @@
 /**
- * Types de Clientes - FELICITAFAC
+ * Types Cliente - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Tipos TypeScript para gestión de clientes con validaciones SUNAT
+ * Tipos específicos para gestión de clientes
  */
 
 // =======================================================
-// TIPOS BÁSICOS
+// TIPOS BÁSICOS DE CLIENTE
 // =======================================================
 
-export type TipoDocumentoIdentidad = '1' | '6'; // DNI o RUC
-export type EstadoCliente = 'activo' | 'inactivo';
-export type TipoPersona = 'natural' | 'juridica';
-export type TipoContribuyente = 'especial' | 'principal' | 'buen_contribuyente' | 'agente_retencion';
+export type TipoDocumentoCliente = '1' | '4' | '6' | '7' | 'A';
+export type TipoPersonaCliente = 'natural' | 'juridica';
+export type EstadoCliente = 'activo' | 'inactivo' | 'suspendido';
+export type OrigenCliente = 'manual' | 'api' | 'importacion' | 'web';
 
 // =======================================================
-// INTERFACES PRINCIPALES
+// INTERFACE PRINCIPAL DE CLIENTE
 // =======================================================
 
-/**
- * Cliente principal
- */
 export interface Cliente {
   id: number;
+  codigo: string;
   
   // Identificación
-  tipo_documento: TipoDocumentoIdentidad;
+  tipo_documento: TipoDocumentoCliente;
   numero_documento: string;
-  nombre_o_razon_social: string;
-  nombres?: string; // Solo para personas naturales
-  apellido_paterno?: string; // Solo para personas naturales
-  apellido_materno?: string; // Solo para personas naturales
+  tipo_persona: TipoPersonaCliente;
   
-  // Ubicación
-  direccion: string;
-  distrito: string;
-  provincia: string;
-  departamento: string;
-  ubigeo?: string;
+  // Datos personales (persona natural)
+  nombres?: string;
+  apellido_paterno?: string;
+  apellido_materno?: string;
   
-  // Contacto
-  telefono?: string;
-  celular?: string;
+  // Datos empresariales (persona jurídica)
+  razon_social?: string;
+  nombre_comercial?: string;
+  
+  // Datos de contacto
   email?: string;
-  pagina_web?: string;
+  telefono?: string;
+  telefono_alternativo?: string;
+  sitio_web?: string;
+  
+  // Dirección
+  direccion: string;
+  referencia_direccion?: string;
+  ubigeo?: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
+  codigo_postal?: string;
   
   // Datos comerciales
-  tipo_persona: TipoPersona;
-  tipo_contribuyente?: TipoContribuyente;
-  estado_contribuyente?: string; // Activo, Suspendido, etc.
-  condicion_domicilio?: string; // Habido, No habido, etc.
-  
-  // Estado
-  estado: EstadoCliente;
-  fecha_registro: string;
-  
-  // Información adicional
-  observaciones?: string;
+  condiciones_pago?: string;
   limite_credito?: number;
   dias_credito?: number;
-  descuento_por_defecto?: number;
+  descuento_permitido?: number;
+  precio_especial?: boolean;
+  exonerado_igv?: boolean;
   
-  // Validaciones SUNAT
-  validado_sunat: boolean;
-  fecha_ultima_validacion?: string;
-  datos_sunat?: DatosSunat;
+  // Datos adicionales
+  fecha_nacimiento?: string;
+  profesion?: string;
+  estado_civil?: string;
+  observaciones?: string;
+  
+  // Control
+  estado: EstadoCliente;
+  origen: OrigenCliente;
+  favorito: boolean;
+  
+  // Estadísticas
+  total_documentos?: number;
+  total_facturado?: number;
+  ultima_compra?: string;
+  promedio_compra?: number;
   
   // Metadatos
-  created_at: string;
-  updated_at: string;
-  usuario_creador?: number;
-}
-
-/**
- * Datos obtenidos de SUNAT
- */
-export interface DatosSunat {
-  razon_social: string;
-  estado_contribuyente: string;
-  condicion_domicilio: string;
-  ubigeo: string;
-  tipo_via?: string;
-  nombre_via?: string;
-  codigo_zona?: string;
-  tipo_zona?: string;
-  numero?: string;
-  interior?: string;
-  lote?: string;
-  departamento_sunat?: string;
-  manzana?: string;
-  kilometro?: string;
-  distrito: string;
-  provincia: string;
-  departamento: string;
-  es_agente_retencion: boolean;
-  es_buen_contribuyente: boolean;
-  fecha_inscripcion?: string;
-  fecha_inicio_actividades?: string;
-  actividades_economicas?: ActividadEconomica[];
-  comprobantes_emision?: ComprobanteEmision[];
-  sistema_emision?: SistemaEmision[];
-  afiliado_ple?: boolean;
-  sistema_contabilidad?: string[];
-}
-
-/**
- * Actividad económica
- */
-export interface ActividadEconomica {
-  codigo: string;
-  descripcion: string;
-  principal: boolean;
-  estado: string;
-  fecha_desde?: string;
-  fecha_hasta?: string;
-}
-
-/**
- * Comprobante de emisión
- */
-export interface ComprobanteEmision {
-  codigo: string;
-  descripcion: string;
-  desde?: number;
-  hasta?: number;
-  fecha_autorizacion?: string;
-}
-
-/**
- * Sistema de emisión
- */
-export interface SistemaEmision {
-  codigo: string;
-  descripcion: string;
-  desde?: number;
-  hasta?: number;
-  fecha_autorizacion?: string;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  usuario_creacion: number;
+  activo: boolean;
 }
 
 // =======================================================
-// REQUESTS PARA APIs
+// INTERFACES PARA FORMULARIOS
 // =======================================================
 
-/**
- * Request para crear cliente
- */
-export interface CrearClienteRequest {
-  tipo_documento: TipoDocumentoIdentidad;
+export interface FormularioCliente {
+  // Datos básicos
+  tipo_documento: TipoDocumentoCliente;
   numero_documento: string;
-  nombre_o_razon_social: string;
+  
+  // Nombres según tipo de persona
   nombres?: string;
   apellido_paterno?: string;
   apellido_materno?: string;
+  razon_social?: string;
+  nombre_comercial?: string;
+  
+  // Contacto
+  email?: string;
+  telefono?: string;
+  telefono_alternativo?: string;
+  sitio_web?: string;
+  
+  // Dirección
   direccion: string;
-  distrito: string;
-  provincia: string;
-  departamento: string;
-  ubigeo?: string;
-  telefono?: string;
-  celular?: string;
-  email?: string;
-  pagina_web?: string;
-  tipo_persona: TipoPersona;
-  observaciones?: string;
-  limite_credito?: number;
-  dias_credito?: number;
-  descuento_por_defecto?: number;
-  validar_con_sunat?: boolean;
-}
-
-/**
- * Request para actualizar cliente
- */
-export interface ActualizarClienteRequest {
-  nombre_o_razon_social?: string;
-  nombres?: string;
-  apellido_paterno?: string;
-  apellido_materno?: string;
-  direccion?: string;
-  distrito?: string;
-  provincia?: string;
+  referencia_direccion?: string;
   departamento?: string;
-  ubigeo?: string;
-  telefono?: string;
-  celular?: string;
-  email?: string;
-  pagina_web?: string;
-  observaciones?: string;
+  provincia?: string;
+  distrito?: string;
+  codigo_postal?: string;
+  
+  // Configuración comercial
+  condiciones_pago?: string;
   limite_credito?: number;
   dias_credito?: number;
-  descuento_por_defecto?: number;
-  estado?: EstadoCliente;
+  descuento_permitido?: number;
+  precio_especial?: boolean;
+  exonerado_igv?: boolean;
+  
+  // Otros
+  fecha_nacimiento?: string;
+  profesion?: string;
+  estado_civil?: string;
+  observaciones?: string;
 }
 
-// =======================================================
-// RESPONSES DE APIs
-// =======================================================
-
-/**
- * Response paginado de clientes
- */
-export interface ClientesPaginados {
-  count: number;
-  next?: string;
-  previous?: string;
-  results: Cliente[];
-}
-
-/**
- * Response de búsqueda de cliente
- */
-export interface BuscarClienteResponse {
-  cliente_encontrado: boolean;
-  cliente?: Cliente;
-  sugerencias?: Cliente[];
-}
-
-/**
- * Response de validación de documento
- */
-export interface ValidarDocumentoResponse {
-  valido: boolean;
-  tipo_documento: TipoDocumentoIdentidad;
-  numero_documento: string;
-  datos_sunat?: DatosSunat;
-  errores?: string[];
-  cliente_existente?: Cliente;
-}
-
-/**
- * Response de consulta SUNAT
- */
-export interface ConsultaSunatResponse {
-  exito: boolean;
-  datos?: DatosSunat;
-  mensaje: string;
-  fecha_consulta: string;
-}
-
-// =======================================================
-// TIPOS PARA SELECCIÓN Y BÚSQUEDA
-// =======================================================
-
-/**
- * Cliente resumido para selección en POS
- */
-export interface ClienteResumen {
-  id: number;
-  tipo_documento: TipoDocumentoIdentidad;
+export interface FormularioClienteRapido {
+  tipo_documento: TipoDocumentoCliente;
   numero_documento: string;
   nombre_o_razon_social: string;
   direccion: string;
-  email?: string;
   telefono?: string;
-  limite_credito?: number;
-  dias_credito?: number;
-}
-
-/**
- * Datos mínimos de cliente para facturación
- */
-export interface ClienteFacturacion {
-  id: number;
-  tipo_documento: TipoDocumentoIdentidad;
-  numero_documento: string;
-  nombre_o_razon_social: string;
-  direccion: string;
-  distrito?: string;
-  provincia?: string;
-  departamento?: string;
   email?: string;
 }
 
 // =======================================================
-// FILTROS Y BÚSQUEDAS
+// INTERFACES DE CONSULTA Y FILTROS
 // =======================================================
 
-/**
- * Filtros para listar clientes
- */
-export interface FiltrosClientes {
+export interface FiltrosCliente {
   busqueda?: string;
-  tipo_documento?: TipoDocumentoIdentidad;
-  tipo_persona?: TipoPersona;
+  tipo_documento?: TipoDocumentoCliente;
+  tipo_persona?: TipoPersonaCliente;
   estado?: EstadoCliente;
   departamento?: string;
   provincia?: string;
   distrito?: string;
-  validado_sunat?: boolean;
-  con_limite_credito?: boolean;
-  fecha_desde?: string;
-  fecha_hasta?: string;
+  favorito?: boolean;
+  con_deuda?: boolean;
+  sin_actividad_dias?: number;
+  fecha_creacion_desde?: string;
+  fecha_creacion_hasta?: string;
+}
+
+export interface ParametrosBusquedaCliente {
+  termino?: string;
+  filtros?: FiltrosCliente;
+  orden_por?: 'nombre' | 'documento' | 'fecha_creacion' | 'ultima_compra' | 'total_facturado';
+  direccion_orden?: 'asc' | 'desc';
   pagina?: number;
-  limite?: number;
-  ordenar_por?: 'nombre_o_razon_social' | 'numero_documento' | 'fecha_registro' | 'limite_credito';
-  orden?: 'asc' | 'desc';
-}
-
-/**
- * Opciones de búsqueda para autocompletado
- */
-export interface OpcionesBusquedaCliente {
-  incluir_inactivos?: boolean;
-  limite_resultados?: number;
-  buscar_en_campos?: Array<'numero_documento' | 'nombre_o_razon_social' | 'telefono' | 'email'>;
+  tamaño_pagina?: number;
 }
 
 // =======================================================
-// VALIDACIONES
+// INTERFACES DE RESPUESTA
 // =======================================================
 
-/**
- * Reglas de validación para documentos
- */
-export interface ReglasValidacionDocumento {
-  tipo_documento: TipoDocumentoIdentidad;
-  longitud_exacta: number;
-  solo_numeros: boolean;
-  algoritmo_validacion?: 'mod11' | 'ruc' | 'ninguno';
+export interface ResumenCliente {
+  id: number;
+  codigo: string;
+  tipo_documento: TipoDocumentoCliente;
+  numero_documento: string;
+  nombre_completo: string;
+  email?: string;
+  telefono?: string;
+  direccion: string;
+  estado: EstadoCliente;
+  total_facturado: number;
+  ultima_compra?: string;
+  favorito: boolean;
 }
 
-/**
- * Resultado de validación de campos
- */
-export interface ResultadoValidacionCampo {
-  campo: string;
+export interface ListaClientesResponse {
+  resultados: ResumenCliente[];
+  total: number;
+  pagina: number;
+  total_paginas: number;
+  tamaño_pagina: number;
+}
+
+export interface DetalleClienteResponse {
+  cliente: Cliente;
+  estadisticas: EstadisticasCliente;
+  documentos_recientes: DocumentoClienteResumen[];
+  cuenta_corriente: CuentaCorrienteResumen[];
+}
+
+// =======================================================
+// INTERFACES DE ESTADÍSTICAS
+// =======================================================
+
+export interface EstadisticasCliente {
+  // Totales generales
+  total_documentos: number;
+  total_facturado: number;
+  promedio_compra: number;
+  
+  // Por tipo de documento
+  total_facturas: number;
+  total_boletas: number;
+  total_notas_credito: number;
+  total_notas_debito: number;
+  
+  // Temporales
+  facturado_mes_actual: number;
+  facturado_mes_anterior: number;
+  documentos_mes_actual: number;
+  documentos_mes_anterior: number;
+  
+  // Fechas importantes
+  primera_compra?: string;
+  ultima_compra?: string;
+  dias_sin_actividad: number;
+  
+  // Estado financiero
+  saldo_pendiente: number;
+  credito_disponible: number;
+  documentos_vencidos: number;
+  dias_promedio_pago: number;
+}
+
+export interface DocumentoClienteResumen {
+  id: number;
+  tipo_documento: string;
+  numero_documento: string;
+  fecha_emision: string;
+  fecha_vencimiento?: string;
+  estado: string;
+  moneda: string;
+  total: number;
+  saldo_pendiente: number;
+}
+
+export interface CuentaCorrienteResumen {
+  id: number;
+  fecha: string;
+  tipo_movimiento: 'cargo' | 'abono';
+  documento_referencia: string;
+  descripcion: string;
+  debe: number;
+  haber: number;
+  saldo: number;
+}
+
+// =======================================================
+// INTERFACES PARA VALIDACIÓN
+// =======================================================
+
+export interface ValidacionCliente {
+  numero_documento: {
+    valido: boolean;
+    mensaje?: string;
+    tipo_detectado?: TipoDocumentoCliente;
+  };
+  email: {
+    valido: boolean;
+    mensaje?: string;
+  };
+  telefono: {
+    valido: boolean;
+    mensaje?: string;
+  };
+  direccion: {
+    valido: boolean;
+    mensaje?: string;
+  };
+  datos_comerciales: {
+    valido: boolean;
+    mensajes?: string[];
+  };
+}
+
+export interface ErroresFormularioCliente {
+  tipo_documento?: string;
+  numero_documento?: string;
+  nombres?: string;
+  apellido_paterno?: string;
+  apellido_materno?: string;
+  razon_social?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  limite_credito?: string;
+  dias_credito?: string;
+  descuento_permitido?: string;
+  general?: string;
+}
+
+// =======================================================
+// INTERFACES DE ACCIONES
+// =======================================================
+
+export interface AccionCliente {
+  tipo: 'crear' | 'editar' | 'eliminar' | 'activar' | 'suspender' | 'marcar_favorito';
+  cliente_id?: number;
+  datos?: Partial<FormularioCliente>;
+  motivo?: string;
+}
+
+export interface ResultadoAccionCliente {
+  exito: boolean;
+  mensaje: string;
+  cliente?: Cliente;
+  errores?: ErroresFormularioCliente;
+}
+
+// =======================================================
+// INTERFACES DE CONFIGURACIÓN
+// =======================================================
+
+export interface ConfiguracionClientes {
+  requiere_email: boolean;
+  requiere_telefono: boolean;
+  requiere_direccion_completa: boolean;
+  validar_documento_sunat: boolean;
+  limite_credito_default: number;
+  dias_credito_default: number;
+  descuento_maximo_permitido: number;
+  codigo_auto_generar: boolean;
+  prefijo_codigo: string;
+  longitud_codigo: number;
+}
+
+// =======================================================
+// INTERFACES DE IMPORTACIÓN/EXPORTACIÓN
+// =======================================================
+
+export interface ClienteImportacion {
+  fila: number;
+  tipo_documento: string;
+  numero_documento: string;
+  nombre_completo: string;
+  email?: string;
+  telefono?: string;
+  direccion: string;
   valido: boolean;
   errores: string[];
-  warnings: string[];
 }
 
-/**
- * Validación completa de cliente
- */
-export interface ValidacionCliente {
-  valido: boolean;
-  errores: ResultadoValidacionCampo[];
-  warnings: ResultadoValidacionCampo[];
-  puede_guardar: boolean;
-  requiere_confirmacion: boolean;
+export interface ResultadoImportacionClientes {
+  total_procesados: number;
+  total_importados: number;
+  total_errores: number;
+  clientes_importados: Cliente[];
+  errores: ClienteImportacion[];
+}
+
+export interface OpcionesExportacionClientes {
+  formato: 'excel' | 'csv' | 'pdf';
+  filtros?: FiltrosCliente;
+  campos?: string[];
+  incluir_estadisticas?: boolean;
+  incluir_cuenta_corriente?: boolean;
 }
 
 // =======================================================
-// ESTADÍSTICAS Y REPORTES
+// INTERFACES DE COMUNICACIÓN
 // =======================================================
 
-/**
- * Estadísticas de cliente
- */
-export interface EstadisticasCliente {
+export interface TemplateEmailCliente {
+  id: number;
+  nombre: string;
+  asunto: string;
+  contenido: string;
+  variables_disponibles: string[];
+  activo: boolean;
+}
+
+export interface EnvioEmailCliente {
   cliente_id: number;
-  total_facturas: number;
-  total_compras: number;
-  promedio_compra: number;
-  ultima_compra?: string;
-  primera_compra?: string;
-  facturas_vencidas: number;
-  monto_por_cobrar: number;
-  productos_mas_comprados: Array<{
-    producto: string;
-    cantidad: number;
-    monto: number;
-  }>;
-  historial_pagos: Array<{
-    fecha: string;
-    monto: number;
-    factura: string;
-  }>;
+  template_id?: number;
+  asunto: string;
+  contenido: string;
+  adjuntos?: string[];
+  programado?: string;
 }
 
-/**
- * Resumen de cartera de clientes
- */
-export interface ResumenCartera {
-  total_clientes: number;
-  clientes_activos: number;
-  clientes_con_deuda: number;
-  monto_total_por_cobrar: number;
-  monto_vencido: number;
-  promedio_dias_pago: number;
-  top_clientes: Array<{
-    cliente: ClienteResumen;
-    monto_total: number;
-    ultima_compra: string;
-  }>;
+export interface HistorialComunicacionCliente {
+  id: number;
+  fecha: string;
+  tipo: 'email' | 'sms' | 'llamada' | 'whatsapp';
+  asunto: string;
+  contenido: string;
+  estado: 'enviado' | 'entregado' | 'leido' | 'error';
+  usuario: string;
 }
 
 // =======================================================
-// CONSTANTES
+// INTERFACES DE BÚSQUEDA AVANZADA
 // =======================================================
 
-export const TIPOS_DOCUMENTO_LABELS: Record<TipoDocumentoIdentidad, string> = {
-  '1': 'DNI',
-  '6': 'RUC',
-};
-
-export const TIPOS_PERSONA_LABELS: Record<TipoPersona, string> = {
-  natural: 'Persona Natural',
-  juridica: 'Persona Jurídica',
-};
-
-export const ESTADOS_CLIENTE_LABELS: Record<EstadoCliente, string> = {
-  activo: 'Activo',
-  inactivo: 'Inactivo',
-};
-
-export const TIPOS_CONTRIBUYENTE_LABELS: Record<TipoContribuyente, string> = {
-  especial: 'Contribuyente Especial',
-  principal: 'Principal',
-  buen_contribuyente: 'Buen Contribuyente',
-  agente_retencion: 'Agente de Retención',
-};
-
-// =======================================================
-// UTILIDADES DE TIPOS
-// =======================================================
-
-/**
- * Tipo para select options
- */
-export interface OpcionSelect<T = string> {
-  value: T;
-  label: string;
-  disabled?: boolean;
+export interface ConsultaRucSunat {
+  ruc: string;
+  razon_social: string;
+  estado: string;
+  condicion: string;
+  direccion: string;
+  ubigeo: string;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  fecha_actualizacion: string;
 }
 
-/**
- * Opciones para selects
- */
-export const OPCIONES_TIPO_DOCUMENTO: OpcionSelect<TipoDocumentoIdentidad>[] = [
-  { value: '1', label: 'DNI - Documento Nacional de Identidad' },
-  { value: '6', label: 'RUC - Registro Único de Contribuyentes' },
-];
-
-export const OPCIONES_TIPO_PERSONA: OpcionSelect<TipoPersona>[] = [
-  { value: 'natural', label: 'Persona Natural' },
-  { value: 'juridica', label: 'Persona Jurídica' },
-];
-
-export const OPCIONES_ESTADO_CLIENTE: OpcionSelect<EstadoCliente>[] = [
-  { value: 'activo', label: 'Activo' },
-  { value: 'inactivo', label: 'Inactivo' },
-];
+export interface ConsultaDniReniec {
+  dni: string;
+  nombres: string;
+  apellido_paterno: string;
+  apellido_materno: string;
+  fecha_nacimiento: string;
+  estado: string;
+}
 
 // =======================================================
-// FUNCIONES UTILITARIAS
+// TYPES AUXILIARES
 // =======================================================
 
-/**
- * Validar que un cliente es válido para facturación
- */
-export const esClienteValidoParaFacturacion = (cliente: Partial<Cliente>): cliente is ClienteFacturacion => {
-  return !!(
-    cliente.id &&
-    cliente.tipo_documento &&
-    cliente.numero_documento &&
-    cliente.nombre_o_razon_social &&
-    cliente.direccion
-  );
-};
+export type CamposObligatoriosCliente = 'tipo_documento' | 'numero_documento' | 'direccion';
+export type CamposOpccionalesCliente = Exclude<keyof FormularioCliente, CamposObligatoriosCliente>;
 
-/**
- * Obtener nombre completo del cliente
- */
-export const obtenerNombreCompletoCliente = (cliente: Cliente): string => {
-  if (cliente.tipo_persona === 'natural' && cliente.nombres) {
-    const apellidos = [cliente.apellido_paterno, cliente.apellido_materno]
-      .filter(Boolean)
-      .join(' ');
-    return `${cliente.nombres} ${apellidos}`.trim();
-  }
-  return cliente.nombre_o_razon_social;
-};
-
-/**
- * Formatear documento con etiqueta
- */
-export const formatearDocumentoConEtiqueta = (cliente: Cliente): string => {
-  const tipoLabel = TIPOS_DOCUMENTO_LABELS[cliente.tipo_documento];
-  return `${tipoLabel}: ${cliente.numero_documento}`;
-};
+export type OrdenClientePor = 
+  | 'nombre_asc' | 'nombre_desc'
+  | 'documento_asc' | 'documento_desc'
+  | 'fecha_creacion_asc' | 'fecha_creacion_desc'
+  | 'ultima_compra_asc' | 'ultima_compra_desc'
+  | 'total_facturado_asc' | 'total_facturado_desc';
 
 // =======================================================
-// CLIENTES POR DEFECTO
+// EXPORTACIONES AGRUPADAS
 // =======================================================
 
-/**
- * Cliente genérico para ventas sin identificar
- */
-export const CLIENTE_GENERICO: ClienteFacturacion = {
-  id: 0,
-  tipo_documento: '1',
-  numero_documento: '00000000',
-  nombre_o_razon_social: 'Cliente Genérico',
-  direccion: 'Sin dirección',
-  distrito: 'Lima',
-  provincia: 'Lima',
-  departamento: 'Lima',
-};
+export interface ClienteCompleto extends Cliente {
+  estadisticas: EstadisticasCliente;
+  documentos_recientes: DocumentoClienteResumen[];
+  historial_comunicacion: HistorialComunicacionCliente[];
+}
 
-/**
- * Validar que un cliente es válido para facturación
- */
-export const esClienteValidoParaFacturacion = (cliente: Partial<Cliente>): cliente is ClienteFacturacion => {
-  return !!(
-    cliente.id &&
-    cliente.tipo_documento &&
-    cliente.numero_documento &&
-    cliente.nombre_o_razon_social &&
-    cliente.direccion
-  );
-};
+export interface ContextoClientes {
+  clientes: ResumenCliente[];
+  cliente_seleccionado?: Cliente;
+  filtros: FiltrosCliente;
+  loading: boolean;
+  error?: string;
+  total: number;
+  pagina: number;
+  total_paginas: number;
+}
 
-/**
- * Obtener nombre completo del cliente
- */
-export const obtenerNombreCompletoCliente = (cliente: Cliente): string => {
-  if (cliente.tipo_persona === 'natural' && cliente.nombres) {
-    const apellidos = [cliente.apellido_paterno, cliente.apellido_materno]
-      .filter(Boolean)
-      .join(' ');
-    return `${cliente.nombres} ${apellidos}`.trim();
-  }
-  return cliente.nombre_o_razon_social;
-};
+// =======================================================
+// EXPORT DEFAULT
+// =======================================================
 
-/**
- * Formatear documento con etiqueta
- */
-export const formatearDocumentoConEtiqueta = (cliente: Cliente): string => {
-  const tipoLabel = TIPOS_DOCUMENTO_LABELS[cliente.tipo_documento];
-  return `${tipoLabel}: ${cliente.numero_documento}`;
+export default {
+  Cliente,
+  FormularioCliente,
+  FormularioClienteRapido,
+  ResumenCliente,
+  EstadisticasCliente,
+  FiltrosCliente,
+  ParametrosBusquedaCliente,
+  ValidacionCliente,
+  ErroresFormularioCliente,
+  ConfiguracionClientes,
+  ClienteCompleto,
+  ContextoClientes
 };

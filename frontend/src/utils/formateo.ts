@@ -1,390 +1,600 @@
 /**
  * Utilidades de Formateo - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Funciones para formatear datos según estándares peruanos
+ * Formateadores específicos para datos peruanos y SUNAT
  */
 
 // =======================================================
-// FORMATEO DE MONEDA
+// TIPOS PARA FORMATEOS
+// =======================================================
+
+export interface OpcionesFormateoMoneda {
+  moneda?: 'PEN' | 'USD' | 'EUR';
+  mostrarSimbolo?: boolean;
+  mostrarCodigo?: boolean;
+  decimales?: number;
+  separadorMiles?: string;
+  separadorDecimal?: string;
+}
+
+export interface OpcionesFormateoFecha {
+  formato?: 'corto' | 'largo' | 'completo' | 'custom';
+  formatoCustom?: string;
+  incluirHora?: boolean;
+  zona?: string;
+}
+
+export interface OpcionesFormateoNumero {
+  decimales?: number;
+  separadorMiles?: string;
+  separadorDecimal?: string;
+  prefijo?: string;
+  sufijo?: string;
+}
+
+// =======================================================
+// FORMATEOS DE MONEDA Y NÚMEROS
 // =======================================================
 
 /**
- * Formatea un número como moneda peruana
+ * Formatear moneda peruana
  */
 export const formatearMoneda = (
-  amount: number,
-  currency: string = 'PEN',
-  showCurrency: boolean = true,
-  decimals: number = 2
+  monto: number | string,
+  opciones: OpcionesFormateoMoneda = {}
 ): string => {
-  try {
-    const formatter = new Intl.NumberFormat('es-PE', {
-      style: showCurrency ? 'currency' : 'decimal',
-      currency: currency,
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    });
+  const {
+    moneda = 'PEN',
+    mostrarSimbolo = true,
+    mostrarCodigo = false,
+    decimales = 2,
+    separadorMiles = ',',
+    separadorDecimal = '.'
+  } = opciones;
 
-    return formatter.format(amount);
-  } catch (error) {
-    console.error('Error formateando moneda:', error);
-    return `S/ ${amount.toFixed(decimals)}`;
+  const montoNumerico = typeof monto === 'string' ? parseFloat(monto) : monto;
+  
+  if (isNaN(montoNumerico)) {
+    return '0.00';
   }
+
+  // Formatear el número
+  const numeroFormateado = formatearNumero(montoNumerico, {
+    decimales,
+    separadorMiles,
+    separadorDecimal
+  });
+
+  // Agregar símbolo o código de moneda
+  const simbolos = {
+    PEN: 'S/',
+    USD: '$',
+    EUR: '€'
+  };
+
+  let resultado = numeroFormateado;
+
+  if (mostrarSimbolo) {
+    resultado = `${simbolos[moneda]} ${resultado}`;
+  }
+
+  if (mostrarCodigo) {
+    resultado = mostrarSimbolo ? `${resultado} ${moneda}` : `${resultado} ${moneda}`;
+  }
+
+  return resultado;
 };
 
 /**
- * Formatea moneda en formato compacto (K, M, B)
- */
-export const formatearMonedaCompacta = (amount: number, currency: string = 'PEN'): string => {
-  try {
-    const formatter = new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: currency,
-      notation: 'compact',
-      compactDisplay: 'short'
-    });
-
-    return formatter.format(amount);
-  } catch (error) {
-    console.error('Error formateando moneda compacta:', error);
-    
-    if (amount >= 1000000000) {
-      return `S/ ${(amount / 1000000000).toFixed(1)}B`;
-    } else if (amount >= 1000000) {
-      return `S/ ${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `S/ ${(amount / 1000).toFixed(1)}K`;
-    }
-    
-    return formatearMoneda(amount, currency);
-  }
-};
-
-// =======================================================
-// FORMATEO DE FECHAS
-// =======================================================
-
-/**
- * Formatea una fecha según el formato peruano
- */
-export const formatearFecha = (
-  date: Date | string,
-  formato: 'corto' | 'largo' | 'completo' | 'hora' | 'fecha-hora' = 'corto'
-): string => {
-  try {
-    const fecha = typeof date === 'string' ? new Date(date) : date;
-    
-    if (isNaN(fecha.getTime())) {
-      return 'Fecha inválida';
-    }
-
-    const opciones: Intl.DateTimeFormatOptions = {};
-
-    switch (formato) {
-      case 'corto':
-        opciones.day = '2-digit';
-        opciones.month = '2-digit';
-        opciones.year = 'numeric';
-        break;
-      case 'largo':
-        opciones.day = 'numeric';
-        opciones.month = 'long';
-        opciones.year = 'numeric';
-        break;
-      case 'completo':
-        opciones.weekday = 'long';
-        opciones.day = 'numeric';
-        opciones.month = 'long';
-        opciones.year = 'numeric';
-        break;
-      case 'hora':
-        opciones.hour = '2-digit';
-        opciones.minute = '2-digit';
-        opciones.second = '2-digit';
-        opciones.hour12 = false;
-        break;
-      case 'fecha-hora':
-        opciones.day = '2-digit';
-        opciones.month = '2-digit';
-        opciones.year = 'numeric';
-        opciones.hour = '2-digit';
-        opciones.minute = '2-digit';
-        opciones.hour12 = false;
-        break;
-    }
-
-    return fecha.toLocaleDateString('es-PE', opciones);
-  } catch (error) {
-    console.error('Error formateando fecha:', error);
-    return 'Error de fecha';
-  }
-};
-
-/**
- * Formatea fecha relativa (hace X tiempo)
- */
-export const formatearFechaRelativa = (date: Date | string): string => {
-  try {
-    const fecha = typeof date === 'string' ? new Date(date) : date;
-    const ahora = new Date();
-    const diferencia = ahora.getTime() - fecha.getTime();
-
-    const minutos = Math.floor(diferencia / 60000);
-    const horas = Math.floor(diferencia / 3600000);
-    const dias = Math.floor(diferencia / 86400000);
-    const semanas = Math.floor(diferencia / 604800000);
-    const meses = Math.floor(diferencia / 2629746000);
-    const años = Math.floor(diferencia / 31556952000);
-
-    if (diferencia < 60000) return 'Ahora mismo';
-    if (minutos < 60) return `Hace ${minutos} minuto${minutos > 1 ? 's' : ''}`;
-    if (horas < 24) return `Hace ${horas} hora${horas > 1 ? 's' : ''}`;
-    if (dias < 7) return `Hace ${dias} día${dias > 1 ? 's' : ''}`;
-    if (semanas < 4) return `Hace ${semanas} semana${semanas > 1 ? 's' : ''}`;
-    if (meses < 12) return `Hace ${meses} mes${meses > 1 ? 'es' : ''}`;
-    return `Hace ${años} año${años > 1 ? 's' : ''}`;
-  } catch (error) {
-    console.error('Error formateando fecha relativa:', error);
-    return 'Fecha inválida';
-  }
-};
-
-// =======================================================
-// FORMATEO DE NÚMEROS
-// =======================================================
-
-/**
- * Formatea un número con separadores de miles
+ * Formatear número con separadores
  */
 export const formatearNumero = (
-  number: number,
-  decimals: number = 0,
-  showSign: boolean = false
+  numero: number | string,
+  opciones: OpcionesFormateoNumero = {}
 ): string => {
-  try {
-    const formatter = new Intl.NumberFormat('es-PE', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-      signDisplay: showSign ? 'exceptZero' : 'auto'
-    });
+  const {
+    decimales = 2,
+    separadorMiles = ',',
+    separadorDecimal = '.',
+    prefijo = '',
+    sufijo = ''
+  } = opciones;
 
-    return formatter.format(number);
-  } catch (error) {
-    console.error('Error formateando número:', error);
-    return number.toString();
+  const numeroVal = typeof numero === 'string' ? parseFloat(numero) : numero;
+  
+  if (isNaN(numeroVal)) {
+    return '0';
   }
+
+  // Redondear a decimales especificados
+  const numeroRedondeado = Number(numeroVal.toFixed(decimales));
+  
+  // Separar parte entera y decimal
+  const partes = numeroRedondeado.toString().split('.');
+  const parteEntera = partes[0];
+  const parteDecimal = partes[1] || '';
+
+  // Agregar separador de miles
+  const enteraFormateada = parteEntera.replace(/\B(?=(\d{3})+(?!\d))/g, separadorMiles);
+
+  // Construir resultado
+  let resultado = enteraFormateada;
+  
+  if (decimales > 0) {
+    const decimalesFormateados = parteDecimal.padEnd(decimales, '0');
+    resultado = `${resultado}${separadorDecimal}${decimalesFormateados}`;
+  }
+
+  return `${prefijo}${resultado}${sufijo}`;
 };
 
 /**
- * Formatea un porcentaje
+ * Formatear porcentaje
  */
 export const formatearPorcentaje = (
-  number: number,
-  decimals: number = 1,
-  showSign: boolean = false
+  valor: number | string,
+  decimales = 2,
+  incluirSigno = true
 ): string => {
-  try {
-    const formatter = new Intl.NumberFormat('es-PE', {
-      style: 'percent',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-      signDisplay: showSign ? 'exceptZero' : 'auto'
-    });
+  const numero = typeof valor === 'string' ? parseFloat(valor) : valor;
+  
+  if (isNaN(numero)) {
+    return '0%';
+  }
 
-    return formatter.format(number / 100);
-  } catch (error) {
-    console.error('Error formateando porcentaje:', error);
-    return `${number.toFixed(decimals)}%`;
+  const porcentaje = formatearNumero(numero, { decimales });
+  return incluirSigno ? `${porcentaje}%` : porcentaje;
+};
+
+// =======================================================
+// FORMATEOS DE FECHAS
+// =======================================================
+
+/**
+ * Formatear fecha
+ */
+export const formatearFecha = (
+  fecha: string | Date,
+  opciones: OpcionesFormateoFecha = {}
+): string => {
+  const {
+    formato = 'corto',
+    formatoCustom,
+    incluirHora = false,
+    zona = 'America/Lima'
+  } = opciones;
+
+  const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+  
+  if (isNaN(fechaObj.getTime())) {
+    return 'Fecha inválida';
+  }
+
+  // Opciones base para formateo
+  const opcionesBase: Intl.DateTimeFormatOptions = {
+    timeZone: zona
+  };
+
+  // Configurar según formato
+  switch (formato) {
+    case 'corto':
+      opcionesBase.day = '2-digit';
+      opcionesBase.month = '2-digit';
+      opcionesBase.year = 'numeric';
+      break;
+    
+    case 'largo':
+      opcionesBase.day = 'numeric';
+      opcionesBase.month = 'long';
+      opcionesBase.year = 'numeric';
+      break;
+    
+    case 'completo':
+      opcionesBase.weekday = 'long';
+      opcionesBase.day = 'numeric';
+      opcionesBase.month = 'long';
+      opcionesBase.year = 'numeric';
+      break;
+  }
+
+  // Incluir hora si se solicita
+  if (incluirHora) {
+    opcionesBase.hour = '2-digit';
+    opcionesBase.minute = '2-digit';
+    opcionesBase.hour12 = false;
+  }
+
+  // Formato custom
+  if (formato === 'custom' && formatoCustom) {
+    return formatearFechaCustom(fechaObj, formatoCustom);
+  }
+
+  return fechaObj.toLocaleDateString('es-PE', opcionesBase);
+};
+
+/**
+ * Formatear fecha con formato personalizado
+ */
+const formatearFechaCustom = (fecha: Date, formato: string): string => {
+  const opciones: Record<string, string> = {
+    'YYYY': fecha.getFullYear().toString(),
+    'YY': fecha.getFullYear().toString().slice(-2),
+    'MM': (fecha.getMonth() + 1).toString().padStart(2, '0'),
+    'M': (fecha.getMonth() + 1).toString(),
+    'DD': fecha.getDate().toString().padStart(2, '0'),
+    'D': fecha.getDate().toString(),
+    'HH': fecha.getHours().toString().padStart(2, '0'),
+    'H': fecha.getHours().toString(),
+    'mm': fecha.getMinutes().toString().padStart(2, '0'),
+    'm': fecha.getMinutes().toString(),
+    'ss': fecha.getSeconds().toString().padStart(2, '0'),
+    's': fecha.getSeconds().toString()
+  };
+
+  let resultado = formato;
+  for (const [patron, valor] of Object.entries(opciones)) {
+    resultado = resultado.replace(new RegExp(patron, 'g'), valor);
+  }
+
+  return resultado;
+};
+
+/**
+ * Formatear fecha para SUNAT (YYYY-MM-DD)
+ */
+export const formatearFechaSunat = (fecha: string | Date): string => {
+  const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+  
+  if (isNaN(fechaObj.getTime())) {
+    return '';
+  }
+
+  return formatearFechaCustom(fechaObj, 'YYYY-MM-DD');
+};
+
+/**
+ * Formatear hora para SUNAT (HH:mm:ss)
+ */
+export const formatearHoraSunat = (fecha: string | Date): string => {
+  const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
+  
+  if (isNaN(fechaObj.getTime())) {
+    return '';
+  }
+
+  return formatearFechaCustom(fechaObj, 'HH:mm:ss');
+};
+
+// =======================================================
+// FORMATEOS DE DOCUMENTOS
+// =======================================================
+
+/**
+ * Formatear RUC con guiones
+ */
+export const formatearRuc = (ruc: string): string => {
+  const rucLimpio = ruc.replace(/[^0-9]/g, '');
+  
+  if (rucLimpio.length !== 11) {
+    return ruc;
+  }
+
+  return `${rucLimpio.slice(0, 2)}-${rucLimpio.slice(2, 10)}-${rucLimpio.slice(10)}`;
+};
+
+/**
+ * Formatear DNI con guiones
+ */
+export const formatearDni = (dni: string): string => {
+  const dniLimpio = dni.replace(/[^0-9]/g, '');
+  
+  if (dniLimpio.length !== 8) {
+    return dni;
+  }
+
+  return `${dniLimpio.slice(0, 2)}.${dniLimpio.slice(2, 5)}.${dniLimpio.slice(5)}`;
+};
+
+/**
+ * Formatear documento según tipo
+ */
+export const formatearDocumento = (documento: string, tipoDocumento?: string): string => {
+  if (!documento) return '';
+
+  const docLimpio = documento.replace(/[^0-9A-Za-z]/g, '');
+
+  switch (tipoDocumento) {
+    case '1': // DNI
+      return formatearDni(docLimpio);
+    case '6': // RUC
+      return formatearRuc(docLimpio);
+    default:
+      return documento;
   }
 };
 
 // =======================================================
-// FORMATEO DE DOCUMENTOS PERUANOS
+// FORMATEOS DE TELÉFONO
 // =======================================================
 
 /**
- * Formatea un DNI peruano
- */
-export const formatearDNI = (dni: string): string => {
-  if (!dni) return '';
-  
-  // Remover todos los caracteres no numéricos
-  const numeroLimpio = dni.replace(/\D/g, '');
-  
-  // Formatear como XX XXX XXX
-  if (numeroLimpio.length === 8) {
-    return numeroLimpio.replace(/(\d{2})(\d{3})(\d{3})/, '$1 $2 $3');
-  }
-  
-  return numeroLimpio;
-};
-
-/**
- * Formatea un RUC peruano
- */
-export const formatearRUC = (ruc: string): string => {
-  if (!ruc) return '';
-  
-  // Remover todos los caracteres no numéricos
-  const numeroLimpio = ruc.replace(/\D/g, '');
-  
-  // Formatear como XXXXXXXXXXX
-  if (numeroLimpio.length === 11) {
-    return numeroLimpio.replace(/(\d{2})(\d{3})(\d{3})(\d{3})/, '$1$2$3$4');
-  }
-  
-  return numeroLimpio;
-};
-
-/**
- * Formatea número de teléfono peruano
+ * Formatear teléfono peruano
  */
 export const formatearTelefono = (telefono: string): string => {
-  if (!telefono) return '';
-  
-  // Remover todos los caracteres no numéricos
-  const numeroLimpio = telefono.replace(/\D/g, '');
-  
-  // Formatear según longitud
-  if (numeroLimpio.length === 9) {
-    // Celular: XXX XXX XXX
-    return numeroLimpio.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-  } else if (numeroLimpio.length === 7) {
+  const telefonoLimpio = telefono.replace(/[^0-9]/g, '');
+
+  if (telefonoLimpio.length === 9 && telefonoLimpio.startsWith('9')) {
+    // Celular: 9XX XXX XXX
+    return `${telefonoLimpio.slice(0, 3)} ${telefonoLimpio.slice(3, 6)} ${telefonoLimpio.slice(6)}`;
+  } else if (telefonoLimpio.length === 7) {
     // Fijo Lima: XXX XXXX
-    return numeroLimpio.replace(/(\d{3})(\d{4})/, '$1 $2');
-  } else if (numeroLimpio.length === 8) {
-    // Fijo provincias: XX XX XXXX
-    return numeroLimpio.replace(/(\d{2})(\d{2})(\d{4})/, '$1 $2 $3');
+    return `${telefonoLimpio.slice(0, 3)} ${telefonoLimpio.slice(3)}`;
+  } else if (telefonoLimpio.length === 6) {
+    // Fijo provincial: XXX XXX
+    return `${telefonoLimpio.slice(0, 3)} ${telefonoLimpio.slice(3)}`;
   }
-  
-  return numeroLimpio;
+
+  return telefono;
 };
 
 // =======================================================
-// FORMATEO DE TEXTO
+// FORMATEOS DE TEXTO
 // =======================================================
 
 /**
- * Capitaliza la primera letra de cada palabra
+ * Formatear nombre propio (Title Case)
  */
-export const formatearNombrePropio = (texto: string): string => {
-  if (!texto) return '';
-  
-  return texto
+export const formatearNombrePropio = (nombre: string): string => {
+  if (!nombre) return '';
+
+  return nombre
     .toLowerCase()
     .split(' ')
-    .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1))
+    .map(palabra => {
+      if (palabra.length === 0) return palabra;
+      
+      // Manejar preposiciones y artículos
+      const palabrasMinusculas = ['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e'];
+      if (palabrasMinusculas.includes(palabra)) {
+        return palabra;
+      }
+      
+      return palabra.charAt(0).toUpperCase() + palabra.slice(1);
+    })
     .join(' ');
 };
 
 /**
- * Trunca un texto a un número máximo de caracteres
+ * Truncar texto con puntos suspensivos
  */
-export const truncarTexto = (texto: string, maxLength: number, sufijo: string = '...'): string => {
-  if (!texto) return '';
-  
-  if (texto.length <= maxLength) return texto;
-  
-  return texto.substring(0, maxLength - sufijo.length) + sufijo;
+export const truncarTexto = (texto: string, longitudMaxima: number, sufijo = '...'): string => {
+  if (!texto || texto.length <= longitudMaxima) {
+    return texto;
+  }
+
+  return texto.slice(0, longitudMaxima - sufijo.length) + sufijo;
 };
 
 /**
- * Formatea un email para mostrar parcialmente oculto
+ * Formatear texto para URL (slug)
  */
-export const formatearEmailPrivado = (email: string): string => {
-  if (!email) return '';
+export const formatearSlug = (texto: string): string => {
+  return texto
+    .toLowerCase()
+    .trim()
+    .replace(/[áàäâ]/g, 'a')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[óòöô]/g, 'o')
+    .replace(/[úùüû]/g, 'u')
+    .replace(/ñ/g, 'n')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+};
+
+// =======================================================
+// FORMATEOS ESPECÍFICOS SUNAT
+// =======================================================
+
+/**
+ * Formatear serie de documento electrónico
+ */
+export const formatearSerie = (serie: string): string => {
+  if (!serie) return '';
   
-  const [local, domain] = email.split('@');
-  if (!local || !domain) return email;
+  const serieLimpia = serie.toUpperCase().replace(/[^A-Z0-9]/g, '');
   
-  if (local.length <= 3) {
-    return `${local[0]}***@${domain}`;
+  if (serieLimpia.length === 4) {
+    return `${serieLimpia.slice(0, 1)}-${serieLimpia.slice(1)}`;
   }
   
-  const inicio = local.substring(0, 2);
-  const fin = local.substring(local.length - 1);
-  return `${inicio}***${fin}@${domain}`;
+  return serie;
+};
+
+/**
+ * Formatear correlativo de documento
+ */
+export const formatearCorrelativo = (correlativo: number | string): string => {
+  const numero = typeof correlativo === 'string' ? parseInt(correlativo) : correlativo;
+  
+  if (isNaN(numero)) {
+    return '00000000';
+  }
+  
+  return numero.toString().padStart(8, '0');
+};
+
+/**
+ * Formatear número completo de documento electrónico
+ */
+export const formatearNumeroDocumento = (serie: string, correlativo: number | string): string => {
+  const serieFormateada = formatearSerie(serie);
+  const correlativoFormateado = formatearCorrelativo(correlativo);
+  
+  return `${serieFormateada}-${correlativoFormateado}`;
 };
 
 // =======================================================
-// FORMATEO DE ARCHIVOS Y TAMAÑOS
+// FORMATEOS DE ARCHIVOS Y DATOS
 // =======================================================
 
 /**
- * Formatea el tamaño de un archivo
+ * Formatear tamaño de archivo
  */
 export const formatearTamañoArchivo = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const tamaños = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-};
 
-// =======================================================
-// VALIDADORES Y PARSERS
-// =======================================================
-
-/**
- * Convierte un string de moneda a número
- */
-export const parsearMoneda = (monedaString: string): number => {
-  if (!monedaString) return 0;
-  
-  // Remover símbolos de moneda y espacios
-  const numeroLimpio = monedaString
-    .replace(/[S\/\$\s,]/g, '')
-    .replace(/\./g, '');
-  
-  return parseFloat(numeroLimpio) || 0;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${tamaños[i]}`;
 };
 
 /**
- * Valida si un string es un número válido
+ * Formatear duración en segundos
  */
-export const esNumeroValido = (valor: string): boolean => {
-  return !isNaN(Number(valor)) && valor.trim() !== '';
+export const formatearDuracion = (segundos: number): string => {
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const segs = segundos % 60;
+
+  if (horas > 0) {
+    return `${horas}h ${minutos}m ${segs}s`;
+  } else if (minutos > 0) {
+    return `${minutos}m ${segs}s`;
+  } else {
+    return `${segs}s`;
+  }
 };
 
 // =======================================================
-// EXPORTACIONES AGRUPADAS
+// FORMATEOS COMPUESTOS
 // =======================================================
 
-export const formateoMoneda = {
-  formatear: formatearMoneda,
-  compacta: formatearMonedaCompacta,
-  parsear: parsearMoneda
+/**
+ * Formatear dirección completa
+ */
+export const formatearDireccion = (direccion: {
+  calle?: string;
+  numero?: string;
+  distrito?: string;
+  provincia?: string;
+  departamento?: string;
+  codigoPostal?: string;
+}): string => {
+  const partes = [];
+
+  if (direccion.calle) {
+    let lineaDireccion = direccion.calle;
+    if (direccion.numero) {
+      lineaDireccion += ` ${direccion.numero}`;
+    }
+    partes.push(lineaDireccion);
+  }
+
+  if (direccion.distrito) {
+    partes.push(direccion.distrito);
+  }
+
+  if (direccion.provincia && direccion.provincia !== direccion.distrito) {
+    partes.push(direccion.provincia);
+  }
+
+  if (direccion.departamento) {
+    partes.push(direccion.departamento);
+  }
+
+  if (direccion.codigoPostal) {
+    partes.push(direccion.codigoPostal);
+  }
+
+  return partes.join(', ');
 };
 
-export const formateoFecha = {
-  formatear: formatearFecha,
-  relativa: formatearFechaRelativa
+/**
+ * Formatear nombre completo
+ */
+export const formatearNombreCompleto = (datos: {
+  nombres?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
+  razonSocial?: string;
+}): string => {
+  if (datos.razonSocial) {
+    return formatearNombrePropio(datos.razonSocial);
+  }
+
+  const partes = [];
+  
+  if (datos.nombres) {
+    partes.push(formatearNombrePropio(datos.nombres));
+  }
+  
+  if (datos.apellidoPaterno) {
+    partes.push(formatearNombrePropio(datos.apellidoPaterno));
+  }
+  
+  if (datos.apellidoMaterno) {
+    partes.push(formatearNombrePropio(datos.apellidoMaterno));
+  }
+
+  return partes.join(' ');
 };
 
-export const formateoNumero = {
-  formatear: formatearNumero,
-  porcentaje: formatearPorcentaje,
-  archivo: formatearTamañoArchivo
+// =======================================================
+// UTILIDADES DE LIMPIEZA
+// =======================================================
+
+/**
+ * Limpiar solo números
+ */
+export const limpiarSoloNumeros = (texto: string): string => {
+  return texto.replace(/[^0-9]/g, '');
 };
 
-export const formateoDocumento = {
-  dni: formatearDNI,
-  ruc: formatearRUC,
-  telefono: formatearTelefono
+/**
+ * Limpiar solo letras
+ */
+export const limpiarSoloLetras = (texto: string): string => {
+  return texto.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
 };
 
-export const formateoTexto = {
-  nombrePropio: formatearNombrePropio,
-  truncar: truncarTexto,
-  emailPrivado: formatearEmailPrivado
+/**
+ * Limpiar alfanumérico
+ */
+export const limpiarAlfanumerico = (texto: string): string => {
+  return texto.replace(/[^a-zA-Z0-9]/g, '');
 };
+
+// =======================================================
+// EXPORTACIONES
+// =======================================================
 
 export default {
-  moneda: formateoMoneda,
-  fecha: formateoFecha,
-  numero: formateoNumero,
-  documento: formateoDocumento,
-  texto: formateoTexto
+  formatearMoneda,
+  formatearNumero,
+  formatearPorcentaje,
+  formatearFecha,
+  formatearFechaSunat,
+  formatearHoraSunat,
+  formatearRuc,
+  formatearDni,
+  formatearDocumento,
+  formatearTelefono,
+  formatearNombrePropio,
+  truncarTexto,
+  formatearSlug,
+  formatearSerie,
+  formatearCorrelativo,
+  formatearNumeroDocumento,
+  formatearTamañoArchivo,
+  formatearDuracion,
+  formatearDireccion,
+  formatearNombreCompleto,
+  limpiarSoloNumeros,
+  limpiarSoloLetras,
+  limpiarAlfanumerico
 };

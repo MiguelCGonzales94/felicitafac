@@ -1,266 +1,620 @@
 /**
- * Types para Producto - FELICITAFAC Frontend
+ * Types Producto - FELICITAFAC
+ * Sistema de Facturación Electrónica para Perú
+ * Tipos específicos para gestión de productos e inventario
  */
 
-export interface TipoProducto {
+// =======================================================
+// TIPOS BÁSICOS DE PRODUCTO
+// =======================================================
+
+export type TipoProducto = 'bien' | 'servicio' | 'combo';
+export type EstadoProducto = 'activo' | 'inactivo' | 'descontinuado';
+export type UnidadMedidaSunat = 'NIU' | 'KGM' | 'MTR' | 'LTR' | 'H87' | 'BX' | 'PK' | 'SET' | 'ZZ';
+export type MetodoValuacion = 'PEPS' | 'PROMEDIO' | 'UEPS';
+export type TipoImpuesto = 'gravado' | 'exonerado' | 'inafecto' | 'exportacion';
+
+// =======================================================
+// INTERFACE PRINCIPAL DE PRODUCTO
+// =======================================================
+
+export interface Producto {
+  id: number;
+  codigo: string;
+  codigo_barras?: string;
+  codigo_fabricante?: string;
+  codigo_proveedor?: string;
+  
+  // Información básica
+  nombre: string;
+  descripcion?: string;
+  descripcion_corta?: string;
+  marca?: string;
+  modelo?: string;
+  
+  // Categorización
+  categoria_id?: number;
+  categoria_nombre?: string;
+  tipo_producto_id: number;
+  tipo_producto: TipoProductoDetalle;
+  
+  // Medidas y especificaciones
+  unidad_medida: UnidadMedidaSunat;
+  unidad_medida_nombre: string;
+  peso?: number;
+  volumen?: number;
+  dimensiones?: string;
+  
+  // Precios
+  precio_compra?: number;
+  precio_venta: number;
+  precio_minimo?: number;
+  precio_mayorista?: number;
+  margen_utilidad?: number;
+  moneda: string;
+  
+  // Impuestos
+  afecto_igv: boolean;
+  afecto_isc: boolean;
+  afecto_icbper: boolean;
+  tipo_afectacion_igv: string;
+  porcentaje_isc?: number;
+  
+  // Control de stock
+  controla_stock: boolean;
+  stock_actual: number;
+  stock_minimo: number;
+  stock_maximo?: number;
+  punto_reorden?: number;
+  ubicacion_almacen?: string;
+  
+  // Lotes y vencimientos
+  requiere_lote: boolean;
+  requiere_serie: boolean;
+  requiere_vencimiento: boolean;
+  dias_vencimiento?: number;
+  
+  // Estado y configuración
+  estado: EstadoProducto;
+  visible_catalogo: boolean;
+  permite_decimales: boolean;
+  producto_estrella: boolean;
+  
+  // Información adicional
+  notas?: string;
+  especificaciones_tecnicas?: string;
+  garantia_meses?: number;
+  proveedor_principal_id?: number;
+  proveedor_principal_nombre?: string;
+  
+  // URLs y archivos
+  imagen_principal?: string;
+  imagenes_adicionales?: string[];
+  hoja_datos_url?: string;
+  manual_url?: string;
+  
+  // Metadatos
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  usuario_creacion: number;
+  activo: boolean;
+  
+  // Estadísticas
+  total_vendido?: number;
+  ingresos_totales?: number;
+  ultima_venta?: string;
+  ultima_compra?: string;
+  rotacion_inventario?: number;
+}
+
+// =======================================================
+// INTERFACES RELACIONADAS
+// =======================================================
+
+export interface TipoProductoDetalle {
   id: number;
   codigo: string;
   nombre: string;
-  tipo: 'bien' | 'servicio' | 'combo';
-  unidad_medida_sunat: string;
+  tipo: TipoProducto;
+  unidad_medida_sunat: UnidadMedidaSunat;
   controla_stock: boolean;
   permite_decimales: boolean;
   requiere_lote: boolean;
   requiere_vencimiento: boolean;
-  cantidad_productos?: number;
   activo: boolean;
 }
 
-export interface Categoria {
+export interface CategoriaProducto {
   id: number;
   codigo: string;
   nombre: string;
   descripcion?: string;
-  categoria_padre?: number;
+  categoria_padre_id?: number;
   categoria_padre_nombre?: string;
-  subcategorias?: Categoria[];
-  ruta_completa?: string;
-  orden: number;
-  margen_utilidad_defecto: number;
-  cuenta_contable_ventas?: string;
-  cuenta_contable_inventario?: string;
-  cantidad_productos?: number;
+  nivel: number;
+  ruta_completa: string;
+  imagen?: string;
   activo: boolean;
+  total_productos: number;
 }
 
-export interface ProductoProveedor {
-  id?: number;
-  proveedor: number;
-  proveedor_nombre?: string;
-  proveedor_documento?: string;
-  codigo_proveedor: string;
-  precio_compra: number;
-  tiempo_entrega_dias: number;
-  cantidad_minima: number;
-  es_principal: boolean;
-  fecha_ultimo_precio?: string;
-  notas?: string;
-  activo?: boolean;
-}
-
-export interface Producto {
-  id?: number;
-  codigo: string;
+export interface MarcaProducto {
+  id: number;
   nombre: string;
   descripcion?: string;
-  tipo_producto: number;
-  tipo_producto_info?: TipoProducto;
-  categoria: number;
-  categoria_info?: Categoria;
-  
-  // Códigos adicionales
+  logo?: string;
+  activo: boolean;
+  total_productos: number;
+}
+
+// =======================================================
+// INTERFACES PARA FORMULARIOS
+// =======================================================
+
+export interface FormularioProducto {
+  // Códigos
+  codigo?: string;
   codigo_barras?: string;
-  codigo_interno?: string;
+  codigo_fabricante?: string;
   codigo_proveedor?: string;
-  codigo_producto_sunat?: string;
-  tipo_afectacion_igv: string;
   
-  // Precios
-  precio_compra: number;
-  precio_venta: number;
-  precio_venta_con_igv?: number;
-  margen_utilidad?: number;
-  margen_utilidad_calculado?: number;
+  // Información básica
+  nombre: string;
+  descripcion?: string;
+  descripcion_corta?: string;
+  marca?: string;
+  modelo?: string;
   
-  // Inventario
-  stock_actual: number;
-  stock_minimo: number;
-  stock_maximo: number;
-  punto_reorden: number;
-  disponibilidad?: {
-    disponible: boolean;
-    mensaje: string;
-    stock_actual: number;
-  };
-  necesita_reorden_info?: {
-    necesita_reorden: boolean;
-    punto_reorden: number;
-    stock_minimo: number;
-  };
-  estado_stock?: 'NO_CONTROLA' | 'AGOTADO' | 'CRITICO' | 'BAJO' | 'NORMAL' | 'EXCESO';
-  valor_inventario_actual?: number;
+  // Categorización
+  categoria_id?: number;
+  tipo_producto_id: number;
   
-  // Unidades
-  unidad_medida: string;
-  unidad_medida_sunat: string;
+  // Medidas
+  unidad_medida: UnidadMedidaSunat;
   peso?: number;
   volumen?: number;
+  dimensiones?: string;
   
-  // Configuraciones
-  permite_venta: boolean;
-  permite_compra: boolean;
-  controla_stock: boolean;
-  permite_descuento: boolean;
-  descuento_maximo: number;
+  // Precios
+  precio_compra?: number;
+  precio_venta: number;
+  precio_minimo?: number;
+  precio_mayorista?: number;
+  margen_utilidad?: number;
+  moneda?: string;
   
-  // Información adicional
-  marca?: string;
-  modelo?: string;
-  color?: string;
-  talla?: string;
-  fecha_vencimiento?: string;
-  fecha_ultima_compra?: string;
-  fecha_ultima_venta?: string;
-  dias_sin_venta?: number;
+  // Impuestos
+  afecto_igv?: boolean;
+  afecto_isc?: boolean;
+  afecto_icbper?: boolean;
+  porcentaje_isc?: number;
   
-  // Contabilidad
-  cuenta_contable_ventas?: string;
-  cuenta_contable_compras?: string;
-  cuenta_contable_inventario?: string;
+  // Stock
+  controla_stock?: boolean;
+  stock_inicial?: number;
+  stock_minimo?: number;
+  stock_maximo?: number;
+  punto_reorden?: number;
+  ubicacion_almacen?: string;
   
-  // Estadísticas
-  total_vendido: number;
-  total_comprado: number;
-  monto_total_ventas: number;
-  numero_ventas: number;
-  rotacion_inventario?: number;
+  // Configuración
+  requiere_lote?: boolean;
+  requiere_serie?: boolean;
+  requiere_vencimiento?: boolean;
+  dias_vencimiento?: number;
+  visible_catalogo?: boolean;
+  permite_decimales?: boolean;
+  producto_estrella?: boolean;
   
-  // Relacionados
-  proveedores?: ProductoProveedor[];
-  datos_facturacion?: any;
-  
-  // Auditoría
-  activo: boolean;
-  fecha_creacion?: string;
-  fecha_actualizacion?: string;
+  // Adicionales
+  notas?: string;
+  especificaciones_tecnicas?: string;
+  garantia_meses?: number;
+  proveedor_principal_id?: number;
 }
 
-export interface ProductoListItem {
+export interface FormularioProductoRapido {
+  codigo?: string;
+  nombre: string;
+  precio_venta: number;
+  afecto_igv?: boolean;
+  controla_stock?: boolean;
+  stock_inicial?: number;
+}
+
+// =======================================================
+// INTERFACES DE CONSULTA Y FILTROS
+// =======================================================
+
+export interface FiltrosProducto {
+  busqueda?: string;
+  categoria_id?: number;
+  tipo_producto_id?: number;
+  marca?: string;
+  estado?: EstadoProducto;
+  afecto_igv?: boolean;
+  controla_stock?: boolean;
+  con_stock?: boolean;
+  sin_stock?: boolean;
+  stock_bajo?: boolean;
+  precio_min?: number;
+  precio_max?: number;
+  producto_estrella?: boolean;
+  fecha_creacion_desde?: string;
+  fecha_creacion_hasta?: string;
+  proveedor_id?: number;
+}
+
+export interface ParametrosBusquedaProducto {
+  termino?: string;
+  filtros?: FiltrosProducto;
+  orden_por?: 'nombre' | 'codigo' | 'precio' | 'stock' | 'fecha_creacion' | 'total_vendido';
+  direccion_orden?: 'asc' | 'desc';
+  pagina?: number;
+  tamaño_pagina?: number;
+  incluir_inactivos?: boolean;
+}
+
+// =======================================================
+// INTERFACES DE RESPUESTA
+// =======================================================
+
+export interface ResumenProducto {
   id: number;
   codigo: string;
+  codigo_barras?: string;
   nombre: string;
-  tipo_producto_nombre?: string;
+  descripcion_corta?: string;
   categoria_nombre?: string;
   precio_venta: number;
-  precio_venta_con_igv: number;
+  moneda: string;
   stock_actual: number;
-  estado_stock: string;
-  disponibilidad_simple: boolean;
-  permite_venta: boolean;
+  stock_minimo: number;
+  estado: EstadoProducto;
+  afecto_igv: boolean;
   controla_stock: boolean;
+  imagen_principal?: string;
+  producto_estrella: boolean;
+}
+
+export interface ListaProductosResponse {
+  resultados: ResumenProducto[];
+  total: number;
+  pagina: number;
+  total_paginas: number;
+  tamaño_pagina: number;
+  resumen_filtros: ResumenFiltrosProducto;
+}
+
+export interface ResumenFiltrosProducto {
+  total_productos: number;
+  total_con_stock: number;
+  total_sin_stock: number;
+  total_stock_bajo: number;
+  valor_total_inventario: number;
+  promedio_precio_venta: number;
+}
+
+export interface DetalleProductoResponse {
+  producto: Producto;
+  estadisticas: EstadisticasProducto;
+  movimientos_recientes: MovimientoInventarioResumen[];
+  precios_historia: HistorialPrecioProducto[];
+  proveedores: ProveedorProducto[];
+}
+
+// =======================================================
+// INTERFACES DE ESTADÍSTICAS
+// =======================================================
+
+export interface EstadisticasProducto {
+  // Ventas
+  total_vendido: number;
+  cantidad_vendida_mes: number;
+  cantidad_vendida_año: number;
+  ingresos_totales: number;
+  ingresos_mes_actual: number;
+  ingresos_año_actual: number;
+  
+  // Fechas importantes
+  primera_venta?: string;
+  ultima_venta?: string;
+  ultima_compra?: string;
+  dias_sin_movimiento: number;
+  
+  // Inventario
+  rotacion_inventario: number;
+  dias_inventario: number;
+  valor_stock_actual: number;
+  costo_promedio: number;
+  
+  // Comparativas
+  ranking_ventas: number;
+  porcentaje_total_ventas: number;
+  variacion_precio_mes: number;
+  variacion_stock_mes: number;
+}
+
+export interface MovimientoInventarioResumen {
+  id: number;
+  fecha: string;
+  tipo_movimiento: 'entrada' | 'salida' | 'ajuste' | 'transferencia';
+  motivo: string;
+  documento_referencia?: string;
+  cantidad: number;
+  precio_unitario?: number;
+  stock_anterior: number;
+  stock_posterior: number;
+  usuario: string;
+}
+
+export interface HistorialPrecioProducto {
+  id: number;
+  fecha_cambio: string;
+  precio_anterior: number;
+  precio_nuevo: number;
+  motivo: string;
+  usuario: string;
+  vigencia_desde: string;
+  vigencia_hasta?: string;
+}
+
+export interface ProveedorProducto {
+  id: number;
+  proveedor_id: number;
+  proveedor_nombre: string;
+  codigo_proveedor?: string;
+  precio_compra: number;
+  tiempo_entrega_dias: number;
+  cantidad_minima_pedido: number;
+  es_principal: boolean;
   activo: boolean;
 }
 
-export interface ProductoFormData {
-  codigo: string;
-  nombre: string;
-  descripcion?: string;
-  tipo_producto: number;
-  categoria: number;
-  codigo_barras?: string;
-  codigo_interno?: string;
-  precio_compra: number;
-  precio_venta: number;
-  stock_actual?: number;
-  stock_minimo: number;
-  stock_maximo: number;
-  punto_reorden: number;
-  unidad_medida: string;
-  permite_venta: boolean;
-  permite_compra: boolean;
-  controla_stock: boolean;
-  permite_descuento: boolean;
-  descuento_maximo: number;
-  marca?: string;
-  modelo?: string;
-  proveedores_data?: Omit<ProductoProveedor, 'id'>[];
+// =======================================================
+// INTERFACES DE PRECIOS
+// =======================================================
+
+export interface PrecioProducto {
+  id: number;
+  tipo_precio: 'venta' | 'mayorista' | 'especial' | 'promocional';
+  precio: number;
+  moneda: string;
+  cantidad_minima?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  cliente_especifico_id?: number;
+  activo: boolean;
 }
 
-export interface ProductoBusqueda {
-  termino?: string;
-  tipo_producto?: number;
-  categoria?: number;
-  marca?: string;
-  permite_venta?: boolean;
-  controla_stock?: boolean;
-  estado_stock?: 'agotado' | 'critico' | 'bajo' | 'normal' | 'exceso';
-  precio_minimo?: number;
-  precio_maximo?: number;
-  con_vencimiento?: boolean;
-  sin_movimiento_dias?: number;
+export interface CalculoPrecio {
+  precio_base: number;
+  descuentos: DescuentoAplicado[];
+  recargos: RecargoAplicado[];
+  precio_final: number;
+  igv: number;
+  precio_con_igv: number;
 }
 
-export interface EstadisticasProducto {
-  total_productos: number;
-  productos_activos: number;
-  productos_agotados: number;
-  productos_criticos: number;
-  productos_sin_movimiento: number;
-  valor_total_inventario: number;
-  productos_mas_vendidos: ProductoListItem[];
-  productos_menos_vendidos: ProductoListItem[];
-  por_categoria: Record<string, number>;
-  por_tipo_producto: Record<string, number>;
-  por_marca: Record<string, number>;
-  rotacion_promedio: number;
-  margen_promedio: number;
+export interface DescuentoAplicado {
+  tipo: 'porcentaje' | 'monto';
+  valor: number;
+  descripcion: string;
+  monto_descuento: number;
 }
 
-export interface MovimientoStock {
-  producto: number;
-  cantidad: number;
-  tipo_movimiento: 'entrada' | 'salida' | 'ajuste';
-  motivo: string;
-  costo_unitario?: number;
+export interface RecargoAplicado {
+  tipo: 'porcentaje' | 'monto';
+  valor: number;
+  descripcion: string;
+  monto_recargo: number;
 }
 
-export interface ProductoApiResponse {
-  count: number;
-  next?: string;
-  previous?: string;
-  results: ProductoListItem[];
-}
+// =======================================================
+// INTERFACES DE VALIDACIÓN
+// =======================================================
 
-export interface AlertasStock {
-  productos_agotados: ProductoListItem[];
-  productos_criticos: ProductoListItem[];
-  productos_reorden: ProductoListItem[];
-  resumen: {
-    total_agotados: number;
-    total_criticos: number;
-    total_reorden: number;
-    total_alertas: number;
+export interface ValidacionProducto {
+  codigo: {
+    valido: boolean;
+    mensaje?: string;
+    disponible?: boolean;
+  };
+  nombre: {
+    valido: boolean;
+    mensaje?: string;
+  };
+  precios: {
+    valido: boolean;
+    mensajes?: string[];
+  };
+  stock: {
+    valido: boolean;
+    mensajes?: string[];
+  };
+  configuracion: {
+    valido: boolean;
+    mensajes?: string[];
   };
 }
 
-// Enums y constantes
-export const TIPOS_AFECTACION_IGV = {
-  GRAVADO: '10',
-  EXONERADO: '20',
-  INAFECTO: '30',
-  EXPORTACION: '40'
-} as const;
+export interface ErroresFormularioProducto {
+  codigo?: string;
+  nombre?: string;
+  precio_venta?: string;
+  precio_compra?: string;
+  categoria_id?: string;
+  tipo_producto_id?: string;
+  stock_minimo?: string;
+  stock_maximo?: string;
+  margen_utilidad?: string;
+  general?: string;
+}
 
-export const ESTADOS_STOCK = {
-  NO_CONTROLA: 'NO_CONTROLA',
-  AGOTADO: 'AGOTADO',
-  CRITICO: 'CRITICO',
-  BAJO: 'BAJO',
-  NORMAL: 'NORMAL',
-  EXCESO: 'EXCESO'
-} as const;
+// =======================================================
+// INTERFACES DE COMBOS Y KITS
+// =======================================================
 
-export const UNIDADES_SUNAT = {
-  UNIDAD: 'NIU',
-  KILOGRAMO: 'KGM',
-  METRO: 'MTR',
-  LITRO: 'LTR',
-  PIEZA: 'H87',
-  CAJA: 'BX',
-  PAQUETE: 'PK',
-  SERVICIO: 'ZZ'
-} as const;
+export interface ComponenteCombo {
+  id: number;
+  producto_id: number;
+  producto_nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  obligatorio: boolean;
+  orden: number;
+}
 
-export type TipoAfectacionIGV = typeof TIPOS_AFECTACION_IGV[keyof typeof TIPOS_AFECTACION_IGV];
-export type EstadoStock = typeof ESTADOS_STOCK[keyof typeof ESTADOS_STOCK];
-export type UnidadSunat = typeof UNIDADES_SUNAT[keyof typeof UNIDADES_SUNAT];
+export interface ProductoCombo extends Producto {
+  componentes: ComponenteCombo[];
+  precio_componentes: number;
+  margen_combo: number;
+  permite_personalizar: boolean;
+}
+
+// =======================================================
+// INTERFACES DE CÓDIGOS DE BARRAS
+// =======================================================
+
+export interface CodigoBarras {
+  id: number;
+  producto_id: number;
+  codigo: string;
+  tipo: 'EAN13' | 'EAN8' | 'CODE128' | 'CODE39' | 'UPC';
+  principal: boolean;
+  activo: boolean;
+  fecha_creacion: string;
+}
+
+export interface GeneracionCodigoBarras {
+  tipo: 'automatico' | 'manual' | 'importado';
+  formato: 'EAN13' | 'EAN8' | 'CODE128';
+  prefijo?: string;
+  incluir_verificador: boolean;
+}
+
+// =======================================================
+// INTERFACES DE IMPORTACIÓN/EXPORTACIÓN
+// =======================================================
+
+export interface ProductoImportacion {
+  fila: number;
+  codigo?: string;
+  nombre: string;
+  precio_venta: number;
+  categoria?: string;
+  stock_inicial?: number;
+  valido: boolean;
+  errores: string[];
+}
+
+export interface ResultadoImportacionProductos {
+  total_procesados: number;
+  total_importados: number;
+  total_errores: number;
+  productos_importados: Producto[];
+  errores: ProductoImportacion[];
+}
+
+export interface OpcionesExportacionProductos {
+  formato: 'excel' | 'csv' | 'pdf' | 'xml';
+  filtros?: FiltrosProducto;
+  campos?: string[];
+  incluir_stock?: boolean;
+  incluir_precios?: boolean;
+  incluir_estadisticas?: boolean;
+  incluir_imagenes?: boolean;
+}
+
+// =======================================================
+// INTERFACES DE CONFIGURACIÓN
+// =======================================================
+
+export interface ConfiguracionProductos {
+  codigo_auto_generar: boolean;
+  prefijo_codigo: string;
+  longitud_codigo: number;
+  codigo_secuencial: boolean;
+  
+  precio_incluye_igv: boolean;
+  moneda_default: string;
+  margen_utilidad_default: number;
+  
+  controla_stock_default: boolean;
+  metodo_valuacion: MetodoValuacion;
+  alerta_stock_bajo: boolean;
+  
+  requiere_imagen: boolean;
+  tamaño_maximo_imagen_mb: number;
+  formatos_imagen_permitidos: string[];
+  
+  permitir_precios_negativos: boolean;
+  permitir_stock_negativo: boolean;
+  validar_codigo_barras: boolean;
+}
+
+// =======================================================
+// TYPES AUXILIARES
+// =======================================================
+
+export type CamposObligatoriosProducto = 'nombre' | 'precio_venta' | 'tipo_producto_id';
+export type CamposOpcionalesProducto = Exclude<keyof FormularioProducto, CamposObligatoriosProducto>;
+
+export type OrdenProductoPor = 
+  | 'nombre_asc' | 'nombre_desc'
+  | 'codigo_asc' | 'codigo_desc'
+  | 'precio_asc' | 'precio_desc'
+  | 'stock_asc' | 'stock_desc'
+  | 'fecha_creacion_asc' | 'fecha_creacion_desc'
+  | 'total_vendido_asc' | 'total_vendido_desc';
+
+export type EstadoStock = 'disponible' | 'bajo' | 'agotado' | 'exceso';
+
+// =======================================================
+// INTERFACES DE CONTEXTO
+// =======================================================
+
+export interface ContextoProductos {
+  productos: ResumenProducto[];
+  producto_seleccionado?: Producto;
+  categorias: CategoriaProducto[];
+  tipos_producto: TipoProductoDetalle[];
+  marcas: MarcaProducto[];
+  filtros: FiltrosProducto;
+  loading: boolean;
+  error?: string;
+  total: number;
+  pagina: number;
+  total_paginas: number;
+  resumen_filtros: ResumenFiltrosProducto;
+}
+
+export interface ProductoCompleto extends Producto {
+  estadisticas: EstadisticasProducto;
+  movimientos_recientes: MovimientoInventarioResumen[];
+  precios_historia: HistorialPrecioProducto[];
+  proveedores: ProveedorProducto[];
+  componentes?: ComponenteCombo[];
+}
+
+// =======================================================
+// EXPORT DEFAULT
+// =======================================================
+
+export default {
+  Producto,
+  FormularioProducto,
+  FormularioProductoRapido,
+  ResumenProducto,
+  EstadisticasProducto,
+  CategoriaProducto,
+  TipoProductoDetalle,
+  FiltrosProducto,
+  ParametrosBusquedaProducto,
+  ValidacionProducto,
+  ErroresFormularioProducto,
+  ConfiguracionProductos,
+  ProductoCompleto,
+  ContextoProductos
+};

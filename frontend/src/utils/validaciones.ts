@@ -1,641 +1,482 @@
 /**
  * Utilidades de Validación - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Validaciones específicas para documentos peruanos y SUNAT
+ * Validaciones específicas para normativa SUNAT
  */
 
 // =======================================================
-// TIPOS DE VALIDACIÓN
+// TIPOS PARA VALIDACIONES
 // =======================================================
 
 export interface ResultadoValidacion {
   valido: boolean;
   mensaje?: string;
-  codigo_error?: string;
+  codigo?: string;
 }
 
 export interface ValidacionDocumento extends ResultadoValidacion {
-  tipo_documento?: '1' | '6';
-  numero_normalizado?: string;
-  digito_verificador?: number;
+  tipo_documento?: string;
+  tipo_entidad?: 'persona' | 'empresa';
+}
+
+export interface ValidacionEmail extends ResultadoValidacion {
+  dominio?: string;
+}
+
+export interface ConfiguracionValidacion {
+  requerido?: boolean;
+  longitudMinima?: number;
+  longitudMaxima?: number;
+  patron?: RegExp;
+  personalizada?: (valor: any) => ResultadoValidacion;
 }
 
 // =======================================================
-// VALIDACIÓN DE DNI
+// VALIDACIONES DE DOCUMENTOS PERUANOS
 // =======================================================
 
 /**
- * Validar DNI peruano
- * - Debe tener exactamente 8 dígitos
- * - No puede empezar con 0
- * - Debe ser numérico
+ * Validar RUC peruano (11 dígitos)
  */
-export const validarDNI = (dni: string): ValidacionDocumento => {
-  if (!dni) {
-    return {
-      valido: false,
-      mensaje: 'El DNI es requerido',
-      codigo_error: 'DNI_REQUERIDO'
-    };
-  }
-
-  // Normalizar: remover espacios y convertir a mayúsculas
-  const dniNormalizado = dni.trim().replace(/\s+/g, '');
-
-  // Verificar que solo contenga números
-  if (!/^\d+$/.test(dniNormalizado)) {
-    return {
-      valido: false,
-      mensaje: 'El DNI debe contener solo números',
-      codigo_error: 'DNI_FORMATO_INVALIDO'
-    };
-  }
-
-  // Verificar longitud exacta
-  if (dniNormalizado.length !== 8) {
-    return {
-      valido: false,
-      mensaje: 'El DNI debe tener exactamente 8 dígitos',
-      codigo_error: 'DNI_LONGITUD_INVALIDA'
-    };
-  }
-
-  // Verificar que no empiece con 0
-  if (dniNormalizado.startsWith('0')) {
-    return {
-      valido: false,
-      mensaje: 'El DNI no puede empezar con 0',
-      codigo_error: 'DNI_CERO_INICIAL'
-    };
-  }
-
-  // Verificar patrones conocidos inválidos
-  const patronesInvalidos = [
-    '11111111', '22222222', '33333333', '44444444',
-    '55555555', '66666666', '77777777', '88888888', '99999999',
-    '12345678', '87654321'
-  ];
-
-  if (patronesInvalidos.includes(dniNormalizado)) {
-    return {
-      valido: false,
-      mensaje: 'El DNI ingresado no es válido',
-      codigo_error: 'DNI_PATRON_INVALIDO'
-    };
-  }
-
-  return {
-    valido: true,
-    tipo_documento: '1',
-    numero_normalizado: dniNormalizado,
-    mensaje: 'DNI válido'
-  };
-};
-
-// =======================================================
-// VALIDACIÓN DE RUC
-// =======================================================
-
-/**
- * Validar RUC peruano con algoritmo de módulo 11
- * - Debe tener exactamente 11 dígitos
- * - Los dos primeros dígitos indican el tipo de contribuyente
- * - El último dígito es verificador
- */
-export const validarRUC = (ruc: string): ValidacionDocumento => {
+export const validarRuc = (ruc: string): ValidacionDocumento => {
   if (!ruc) {
-    return {
-      valido: false,
-      mensaje: 'El RUC es requerido',
-      codigo_error: 'RUC_REQUERIDO'
-    };
+    return { valido: false, mensaje: 'RUC es requerido' };
   }
 
-  // Normalizar
-  const rucNormalizado = ruc.trim().replace(/\s+/g, '');
+  // Limpiar el RUC
+  const rucLimpio = ruc.replace(/[^0-9]/g, '');
 
-  // Verificar que solo contenga números
-  if (!/^\d+$/.test(rucNormalizado)) {
-    return {
-      valido: false,
-      mensaje: 'El RUC debe contener solo números',
-      codigo_error: 'RUC_FORMATO_INVALIDO'
-    };
+  if (rucLimpio.length !== 11) {
+    return { valido: false, mensaje: 'RUC debe tener 11 dígitos' };
   }
 
-  // Verificar longitud exacta
-  if (rucNormalizado.length !== 11) {
-    return {
-      valido: false,
-      mensaje: 'El RUC debe tener exactamente 11 dígitos',
-      codigo_error: 'RUC_LONGITUD_INVALIDA'
-    };
+  // Validar primer dígito (tipo de contribuyente)
+  const primerDigito = rucLimpio[0];
+  if (!['1', '2'].includes(primerDigito)) {
+    return { valido: false, mensaje: 'RUC debe comenzar con 1 o 2' };
   }
 
-  // Verificar los dos primeros dígitos (tipo de contribuyente)
-  const primerDigito = parseInt(rucNormalizado.charAt(0));
-  const segundoDigito = parseInt(rucNormalizado.charAt(1));
-  
-  const tiposValidosRUC = [
-    10, // Persona Natural
-    11, // Persona Natural con Negocio
-    15, // Persona Natural no Domiciliada
-    17, // Persona Natural no Domiciliada sin RUC
-    20, // Persona Jurídica
-    25, // Persona Jurídica no Domiciliada
-    30, // Entidades del Sector Público
-  ];
+  // Algoritmo de validación del dígito verificador
+  const factores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  let suma = 0;
 
-  const tipoRUC = parseInt(rucNormalizado.substring(0, 2));
-  if (!tiposValidosRUC.includes(tipoRUC)) {
-    return {
-      valido: false,
-      mensaje: 'Tipo de RUC no válido',
-      codigo_error: 'RUC_TIPO_INVALIDO'
-    };
+  for (let i = 0; i < 10; i++) {
+    suma += parseInt(rucLimpio[i]) * factores[i];
   }
 
-  // Algoritmo de validación módulo 11
-  const digitoVerificador = calcularDigitoVerificadorRUC(rucNormalizado);
-  const ultimoDigito = parseInt(rucNormalizado.charAt(10));
+  const residuo = suma % 11;
+  const digitoVerificador = residuo < 2 ? residuo : 11 - residuo;
 
-  if (digitoVerificador !== ultimoDigito) {
-    return {
-      valido: false,
-      mensaje: 'El dígito verificador del RUC es incorrecto',
-      codigo_error: 'RUC_DIGITO_VERIFICADOR_INVALIDO'
-    };
+  if (parseInt(rucLimpio[10]) !== digitoVerificador) {
+    return { valido: false, mensaje: 'RUC no es válido (dígito verificador incorrecto)' };
   }
 
   return {
     valido: true,
     tipo_documento: '6',
-    numero_normalizado: rucNormalizado,
-    digito_verificador: digitoVerificador,
-    mensaje: 'RUC válido'
+    tipo_entidad: 'empresa'
   };
 };
 
 /**
- * Calcular dígito verificador de RUC usando módulo 11
+ * Validar DNI peruano (8 dígitos)
  */
-const calcularDigitoVerificadorRUC = (ruc: string): number => {
-  const factores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-  let suma = 0;
-
-  for (let i = 0; i < 10; i++) {
-    suma += parseInt(ruc.charAt(i)) * factores[i];
+export const validarDni = (dni: string): ValidacionDocumento => {
+  if (!dni) {
+    return { valido: false, mensaje: 'DNI es requerido' };
   }
 
-  const resto = suma % 11;
-  const digito = 11 - resto;
+  const dniLimpio = dni.replace(/[^0-9]/g, '');
 
-  if (digito === 10) return 0;
-  if (digito === 11) return 1;
-  return digito;
+  if (dniLimpio.length !== 8) {
+    return { valido: false, mensaje: 'DNI debe tener 8 dígitos' };
+  }
+
+  // Validar que no sean todos iguales
+  if (/^(\d)\1{7}$/.test(dniLimpio)) {
+    return { valido: false, mensaje: 'DNI no puede tener todos los dígitos iguales' };
+  }
+
+  // Validar rango válido
+  const numeroMini = parseInt(dniLimpio);
+  if (numeroMini < 1000000 || numeroMini > 99999999) {
+    return { valido: false, mensaje: 'DNI está fuera del rango válido' };
+  }
+
+  return {
+    valido: true,
+    tipo_documento: '1',
+    tipo_entidad: 'persona'
+  };
 };
 
-// =======================================================
-// VALIDACIÓN AUTOMÁTICA DE DOCUMENTOS
-// =======================================================
+/**
+ * Validar Carnet de Extranjería (12 dígitos)
+ */
+export const validarCarnetExtranjeria = (carnet: string): ValidacionDocumento => {
+  if (!carnet) {
+    return { valido: false, mensaje: 'Carnet de Extranjería es requerido' };
+  }
+
+  const carnetLimpio = carnet.replace(/[^0-9]/g, '');
+
+  if (carnetLimpio.length !== 12) {
+    return { valido: false, mensaje: 'Carnet de Extranjería debe tener 12 dígitos' };
+  }
+
+  return {
+    valido: true,
+    tipo_documento: '4',
+    tipo_entidad: 'persona'
+  };
+};
 
 /**
- * Detectar automáticamente el tipo de documento y validar
+ * Validar Pasaporte (formato internacional)
+ */
+export const validarPasaporte = (pasaporte: string): ValidacionDocumento => {
+  if (!pasaporte) {
+    return { valido: false, mensaje: 'Pasaporte es requerido' };
+  }
+
+  const pasaporteLimpio = pasaporte.trim().toUpperCase();
+
+  if (pasaporteLimpio.length < 6 || pasaporteLimpio.length > 12) {
+    return { valido: false, mensaje: 'Pasaporte debe tener entre 6 y 12 caracteres' };
+  }
+
+  // Formato alfanumérico
+  if (!/^[A-Z0-9]+$/.test(pasaporteLimpio)) {
+    return { valido: false, mensaje: 'Pasaporte solo puede contener letras y números' };
+  }
+
+  return {
+    valido: true,
+    tipo_documento: '7',
+    tipo_entidad: 'persona'
+  };
+};
+
+/**
+ * Validar documento automáticamente según su formato
  */
 export const validarDocumentoAutomatico = (documento: string): ValidacionDocumento => {
   if (!documento) {
-    return {
-      valido: false,
-      mensaje: 'El documento es requerido',
-      codigo_error: 'DOCUMENTO_REQUERIDO'
-    };
+    return { valido: false, mensaje: 'Documento es requerido' };
   }
 
-  const docNormalizado = documento.trim().replace(/\s+/g, '');
+  const docLimpio = documento.replace(/[^0-9A-Za-z]/g, '');
 
-  // Detectar por longitud
-  if (docNormalizado.length === 8) {
-    return validarDNI(docNormalizado);
-  } else if (docNormalizado.length === 11) {
-    return validarRUC(docNormalizado);
+  // Intentar detectar tipo de documento por longitud y formato
+  if (/^\d{8}$/.test(docLimpio)) {
+    return validarDni(docLimpio);
+  } else if (/^\d{11}$/.test(docLimpio)) {
+    return validarRuc(docLimpio);
+  } else if (/^\d{12}$/.test(docLimpio)) {
+    return validarCarnetExtranjeria(docLimpio);
+  } else if (/^[A-Z0-9]{6,12}$/i.test(docLimpio)) {
+    return validarPasaporte(docLimpio);
   } else {
-    return {
-      valido: false,
-      mensaje: 'El documento debe tener 8 dígitos (DNI) o 11 dígitos (RUC)',
-      codigo_error: 'DOCUMENTO_LONGITUD_INVALIDA'
-    };
+    return { valido: false, mensaje: 'Formato de documento no reconocido' };
   }
 };
 
 // =======================================================
-// VALIDACIÓN DE EMAIL
+// VALIDACIONES DE CONTACTO
 // =======================================================
 
 /**
- * Validar formato de email
+ * Validar email
  */
-export const validarEmail = (email: string): ResultadoValidacion => {
+export const validarEmail = (email: string): ValidacionEmail => {
   if (!email) {
-    return { valido: true }; // Email es opcional
+    return { valido: false, mensaje: 'Email es requerido' };
   }
 
-  const emailNormalizado = email.trim().toLowerCase();
-  const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailLimpio = email.trim().toLowerCase();
+  const patronEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!regexEmail.test(emailNormalizado)) {
-    return {
-      valido: false,
-      mensaje: 'El formato del email no es válido',
-      codigo_error: 'EMAIL_FORMATO_INVALIDO'
-    };
+  if (!patronEmail.test(emailLimpio)) {
+    return { valido: false, mensaje: 'Formato de email no válido' };
   }
 
-  if (emailNormalizado.length > 100) {
-    return {
-      valido: false,
-      mensaje: 'El email es demasiado largo (máximo 100 caracteres)',
-      codigo_error: 'EMAIL_MUY_LARGO'
-    };
+  const dominio = emailLimpio.split('@')[1];
+
+  // Validar dominios comunes problemáticos
+  const dominiosProblematicos = ['tempmail.com', '10minutemail.com', 'guerrillamail.com'];
+  if (dominiosProblematicos.includes(dominio)) {
+    return { valido: false, mensaje: 'No se permite este tipo de email temporal' };
   }
 
   return {
     valido: true,
-    mensaje: 'Email válido'
+    dominio
   };
 };
 
-// =======================================================
-// VALIDACIÓN DE TELÉFONOS
-// =======================================================
-
 /**
- * Validar número de teléfono peruano
+ * Validar teléfono peruano
  */
 export const validarTelefono = (telefono: string): ResultadoValidacion => {
   if (!telefono) {
-    return { valido: true }; // Teléfono es opcional
+    return { valido: false, mensaje: 'Teléfono es requerido' };
   }
 
-  const telefonoNormalizado = telefono.trim().replace(/[\s\-\(\)]/g, '');
+  const telefonoLimpio = telefono.replace(/[^0-9]/g, '');
 
-  // Permitir formato internacional +51
-  const regexTelefono = /^(\+51)?[0-9]{7,9}$/;
-
-  if (!regexTelefono.test(telefonoNormalizado)) {
-    return {
-      valido: false,
-      mensaje: 'El formato del teléfono no es válido',
-      codigo_error: 'TELEFONO_FORMATO_INVALIDO'
-    };
-  }
-
-  return {
-    valido: true,
-    mensaje: 'Teléfono válido'
-  };
-};
-
-// =======================================================
-// VALIDACIÓN DE MONTOS
-// =======================================================
-
-/**
- * Validar monto monetario
- */
-export const validarMonto = (monto: number | string, opciones: {
-  minimo?: number;
-  maximo?: number;
-  requerido?: boolean;
-  permitirNegativo?: boolean;
-} = {}): ResultadoValidacion => {
-  const {
-    minimo = 0,
-    maximo = 999999999.99,
-    requerido = false,
-    permitirNegativo = false
-  } = opciones;
-
-  if (monto === '' || monto === null || monto === undefined) {
-    if (requerido) {
-      return {
-        valido: false,
-        mensaje: 'El monto es requerido',
-        codigo_error: 'MONTO_REQUERIDO'
-      };
-    }
+  // Celular: 9 dígitos que empiecen con 9
+  if (/^9\d{8}$/.test(telefonoLimpio)) {
     return { valido: true };
   }
 
+  // Fijo Lima: 7 dígitos
+  if (/^\d{7}$/.test(telefonoLimpio)) {
+    return { valido: true };
+  }
+
+  // Fijo provincial: 6 dígitos
+  if (/^\d{6}$/.test(telefonoLimpio)) {
+    return { valido: true };
+  }
+
+  return { valido: false, mensaje: 'Formato de teléfono no válido para Perú' };
+};
+
+// =======================================================
+// VALIDACIONES COMERCIALES
+// =======================================================
+
+/**
+ * Validar código de producto
+ */
+export const validarCodigoProducto = (codigo: string): ResultadoValidacion => {
+  if (!codigo) {
+    return { valido: false, mensaje: 'Código de producto es requerido' };
+  }
+
+  const codigoLimpio = codigo.trim().toUpperCase();
+
+  if (codigoLimpio.length < 3 || codigoLimpio.length > 20) {
+    return { valido: false, mensaje: 'Código debe tener entre 3 y 20 caracteres' };
+  }
+
+  if (!/^[A-Z0-9-_]+$/.test(codigoLimpio)) {
+    return { valido: false, mensaje: 'Código solo puede contener letras, números, guiones y guiones bajos' };
+  }
+
+  return { valido: true };
+};
+
+/**
+ * Validar precio/monto
+ */
+export const validarMonto = (monto: number | string, minimo = 0, maximo = 999999999): ResultadoValidacion => {
   const montoNumerico = typeof monto === 'string' ? parseFloat(monto) : monto;
 
   if (isNaN(montoNumerico)) {
-    return {
-      valido: false,
-      mensaje: 'El monto debe ser un número válido',
-      codigo_error: 'MONTO_NO_NUMERICO'
-    };
-  }
-
-  if (!permitirNegativo && montoNumerico < 0) {
-    return {
-      valido: false,
-      mensaje: 'El monto no puede ser negativo',
-      codigo_error: 'MONTO_NEGATIVO'
-    };
+    return { valido: false, mensaje: 'Monto debe ser un número válido' };
   }
 
   if (montoNumerico < minimo) {
-    return {
-      valido: false,
-      mensaje: `El monto mínimo es ${minimo}`,
-      codigo_error: 'MONTO_MENOR_MINIMO'
-    };
+    return { valido: false, mensaje: `Monto no puede ser menor a ${minimo}` };
   }
 
   if (montoNumerico > maximo) {
-    return {
-      valido: false,
-      mensaje: `El monto máximo es ${maximo}`,
-      codigo_error: 'MONTO_MAYOR_MAXIMO'
-    };
+    return { valido: false, mensaje: `Monto no puede ser mayor a ${maximo}` };
   }
 
-  // Verificar decimales (máximo 2)
-  const decimales = (montoNumerico.toString().split('.')[1] || '').length;
-  if (decimales > 2) {
-    return {
-      valido: false,
-      mensaje: 'El monto no puede tener más de 2 decimales',
-      codigo_error: 'MONTO_MUCHOS_DECIMALES'
-    };
-  }
-
-  return {
-    valido: true,
-    mensaje: 'Monto válido'
-  };
+  return { valido: true };
 };
 
-// =======================================================
-// VALIDACIÓN DE CANTIDAD
-// =======================================================
-
 /**
- * Validar cantidad de productos
+ * Validar cantidad
  */
-export const validarCantidad = (cantidad: number | string, opciones: {
-  minimo?: number;
-  maximo?: number;
-  permitirDecimales?: boolean;
-} = {}): ResultadoValidacion => {
-  const {
-    minimo = 0.001,
-    maximo = 999999,
-    permitirDecimales = true
-  } = opciones;
-
-  if (cantidad === '' || cantidad === null || cantidad === undefined) {
-    return {
-      valido: false,
-      mensaje: 'La cantidad es requerida',
-      codigo_error: 'CANTIDAD_REQUERIDA'
-    };
-  }
-
+export const validarCantidad = (cantidad: number | string, permiteDecimales = false): ResultadoValidacion => {
   const cantidadNumerica = typeof cantidad === 'string' ? parseFloat(cantidad) : cantidad;
 
   if (isNaN(cantidadNumerica)) {
-    return {
-      valido: false,
-      mensaje: 'La cantidad debe ser un número válido',
-      codigo_error: 'CANTIDAD_NO_NUMERICA'
-    };
+    return { valido: false, mensaje: 'Cantidad debe ser un número válido' };
   }
 
   if (cantidadNumerica <= 0) {
-    return {
-      valido: false,
-      mensaje: 'La cantidad debe ser mayor a cero',
-      codigo_error: 'CANTIDAD_CERO_NEGATIVA'
-    };
+    return { valido: false, mensaje: 'Cantidad debe ser mayor a 0' };
   }
 
-  if (cantidadNumerica < minimo) {
-    return {
-      valido: false,
-      mensaje: `La cantidad mínima es ${minimo}`,
-      codigo_error: 'CANTIDAD_MENOR_MINIMO'
-    };
+  if (!permiteDecimales && cantidadNumerica % 1 !== 0) {
+    return { valido: false, mensaje: 'Cantidad no puede tener decimales' };
   }
 
-  if (cantidadNumerica > maximo) {
-    return {
-      valido: false,
-      mensaje: `La cantidad máxima es ${maximo}`,
-      codigo_error: 'CANTIDAD_MAYOR_MAXIMO'
-    };
-  }
-
-  if (!permitirDecimales && cantidadNumerica % 1 !== 0) {
-    return {
-      valido: false,
-      mensaje: 'La cantidad debe ser un número entero',
-      codigo_error: 'CANTIDAD_DECIMAL_NO_PERMITIDA'
-    };
-  }
-
-  return {
-    valido: true,
-    mensaje: 'Cantidad válida'
-  };
+  return { valido: true };
 };
 
 // =======================================================
-// VALIDACIÓN DE TEXTO
+// VALIDACIONES DE FECHAS
 // =======================================================
 
 /**
- * Validar texto general
+ * Validar fecha de emisión
  */
-export const validarTexto = (texto: string, opciones: {
-  minimo?: number;
-  maximo?: number;
-  requerido?: boolean;
-  soloLetras?: boolean;
-  soloAlfanumerico?: boolean;
-} = {}): ResultadoValidacion => {
-  const {
-    minimo = 0,
-    maximo = 255,
-    requerido = false,
-    soloLetras = false,
-    soloAlfanumerico = false
-  } = opciones;
-
-  if (!texto || texto.trim() === '') {
-    if (requerido) {
-      return {
-        valido: false,
-        mensaje: 'Este campo es requerido',
-        codigo_error: 'TEXTO_REQUERIDO'
-      };
-    }
-    return { valido: true };
-  }
-
-  const textoLimpio = texto.trim();
-
-  if (textoLimpio.length < minimo) {
-    return {
-      valido: false,
-      mensaje: `Mínimo ${minimo} caracteres`,
-      codigo_error: 'TEXTO_MUY_CORTO'
-    };
-  }
-
-  if (textoLimpio.length > maximo) {
-    return {
-      valido: false,
-      mensaje: `Máximo ${maximo} caracteres`,
-      codigo_error: 'TEXTO_MUY_LARGO'
-    };
-  }
-
-  if (soloLetras && !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(textoLimpio)) {
-    return {
-      valido: false,
-      mensaje: 'Solo se permiten letras y espacios',
-      codigo_error: 'TEXTO_CARACTERES_INVALIDOS'
-    };
-  }
-
-  if (soloAlfanumerico && !/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\-_]+$/.test(textoLimpio)) {
-    return {
-      valido: false,
-      mensaje: 'Solo se permiten letras, números, espacios y guiones',
-      codigo_error: 'TEXTO_CARACTERES_INVALIDOS'
-    };
-  }
-
-  return {
-    valido: true,
-    mensaje: 'Texto válido'
-  };
-};
-
-// =======================================================
-// VALIDACIÓN DE FECHA
-// =======================================================
-
-/**
- * Validar fecha
- */
-export const validarFecha = (fecha: string | Date, opciones: {
-  fechaMinima?: Date;
-  fechaMaxima?: Date;
-  requerida?: boolean;
-} = {}): ResultadoValidacion => {
-  const {
-    fechaMinima,
-    fechaMaxima,
-    requerida = false
-  } = opciones;
-
-  if (!fecha) {
-    if (requerida) {
-      return {
-        valido: false,
-        mensaje: 'La fecha es requerida',
-        codigo_error: 'FECHA_REQUERIDA'
-      };
-    }
-    return { valido: true };
-  }
-
+export const validarFechaEmision = (fecha: string | Date): ResultadoValidacion => {
   const fechaObj = typeof fecha === 'string' ? new Date(fecha) : fecha;
 
   if (isNaN(fechaObj.getTime())) {
-    return {
-      valido: false,
-      mensaje: 'La fecha no es válida',
-      codigo_error: 'FECHA_INVALIDA'
-    };
+    return { valido: false, mensaje: 'Fecha de emisión no válida' };
   }
 
-  if (fechaMinima && fechaObj < fechaMinima) {
-    return {
-      valido: false,
-      mensaje: `La fecha debe ser posterior al ${fechaMinima.toLocaleDateString()}`,
-      codigo_error: 'FECHA_ANTERIOR_MINIMA'
-    };
+  const hoy = new Date();
+  hoy.setHours(23, 59, 59, 999); // Fin del día actual
+
+  if (fechaObj > hoy) {
+    return { valido: false, mensaje: 'Fecha de emisión no puede ser futura' };
   }
 
-  if (fechaMaxima && fechaObj > fechaMaxima) {
-    return {
-      valido: false,
-      mensaje: `La fecha debe ser anterior al ${fechaMaxima.toLocaleDateString()}`,
-      codigo_error: 'FECHA_POSTERIOR_MAXIMA'
-    };
+  // No más de 7 días hacia atrás para facturación electrónica
+  const hace7Dias = new Date();
+  hace7Dias.setDate(hace7Dias.getDate() - 7);
+  hace7Dias.setHours(0, 0, 0, 0);
+
+  if (fechaObj < hace7Dias) {
+    return { valido: false, mensaje: 'Fecha de emisión no puede ser mayor a 7 días atrás' };
   }
 
-  return {
-    valido: true,
-    mensaje: 'Fecha válida'
-  };
+  return { valido: true };
+};
+
+/**
+ * Validar fecha de vencimiento
+ */
+export const validarFechaVencimiento = (fechaVencimiento: string | Date, fechaEmision?: string | Date): ResultadoValidacion => {
+  const fechaVencObj = typeof fechaVencimiento === 'string' ? new Date(fechaVencimiento) : fechaVencimiento;
+
+  if (isNaN(fechaVencObj.getTime())) {
+    return { valido: false, mensaje: 'Fecha de vencimiento no válida' };
+  }
+
+  if (fechaEmision) {
+    const fechaEmisionObj = typeof fechaEmision === 'string' ? new Date(fechaEmision) : fechaEmision;
+    
+    if (fechaVencObj < fechaEmisionObj) {
+      return { valido: false, mensaje: 'Fecha de vencimiento no puede ser anterior a fecha de emisión' };
+    }
+  }
+
+  return { valido: true };
 };
 
 // =======================================================
-// UTILIDADES DE VALIDACIÓN
+// VALIDADOR GENÉRICO
 // =======================================================
 
 /**
- * Validar múltiples campos a la vez
+ * Validador genérico configurable
  */
-export const validarCampos = (
-  campos: Array<{ valor: any; validaciones: (() => ResultadoValidacion)[] }>
-): { valido: boolean; errores: string[] } => {
-  const errores: string[] = [];
+export const validar = (valor: any, configuracion: ConfiguracionValidacion): ResultadoValidacion => {
+  // Validar requerido
+  if (configuracion.requerido && (!valor || (typeof valor === 'string' && !valor.trim()))) {
+    return { valido: false, mensaje: 'Este campo es requerido' };
+  }
 
-  for (const campo of campos) {
-    for (const validacion of campo.validaciones) {
-      const resultado = validacion();
-      if (!resultado.valido && resultado.mensaje) {
-        errores.push(resultado.mensaje);
-      }
+  // Si no es requerido y está vacío, es válido
+  if (!configuracion.requerido && (!valor || (typeof valor === 'string' && !valor.trim()))) {
+    return { valido: true };
+  }
+
+  const valorString = String(valor).trim();
+
+  // Validar longitud mínima
+  if (configuracion.longitudMinima && valorString.length < configuracion.longitudMinima) {
+    return { valido: false, mensaje: `Debe tener al menos ${configuracion.longitudMinima} caracteres` };
+  }
+
+  // Validar longitud máxima
+  if (configuracion.longitudMaxima && valorString.length > configuracion.longitudMaxima) {
+    return { valido: false, mensaje: `No debe superar ${configuracion.longitudMaxima} caracteres` };
+  }
+
+  // Validar patrón
+  if (configuracion.patron && !configuracion.patron.test(valorString)) {
+    return { valido: false, mensaje: 'Formato no válido' };
+  }
+
+  // Validación personalizada
+  if (configuracion.personalizada) {
+    return configuracion.personalizada(valor);
+  }
+
+  return { valido: true };
+};
+
+// =======================================================
+// VALIDACIONES COMBINADAS
+// =======================================================
+
+/**
+ * Validar formulario completo
+ */
+export const validarFormulario = (
+  datos: Record<string, any>,
+  reglas: Record<string, ConfiguracionValidacion>
+): { valido: boolean; errores: Record<string, string> } => {
+  const errores: Record<string, string> = {};
+
+  for (const [campo, configuracion] of Object.entries(reglas)) {
+    const resultado = validar(datos[campo], configuracion);
+    if (!resultado.valido && resultado.mensaje) {
+      errores[campo] = resultado.mensaje;
     }
   }
 
   return {
-    valido: errores.length === 0,
+    valido: Object.keys(errores).length === 0,
     errores
   };
 };
 
-/**
- * Normalizar texto para comparaciones
- */
-export const normalizarTexto = (texto: string): string => {
-  return texto
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, ''); // Remover acentos
+// =======================================================
+// PATRONES COMUNES
+// =======================================================
+
+export const PATRONES = {
+  // Solo letras y espacios
+  SOLO_LETRAS: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/,
+  
+  // Solo números
+  SOLO_NUMEROS: /^\d+$/,
+  
+  // Alfanumérico
+  ALFANUMERICO: /^[a-zA-Z0-9]+$/,
+  
+  // Código postal peruano (5 dígitos)
+  CODIGO_POSTAL: /^\d{5}$/,
+  
+  // Placa vehicular peruana
+  PLACA_VEHICULAR: /^[A-Z]{3}-\d{3}$/,
+  
+  // Número de cuenta bancaria (13-20 dígitos)
+  CUENTA_BANCARIA: /^\d{13,20}$/,
+  
+  // CCI (20 dígitos)
+  CCI: /^\d{20}$/
 };
 
-/**
- * Verificar si un string contiene solo números
- */
-export const esSoloNumeros = (valor: string): boolean => {
-  return /^\d+$/.test(valor.trim());
-};
+// =======================================================
+// EXPORTACIONES
+// =======================================================
 
-/**
- * Verificar si un valor está vacío
- */
-export const estaVacio = (valor: any): boolean => {
-  if (valor === null || valor === undefined) return true;
-  if (typeof valor === 'string') return valor.trim() === '';
-  if (Array.isArray(valor)) return valor.length === 0;
-  if (typeof valor === 'object') return Object.keys(valor).length === 0;
-  return false;
+export default {
+  validarRuc,
+  validarDni,
+  validarCarnetExtranjeria,
+  validarPasaporte,
+  validarDocumentoAutomatico,
+  validarEmail,
+  validarTelefono,
+  validarCodigoProducto,
+  validarMonto,
+  validarCantidad,
+  validarFechaEmision,
+  validarFechaVencimiento,
+  validar,
+  validarFormulario,
+  PATRONES
 };

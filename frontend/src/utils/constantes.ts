@@ -1,426 +1,435 @@
 /**
  * Constantes del Sistema - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Constantes globales y configuraciones del sistema
+ * Constantes específicas para normativa SUNAT
  */
 
 // =======================================================
-// CONSTANTES DE APLICACIÓN
+// CONSTANTES GENERALES DEL SISTEMA
 // =======================================================
 
-export const APP_CONFIG = {
+export const APP_INFO = {
   NOMBRE: 'FELICITAFAC',
   VERSION: '1.0.0',
   DESCRIPCION: 'Sistema de Facturación Electrónica para Perú',
-  EMPRESA: 'FELICITAFAC S.A.C.',
-  SOPORTE_EMAIL: 'soporte@felicitafac.com',
-  SOPORTE_TELEFONO: '+51 999 123 456',
+  EMPRESA: 'FELICITAFAC',
   WEBSITE: 'https://felicitafac.com',
+  SOPORTE_EMAIL: 'soporte@felicitafac.com',
+  SOPORTE_TELEFONO: '+51 1 234 5678'
+} as const;
+
+export const CONFIGURACION_SISTEMA = {
+  TIMEZONE: 'America/Lima',
+  LOCALE: 'es-PE',
+  MONEDA_DEFAULT: 'PEN',
+  DECIMALES_MONEDA: 2,
+  DECIMALES_CANTIDAD: 4,
+  SEPARADOR_MILES: ',',
+  SEPARADOR_DECIMAL: '.',
+  FECHA_FORMATO_DEFAULT: 'DD/MM/YYYY',
+  HORA_FORMATO_DEFAULT: 'HH:mm:ss'
 } as const;
 
 // =======================================================
-// CONFIGURACIÓN DE API
+// TIPOS DE DOCUMENTOS SUNAT
 // =======================================================
-
-export const API_CONFIG = {
-  BASE_URL: '/api',
-  TIMEOUT: 30000, // 30 segundos
-  RETRY_ATTEMPTS: 3,
-  RETRY_DELAY: 1000, // 1 segundo
-} as const;
-
-export const API_ENDPOINTS = {
-  // Autenticación
-  AUTH: {
-    LOGIN: '/auth/login/',
-    LOGOUT: '/auth/logout/',
-    REFRESH: '/auth/refresh/',
-    PROFILE: '/auth/profile/',
-    CHANGE_PASSWORD: '/auth/change-password/',
-  },
-  
-  // Usuarios
-  USUARIOS: {
-    LIST: '/usuarios/',
-    DETAIL: (id: number) => `/usuarios/${id}/`,
-    CREATE: '/usuarios/',
-    UPDATE: (id: number) => `/usuarios/${id}/`,
-    DELETE: (id: number) => `/usuarios/${id}/`,
-  },
-  
-  // Clientes
-  CLIENTES: {
-    LIST: '/clientes/',
-    DETAIL: (id: number) => `/clientes/${id}/`,
-    CREATE: '/clientes/',
-    UPDATE: (id: number) => `/clientes/${id}/`,
-    DELETE: (id: number) => `/clientes/${id}/`,
-    BUSCAR: '/clientes/buscar/',
-    VALIDAR_DOCUMENTO: '/clientes/validar-documento/',
-    CONSULTAR_SUNAT: '/clientes/consultar-sunat/',
-  },
-  
-  // Productos
-  PRODUCTOS: {
-    LIST: '/api/productos/productos/',
-    DETAIL: (id: number) => `/api/productos/productos/${id}/`,
-    CREATE: '/api/productos/productos/',
-    UPDATE: (id: number) => `/api/productos/productos/${id}/`,
-    DELETE: (id: number) => `/api/productos/productos/${id}/`,
-    CATEGORIAS: '/api/productos/categorias/',
-    TIPOS: '/api/productos/tipos-producto/',
-    ALERTAS_STOCK: '/api/productos/alertas-stock/',
-    ACTUALIZAR_PRECIOS: '/api/productos/actualizar-precios/',
-  },
-  
-  // Facturación
-  FACTURACION: {
-    FACTURAS: '/facturacion/facturas/',
-    DETALLE: (id: number) => `/facturacion/facturas/${id}/`,
-    CREAR: '/facturacion/facturas/',
-    ANULAR: (id: number) => `/facturacion/facturas/${id}/anular/`,
-    SERIES: '/facturacion/series/',
-    CALCULAR_TOTALES: '/facturacion/calcular-totales/',
-    VALIDAR_STOCK: '/facturacion/validar-stock/',
-    RESUMEN_VENTAS: '/facturacion/resumen-ventas/',
-  },
-  
-  // Inventario
-  INVENTARIO: {
-    MOVIMIENTOS: '/inventario/movimientos/',
-    AJUSTAR: '/inventario/ajustar/',
-    REPORTES: '/inventario/reportes/',
-    KARDEX: (id: number) => `/inventario/kardex/${id}/`,
-  },
-  
-  // Reportes
-  REPORTES: {
-    VENTAS_DIARIAS: '/reportes/ventas-diarias/',
-    TOP_PRODUCTOS: '/reportes/top-productos/',
-    TOP_CLIENTES: '/reportes/top-clientes/',
-    CARTERA_CLIENTES: '/reportes/cartera-clientes/',
-  },
-} as const;
-
-// =======================================================
-// CONSTANTES DE FACTURACIÓN SUNAT
-// =======================================================
-
-export const SUNAT_CONFIG = {
-  IGV_TASA: 0.18,
-  RUC_EMPRESA: '20123456789', // Cambiar por RUC real
-  RAZON_SOCIAL_EMPRESA: 'FELICITAFAC S.A.C.', // Cambiar por razón social real
-  DIRECCION_EMPRESA: 'Av. Javier Prado Este 1234, San Isidro, Lima', // Cambiar por dirección real
-} as const;
-
-export const TIPOS_DOCUMENTO = {
-  FACTURA: 'factura',
-  BOLETA: 'boleta',
-  NOTA_CREDITO: 'nota_credito',
-  NOTA_DEBITO: 'nota_debito',
-} as const;
-
-export const TIPOS_DOCUMENTO_SUNAT = {
-  '01': 'Factura',
-  '03': 'Boleta de Venta',
-  '07': 'Nota de Crédito',
-  '08': 'Nota de Débito',
-} as const;
 
 export const TIPOS_DOCUMENTO_IDENTIDAD = {
   DNI: '1',
   CARNET_EXTRANJERIA: '4',
   RUC: '6',
   PASAPORTE: '7',
+  CEDULA_DIPLOMATICA: 'A'
 } as const;
 
-export const TIPOS_AFECTACION_IGV = {
-  GRAVADO_ONEROSA: '10',
-  GRAVADO_RETIRO: '11',
-  GRAVADO_IVAP: '17',
-  EXONERADO_ONEROSA: '20',
-  EXONERADO_TRANSFERENCIA: '21',
-  INAFECTO_ONEROSA: '30',
-  INAFECTO_RETIRO: '31',
-  INAFECTO_IVAP: '32',
-  EXPORTACION: '40',
+export const NOMBRES_DOCUMENTO_IDENTIDAD = {
+  [TIPOS_DOCUMENTO_IDENTIDAD.DNI]: 'DNI',
+  [TIPOS_DOCUMENTO_IDENTIDAD.CARNET_EXTRANJERIA]: 'Carnet de Extranjería',
+  [TIPOS_DOCUMENTO_IDENTIDAD.RUC]: 'RUC',
+  [TIPOS_DOCUMENTO_IDENTIDAD.PASAPORTE]: 'Pasaporte',
+  [TIPOS_DOCUMENTO_IDENTIDAD.CEDULA_DIPLOMATICA]: 'Cédula Diplomática'
 } as const;
 
-export const UNIDADES_MEDIDA_SUNAT = {
+export const TIPOS_DOCUMENTO_ELECTRONICO = {
+  FACTURA: '01',
+  BOLETA: '03',
+  NOTA_CREDITO: '07',
+  NOTA_DEBITO: '08',
+  GUIA_REMISION: '09',
+  RECIBO_HONORARIOS: '12'
+} as const;
+
+export const NOMBRES_DOCUMENTO_ELECTRONICO = {
+  [TIPOS_DOCUMENTO_ELECTRONICO.FACTURA]: 'Factura Electrónica',
+  [TIPOS_DOCUMENTO_ELECTRONICO.BOLETA]: 'Boleta de Venta Electrónica',
+  [TIPOS_DOCUMENTO_ELECTRONICO.NOTA_CREDITO]: 'Nota de Crédito Electrónica',
+  [TIPOS_DOCUMENTO_ELECTRONICO.NOTA_DEBITO]: 'Nota de Débito Electrónica',
+  [TIPOS_DOCUMENTO_ELECTRONICO.GUIA_REMISION]: 'Guía de Remisión Electrónica',
+  [TIPOS_DOCUMENTO_ELECTRONICO.RECIBO_HONORARIOS]: 'Recibo por Honorarios Electrónico'
+} as const;
+
+// =======================================================
+// CÓDIGOS DE MONEDA
+// =======================================================
+
+export const MONEDAS = {
+  PEN: 'PEN',
+  USD: 'USD',
+  EUR: 'EUR'
+} as const;
+
+export const NOMBRES_MONEDAS = {
+  [MONEDAS.PEN]: 'Soles',
+  [MONEDAS.USD]: 'Dólares Americanos',
+  [MONEDAS.EUR]: 'Euros'
+} as const;
+
+export const SIMBOLOS_MONEDAS = {
+  [MONEDAS.PEN]: 'S/',
+  [MONEDAS.USD]: '$',
+  [MONEDAS.EUR]: '€'
+} as const;
+
+// =======================================================
+// CÓDIGOS DE UNIDADES DE MEDIDA SUNAT
+// =======================================================
+
+export const UNIDADES_MEDIDA = {
   UNIDAD: 'NIU',
-  KILOGRAMO: 'KGM',
-  GRAMO: 'GRM',
-  METRO: 'MTR',
-  METRO_CUADRADO: 'MTK',
-  METRO_CUBICO: 'MTQ',
-  LITRO: 'LTR',
-  GALON: 'GLL',
-  PIEZA: 'H87',
-  CAJA: 'BX',
-  PAQUETE: 'PK',
-  BOLSA: 'BG',
-  SERVICIO: 'ZZ',
+  KILOGRAMOS: 'KGM',
+  METROS: 'MTR',
+  LITROS: 'LTR',
+  PIEZAS: 'H87',
+  CAJAS: 'BX',
+  PAQUETES: 'PK',
+  CONJUNTOS: 'SET',
+  SERVICIOS: 'ZZ',
+  HORAS: 'HUR',
+  DIAS: 'DAY',
+  TONELADAS: 'TNE',
+  METROS_CUADRADOS: 'MTK',
+  METROS_CUBICOS: 'MTQ'
 } as const;
 
-export const SERIES_POR_DEFECTO = {
-  FACTURA: 'F001',
-  BOLETA: 'B001',
-  NOTA_CREDITO: 'FC01',
-  NOTA_DEBITO: 'FD01',
-} as const;
-
-// =======================================================
-// CONSTANTES DE INTERFAZ DE USUARIO
-// =======================================================
-
-export const UI_CONFIG = {
-  ITEMS_POR_PAGINA: 20,
-  ITEMS_POR_PAGINA_OPCIONES: [10, 20, 50, 100],
-  DEBOUNCE_DELAY: 300, // milliseconds
-  TOAST_DURATION: 5000, // milliseconds
-  MODAL_ANIMATION_DURATION: 200, // milliseconds
-} as const;
-
-export const COLORES_TEMA = {
-  PRIMARIO: '#3B82F6', // blue-500
-  SECUNDARIO: '#10B981', // emerald-500
-  EXITO: '#10B981', // emerald-500
-  ERROR: '#EF4444', // red-500
-  ADVERTENCIA: '#F59E0B', // amber-500
-  INFO: '#3B82F6', // blue-500
-  GRIS: '#6B7280', // gray-500
-} as const;
-
-export const ICONOS_ESTADO = {
-  ACTIVO: '✅',
-  INACTIVO: '❌',
-  PENDIENTE: '⏳',
-  COMPLETADO: '✅',
-  CANCELADO: '❌',
-  EN_PROCESO: '🔄',
-  ADVERTENCIA: '⚠️',
-  INFORMACION: 'ℹ️',
-  EXITO: '✅',
-  ERROR: '❌',
+export const NOMBRES_UNIDADES_MEDIDA = {
+  [UNIDADES_MEDIDA.UNIDAD]: 'Unidad',
+  [UNIDADES_MEDIDA.KILOGRAMOS]: 'Kilogramos',
+  [UNIDADES_MEDIDA.METROS]: 'Metros',
+  [UNIDADES_MEDIDA.LITROS]: 'Litros',
+  [UNIDADES_MEDIDA.PIEZAS]: 'Piezas',
+  [UNIDADES_MEDIDA.CAJAS]: 'Cajas',
+  [UNIDADES_MEDIDA.PAQUETES]: 'Paquetes',
+  [UNIDADES_MEDIDA.CONJUNTOS]: 'Conjuntos',
+  [UNIDADES_MEDIDA.SERVICIOS]: 'Servicios',
+  [UNIDADES_MEDIDA.HORAS]: 'Horas',
+  [UNIDADES_MEDIDA.DIAS]: 'Días',
+  [UNIDADES_MEDIDA.TONELADAS]: 'Toneladas',
+  [UNIDADES_MEDIDA.METROS_CUADRADOS]: 'Metros cuadrados',
+  [UNIDADES_MEDIDA.METROS_CUBICOS]: 'Metros cúbicos'
 } as const;
 
 // =======================================================
-// CONSTANTES DE VALIDACIÓN
+// TIPOS DE OPERACIÓN
 // =======================================================
 
-export const VALIDACIONES = {
-  EMAIL: {
-    REGEX: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    MAX_LENGTH: 100,
-  },
-  
-  DNI: {
-    LENGTH: 8,
-    REGEX: /^\d{8}$/,
-  },
-  
-  RUC: {
-    LENGTH: 11,
-    REGEX: /^\d{11}$/,
-    TIPOS_VALIDOS: [10, 11, 15, 17, 20, 25, 30],
-  },
-  
-  TELEFONO: {
-    REGEX: /^(\+51)?[0-9]{7,9}$/,
-    MIN_LENGTH: 7,
-    MAX_LENGTH: 9,
-  },
-  
-  PRECIO: {
-    MIN: 0,
-    MAX: 999999999.99,
-    DECIMALES: 2,
-  },
-  
-  CANTIDAD: {
-    MIN: 0.001,
-    MAX: 999999,
-    DECIMALES: 3,
-  },
-  
-  DESCUENTO: {
-    MIN: 0,
-    MAX: 100,
-    DECIMALES: 2,
-  },
-  
-  TEXTO: {
-    MIN_LENGTH: 1,
-    MAX_LENGTH: 255,
-  },
+export const TIPOS_OPERACION = {
+  VENTA_INTERNA: '0101',
+  EXPORTACION: '0200',
+  NO_DOMICILIADOS: '0401',
+  VENTA_INTERNA_ANTICIPOS: '0102',
+  VENTA_ITINERANTE: '0103',
+  VENTA_CONSIGNACION: '0104'
+} as const;
+
+export const NOMBRES_TIPOS_OPERACION = {
+  [TIPOS_OPERACION.VENTA_INTERNA]: 'Venta Interna',
+  [TIPOS_OPERACION.EXPORTACION]: 'Exportación',
+  [TIPOS_OPERACION.NO_DOMICILIADOS]: 'No Domiciliados',
+  [TIPOS_OPERACION.VENTA_INTERNA_ANTICIPOS]: 'Venta Interna con Anticipos',
+  [TIPOS_OPERACION.VENTA_ITINERANTE]: 'Venta Itinerante',
+  [TIPOS_OPERACION.VENTA_CONSIGNACION]: 'Venta en Consignación'
 } as const;
 
 // =======================================================
-// CONSTANTES DE ALMACENAMIENTO LOCAL
+// CÓDIGOS DE AFECTACIÓN IGV
 // =======================================================
 
-export const STORAGE_KEYS = {
-  TOKEN_AUTH: 'felicitafac_token',
-  REFRESH_TOKEN: 'felicitafac_refresh_token',
-  USER_DATA: 'felicitafac_user',
-  THEME: 'felicitafac_theme',
-  LAST_ROUTE: 'felicitafac_last_route',
-  POS_CONFIG: 'felicitafac_pos_config',
-  CARRITO_TEMPORAL: 'felicitafac_carrito_temp',
+export const AFECTACION_IGV = {
+  GRAVADO: '10',
+  EXONERADO: '20',
+  INAFECTO: '30',
+  EXPORTACION: '40',
+  GRATUITO_GRAVADO: '11',
+  GRATUITO_EXONERADO: '21',
+  GRATUITO_INAFECTO: '31'
+} as const;
+
+export const NOMBRES_AFECTACION_IGV = {
+  [AFECTACION_IGV.GRAVADO]: 'Gravado - Operación Onerosa',
+  [AFECTACION_IGV.EXONERADO]: 'Exonerado - Operación Onerosa',
+  [AFECTACION_IGV.INAFECTO]: 'Inafecto - Operación Onerosa',
+  [AFECTACION_IGV.EXPORTACION]: 'Exportación',
+  [AFECTACION_IGV.GRATUITO_GRAVADO]: 'Gratuito - Gravado',
+  [AFECTACION_IGV.GRATUITO_EXONERADO]: 'Gratuito - Exonerado',
+  [AFECTACION_IGV.GRATUITO_INAFECTO]: 'Gratuito - Inafecto'
 } as const;
 
 // =======================================================
-// CONSTANTES DE PUNTO DE VENTA
+// CÓDIGOS DE TRIBUTOS
 // =======================================================
 
-export const POS_CONFIG = {
-  MAX_ITEMS_CARRITO: 100,
-  PRODUCTOS_POR_PAGINA: 24,
-  BUSQUEDA_MIN_CHARS: 2,
-  AUTOGUARDADO_INTERVALO: 30000, // 30 segundos
-  SHORTCUTS: {
-    NUEVA_FACTURA: 'F1',
-    NUEVA_BOLETA: 'F2',
-    BUSCAR_PRODUCTO: 'F3',
-    BUSCAR_CLIENTE: 'F4',
-    LIMPIAR_CARRITO: 'ESC',
-    GUARDAR: 'CTRL+S',
-  },
+export const TRIBUTOS = {
+  IGV: '1000',
+  IVAP: '1016',
+  ISC: '2000',
+  ICBPER: '7152',
+  OTROS: '9999'
 } as const;
 
-export const ESTADOS_CARRITO = {
-  VACIO: 'vacio',
-  CON_ITEMS: 'con_items',
-  PROCESANDO: 'procesando',
-  ERROR: 'error',
-} as const;
-
-export const TIPOS_MENSAJE = {
-  EXITO: 'success',
-  ERROR: 'error',
-  ADVERTENCIA: 'warning',
-  INFO: 'info',
+export const NOMBRES_TRIBUTOS = {
+  [TRIBUTOS.IGV]: 'IGV - Impuesto General a las Ventas',
+  [TRIBUTOS.IVAP]: 'IVAP - Impuesto a la Venta de Arroz Pilado',
+  [TRIBUTOS.ISC]: 'ISC - Impuesto Selectivo al Consumo',
+  [TRIBUTOS.ICBPER]: 'ICBPER - Impuesto Consumo Bolsas Plásticas',
+  [TRIBUTOS.OTROS]: 'Otros Tributos'
 } as const;
 
 // =======================================================
-// CONSTANTES DE REPORTES
+// TASAS DE IMPUESTOS
 // =======================================================
 
-export const PERIODOS_REPORTE = {
-  HOY: 'hoy',
-  AYER: 'ayer',
-  ESTA_SEMANA: 'esta_semana',
-  SEMANA_PASADA: 'semana_pasada',
-  ESTE_MES: 'este_mes',
-  MES_PASADO: 'mes_pasado',
-  ESTE_AÑO: 'este_año',
-  AÑO_PASADO: 'año_pasado',
-  PERSONALIZADO: 'personalizado',
-} as const;
-
-export const FORMATOS_EXPORTACION = {
-  PDF: 'pdf',
-  EXCEL: 'excel',
-  CSV: 'csv',
-  JSON: 'json',
+export const TASAS_IMPUESTOS = {
+  IGV: 0.18,
+  ICBPER: 0.30, // Por bolsa
+  ISC_COMBUSTIBLES: 0.12,
+  ISC_CIGARRILLOS: 0.35
 } as const;
 
 // =======================================================
-// CONSTANTES DE PERMISOS
+// MÉTODOS DE PAGO
 // =======================================================
 
-export const ROLES = {
+export const METODOS_PAGO = {
+  CONTADO: 'contado',
+  CREDITO: 'credito',
+  TRANSFERENCIA: 'transferencia',
+  DEPOSITO: 'deposito',
+  TARJETA_CREDITO: 'tarjeta_credito',
+  TARJETA_DEBITO: 'tarjeta_debito',
+  YAPE: 'yape',
+  PLIN: 'plin',
+  BILLETERA_DIGITAL: 'billetera_digital'
+} as const;
+
+export const NOMBRES_METODOS_PAGO = {
+  [METODOS_PAGO.CONTADO]: 'Efectivo',
+  [METODOS_PAGO.CREDITO]: 'Crédito',
+  [METODOS_PAGO.TRANSFERENCIA]: 'Transferencia Bancaria',
+  [METODOS_PAGO.DEPOSITO]: 'Depósito Bancario',
+  [METODOS_PAGO.TARJETA_CREDITO]: 'Tarjeta de Crédito',
+  [METODOS_PAGO.TARJETA_DEBITO]: 'Tarjeta de Débito',
+  [METODOS_PAGO.YAPE]: 'Yape',
+  [METODOS_PAGO.PLIN]: 'Plin',
+  [METODOS_PAGO.BILLETERA_DIGITAL]: 'Billetera Digital'
+} as const;
+
+// =======================================================
+// ESTADOS DE DOCUMENTOS
+// =======================================================
+
+export const ESTADOS_DOCUMENTO = {
+  BORRADOR: 'borrador',
+  ENVIADO: 'enviado',
+  ACEPTADO: 'aceptado',
+  RECHAZADO: 'rechazado',
+  ANULADO: 'anulado',
+  PENDIENTE: 'pendiente'
+} as const;
+
+export const NOMBRES_ESTADOS_DOCUMENTO = {
+  [ESTADOS_DOCUMENTO.BORRADOR]: 'Borrador',
+  [ESTADOS_DOCUMENTO.ENVIADO]: 'Enviado a SUNAT',
+  [ESTADOS_DOCUMENTO.ACEPTADO]: 'Aceptado por SUNAT',
+  [ESTADOS_DOCUMENTO.RECHAZADO]: 'Rechazado por SUNAT',
+  [ESTADOS_DOCUMENTO.ANULADO]: 'Anulado',
+  [ESTADOS_DOCUMENTO.PENDIENTE]: 'Pendiente'
+} as const;
+
+export const COLORES_ESTADOS_DOCUMENTO = {
+  [ESTADOS_DOCUMENTO.BORRADOR]: 'gray',
+  [ESTADOS_DOCUMENTO.ENVIADO]: 'blue',
+  [ESTADOS_DOCUMENTO.ACEPTADO]: 'green',
+  [ESTADOS_DOCUMENTO.RECHAZADO]: 'red',
+  [ESTADOS_DOCUMENTO.ANULADO]: 'orange',
+  [ESTADOS_DOCUMENTO.PENDIENTE]: 'yellow'
+} as const;
+
+// =======================================================
+// TIPOS DE NOTA DE CRÉDITO/DÉBITO
+// =======================================================
+
+export const TIPOS_NOTA_CREDITO = {
+  ANULACION: '01',
+  ANULACION_ERROR_RUC: '02',
+  CORRECCION_ERROR_DESCRIPCION: '03',
+  DESCUENTO_GLOBAL: '04',
+  DESCUENTO_ITEM: '05',
+  DEVOLUCION_TOTAL: '06',
+  DEVOLUCION_PARCIAL: '07',
+  BONIFICACION: '08',
+  DISMINUCION_VALOR: '09',
+  OTROS_CONCEPTOS: '10'
+} as const;
+
+export const NOMBRES_TIPOS_NOTA_CREDITO = {
+  [TIPOS_NOTA_CREDITO.ANULACION]: 'Anulación de la operación',
+  [TIPOS_NOTA_CREDITO.ANULACION_ERROR_RUC]: 'Anulación por error en el RUC',
+  [TIPOS_NOTA_CREDITO.CORRECCION_ERROR_DESCRIPCION]: 'Corrección por error en la descripción',
+  [TIPOS_NOTA_CREDITO.DESCUENTO_GLOBAL]: 'Descuento global',
+  [TIPOS_NOTA_CREDITO.DESCUENTO_ITEM]: 'Descuento por ítem',
+  [TIPOS_NOTA_CREDITO.DEVOLUCION_TOTAL]: 'Devolución total',
+  [TIPOS_NOTA_CREDITO.DEVOLUCION_PARCIAL]: 'Devolución parcial',
+  [TIPOS_NOTA_CREDITO.BONIFICACION]: 'Bonificación',
+  [TIPOS_NOTA_CREDITO.DISMINUCION_VALOR]: 'Disminución en el valor',
+  [TIPOS_NOTA_CREDITO.OTROS_CONCEPTOS]: 'Otros conceptos'
+} as const;
+
+export const TIPOS_NOTA_DEBITO = {
+  INTERES_MORA: '01',
+  AUMENTO_VALOR: '02',
+  PENALIDADES: '03',
+  OTROS_CONCEPTOS: '10'
+} as const;
+
+export const NOMBRES_TIPOS_NOTA_DEBITO = {
+  [TIPOS_NOTA_DEBITO.INTERES_MORA]: 'Intereses por mora',
+  [TIPOS_NOTA_DEBITO.AUMENTO_VALOR]: 'Aumento en el valor',
+  [TIPOS_NOTA_DEBITO.PENALIDADES]: 'Penalidades/otros conceptos',
+  [TIPOS_NOTA_DEBITO.OTROS_CONCEPTOS]: 'Otros conceptos'
+} as const;
+
+// =======================================================
+// UBIGEO PERÚ (PRINCIPALES)
+// =======================================================
+
+export const DEPARTAMENTOS_PERU = {
+  LIMA: '15',
+  AREQUIPA: '04',
+  TRUJILLO: '13',
+  CUSCO: '08',
+  PIURA: '20',
+  LAMBAYEQUE: '14',
+  JUNIN: '12',
+  ICA: '11',
+  ANCASH: '02',
+  CAJAMARCA: '06'
+} as const;
+
+export const PROVINCIAS_LIMA = {
+  LIMA: '01',
+  CALLAO: '07',
+  HUAURA: '09',
+  CAÑETE: '05'
+} as const;
+
+export const DISTRITOS_LIMA = {
+  LIMA: '01',
+  MIRAFLORES: '18',
+  SAN_ISIDRO: '27',
+  SURCO: '41',
+  LA_MOLINA: '17',
+  BARRANCO: '04',
+  SAN_BORJA: '30'
+} as const;
+
+// =======================================================
+// ROLES Y PERMISOS DEL SISTEMA
+// =======================================================
+
+export const ROLES_SISTEMA = {
   ADMINISTRADOR: 'administrador',
   CONTADOR: 'contador',
   VENDEDOR: 'vendedor',
-  CLIENTE: 'cliente',
+  CLIENTE: 'cliente'
 } as const;
 
-export const PERMISOS = {
-  // Usuarios
-  CREAR_USUARIOS: 'crear_usuarios',
-  EDITAR_USUARIOS: 'editar_usuarios',
-  ELIMINAR_USUARIOS: 'eliminar_usuarios',
-  VER_USUARIOS: 'ver_usuarios',
-  
-  // Clientes
-  CREAR_CLIENTES: 'crear_clientes',
-  EDITAR_CLIENTES: 'editar_clientes',
-  ELIMINAR_CLIENTES: 'eliminar_clientes',
-  VER_CLIENTES: 'ver_clientes',
-  
-  // Productos
-  CREAR_PRODUCTOS: 'crear_productos',
-  EDITAR_PRODUCTOS: 'editar_productos',
-  ELIMINAR_PRODUCTOS: 'eliminar_productos',
-  VER_PRODUCTOS: 'ver_productos',
-  
-  // Facturas
-  CREAR_FACTURAS: 'crear_facturas',
-  EDITAR_FACTURAS: 'editar_facturas',
-  ANULAR_FACTURAS: 'anular_facturas',
-  VER_FACTURAS: 'ver_facturas',
-  
-  // Reportes
-  VER_REPORTES: 'ver_reportes',
-  EXPORTAR_REPORTES: 'exportar_reportes',
-  
-  // Configuración
-  VER_CONFIGURACION: 'ver_configuracion',
-  EDITAR_CONFIGURACION: 'editar_configuracion',
-  
-  // Dashboard
-  VER_DASHBOARD: 'ver_dashboard',
+export const NOMBRES_ROLES = {
+  [ROLES_SISTEMA.ADMINISTRADOR]: 'Administrador',
+  [ROLES_SISTEMA.CONTADOR]: 'Contador',
+  [ROLES_SISTEMA.VENDEDOR]: 'Vendedor',
+  [ROLES_SISTEMA.CLIENTE]: 'Cliente'
 } as const;
 
-// =======================================================
-// CLIENTES POR DEFECTO
-// =======================================================
-
-/**
- * Cliente genérico para ventas sin identificar
- */
-export const CLIENTE_GENERICO = {
-  id: 0,
-  tipo_documento: '1' as const,
-  numero_documento: '00000000',
-  nombre_o_razon_social: 'Cliente Genérico',
-  direccion: 'Sin dirección',
-  distrito: 'Lima',
-  provincia: 'Lima',
-  departamento: 'Lima',
-  email: undefined,
-};
-
-// =======================================================
-// CONSTANTES DE UBICACIÓN PERÚ
-// =======================================================
-
-export const DEPARTAMENTOS_PERU = [
-  'Amazonas', 'Áncash', 'Apurímac', 'Arequipa', 'Ayacucho', 'Cajamarca',
-  'Callao', 'Cusco', 'Huancavelica', 'Huánuco', 'Ica', 'Junín',
-  'La Libertad', 'Lambayeque', 'Lima', 'Loreto', 'Madre de Dios',
-  'Moquegua', 'Pasco', 'Piura', 'Puno', 'San Martín', 'Tacna',
-  'Tumbes', 'Ucayali'
+export const PERMISOS_SISTEMA = [
+  'ver_dashboard',
+  'crear_facturas',
+  'ver_reportes',
+  'exportar_datos',
+  'gestionar_inventario',
+  'gestionar_clientes',
+  'ver_contabilidad',
+  'generar_ple',
+  'validar_documentos',
+  'configurar_sistema',
+  'gestionar_usuarios',
+  'ver_ventas',
+  'ver_mis_documentos'
 ] as const;
 
 // =======================================================
-// CONSTANTES DE FORMATO
+// CONFIGURACIÓN DE PAGINACIÓN
 // =======================================================
 
-export const FORMATOS_FECHA = {
-  CORTO: 'DD/MM/YYYY',
-  LARGO: 'dddd, DD [de] MMMM [de] YYYY',
-  ISO: 'YYYY-MM-DD',
-  HORA: 'HH:mm',
-  FECHA_HORA: 'DD/MM/YYYY HH:mm',
+export const PAGINACION = {
+  TAMAÑO_DEFAULT: 20,
+  TAMAÑOS_DISPONIBLES: [10, 20, 50, 100],
+  MAXIMO_ELEMENTOS: 1000
 } as const;
 
-export const FORMATOS_NUMERO = {
-  ENTERO: { minimumFractionDigits: 0, maximumFractionDigits: 0 },
-  DECIMAL_2: { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-  DECIMAL_3: { minimumFractionDigits: 3, maximumFractionDigits: 3 },
-  PORCENTAJE: { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 },
+// =======================================================
+// LÍMITES DEL SISTEMA
+// =======================================================
+
+export const LIMITES_SISTEMA = {
+  MAX_ITEMS_DOCUMENTO: 500,
+  MAX_LONGITUD_DESCRIPCION: 500,
+  MAX_LONGITUD_OBSERVACIONES: 1000,
+  MAX_TAMAÑO_ARCHIVO_MB: 10,
+  MAX_DOCUMENTOS_POR_DIA: 1000,
+  MAX_CLIENTES: 10000,
+  MAX_PRODUCTOS: 50000
+} as const;
+
+// =======================================================
+// CONFIGURACIÓN DE ARCHIVOS
+// =======================================================
+
+export const ARCHIVOS = {
+  TIPOS_PERMITIDOS: ['.pdf', '.xml', '.zip', '.xlsx', '.csv'],
+  TIPOS_IMAGEN: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+  TIPOS_DOCUMENTO: ['.pdf', '.doc', '.docx', '.txt'],
+  MAX_TAMAÑO_MB: 10
+} as const;
+
+// =======================================================
+// URLs Y ENDPOINTS
+// =======================================================
+
+export const URLS_SUNAT = {
+  PRODUCCION: 'https://api.nubefact.com',
+  TESTING: 'https://demo-api.nubefact.com',
+  CONSULTA_RUC: 'https://api.apis.net.pe/v1/ruc',
+  CONSULTA_DNI: 'https://api.apis.net.pe/v1/dni'
+} as const;
+
+export const ENDPOINTS_API = {
+  AUTH: '/auth',
+  DOCUMENTOS: '/documentos',
+  CLIENTES: '/clientes',
+  PRODUCTOS: '/productos',
+  INVENTARIO: '/inventario',
+  REPORTES: '/reportes',
+  CONFIGURACION: '/configuracion'
 } as const;
 
 // =======================================================
@@ -428,111 +437,72 @@ export const FORMATOS_NUMERO = {
 // =======================================================
 
 export const MENSAJES = {
-  ERRORES: {
-    GENERICO: 'Ha ocurrido un error inesperado',
-    CONEXION: 'Error de conexión. Verifique su conexión a internet',
-    TIMEOUT: 'La operación ha tardado demasiado. Intente nuevamente',
-    PERMISOS: 'No tiene permisos para realizar esta acción',
-    SESION_EXPIRADA: 'Su sesión ha expirado. Inicie sesión nuevamente',
-    SERVIDOR: 'Error del servidor. Contacte al administrador',
-    VALIDACION: 'Los datos ingresados no son válidos',
-    NOT_FOUND: 'El recurso solicitado no fue encontrado',
-  },
-  
   EXITO: {
-    GUARDADO: 'Los datos se guardaron correctamente',
-    ELIMINADO: 'El registro se eliminó correctamente',
-    ACTUALIZADO: 'Los datos se actualizaron correctamente',
-    ENVIADO: 'Los datos se enviaron correctamente',
-    PROCESADO: 'La operación se procesó correctamente',
+    GUARDADO: 'Información guardada correctamente',
+    ELIMINADO: 'Elemento eliminado correctamente',
+    ENVIADO: 'Documento enviado a SUNAT correctamente',
+    ACTUALIZADO: 'Información actualizada correctamente'
   },
-  
-  CONFIRMACIONES: {
-    ELIMINAR: '¿Está seguro de que desea eliminar este registro?',
-    ANULAR: '¿Está seguro de que desea anular este documento?',
-    SALIR: '¿Está seguro de que desea salir? Los cambios no guardados se perderán',
-    LIMPIAR: '¿Está seguro de que desea limpiar todos los datos?',
+  ERROR: {
+    GENERICO: 'Ha ocurrido un error inesperado',
+    RED: 'Error de conexión. Verifique su internet',
+    PERMISOS: 'No tiene permisos para realizar esta acción',
+    VALIDACION: 'Verifique los datos ingresados',
+    SUNAT: 'Error al comunicarse con SUNAT'
   },
-  
-  ADVERTENCIAS: {
-    STOCK_BAJO: 'El producto tiene stock bajo',
-    PRECIO_CERO: 'El producto no tiene precio configurado',
-    CLIENTE_GENERICO: 'Se está usando un cliente genérico',
-    CAMBIOS_NO_GUARDADOS: 'Hay cambios sin guardar',
-  },
+  CONFIRMACION: {
+    ELIMINAR: '¿Está seguro de eliminar este elemento?',
+    ANULAR: '¿Está seguro de anular este documento?',
+    SALIR: '¿Está seguro de salir? Los cambios no guardados se perderán'
+  }
 } as const;
 
 // =======================================================
-// CONFIGURACIÓN DE DESARROLLO
+// EXPORTACIONES AGRUPADAS
 // =======================================================
 
-export const DEV_CONFIG = {
-  LOG_LEVEL: 'debug',
-  MOCK_API: false,
-  SHOW_DEVTOOLS: true,
-  ENABLE_HOT_RELOAD: true,
-} as const;
-
-// =======================================================
-// UTILIDADES DE CONSTANTES
-// =======================================================
-
-/**
- * Obtener valor de constante de forma segura
- */
-export const obtenerConstante = <T>(objeto: Record<string, T>, clave: string, porDefecto?: T): T | undefined => {
-  return objeto[clave] ?? porDefecto;
-};
-
-/**
- * Verificar si un valor es válido según constantes
- */
-export const esValorValido = <T>(objeto: Record<string, T>, valor: T): boolean => {
-  return Object.values(objeto).includes(valor);
-};
-
-/**
- * Obtener opciones para select desde constantes
- */
-export const obtenerOpcionesSelect = <T extends string>(
-  objeto: Record<string, T>,
-  etiquetas?: Record<T, string>
-): Array<{ value: T; label: string }> => {
-  return Object.entries(objeto).map(([key, value]) => ({
-    value: value as T,
-    label: etiquetas?.[value as T] || key.replace(/_/g, ' ').toLowerCase()
-  }));
-};
-
-/**
- * Exportar todas las constantes en un objeto para fácil acceso
- */
-export const CONSTANTES = {
-  APP_CONFIG,
-  API_CONFIG,
-  API_ENDPOINTS,
-  SUNAT_CONFIG,
-  TIPOS_DOCUMENTO,
-  TIPOS_DOCUMENTO_SUNAT,
+export const CATALOGOS_SUNAT = {
   TIPOS_DOCUMENTO_IDENTIDAD,
-  TIPOS_AFECTACION_IGV,
-  UNIDADES_MEDIDA_SUNAT,
-  SERIES_POR_DEFECTO,
-  UI_CONFIG,
-  COLORES_TEMA,
-  ICONOS_ESTADO,
-  VALIDACIONES,
-  STORAGE_KEYS,
-  POS_CONFIG,
-  ESTADOS_CARRITO,
-  TIPOS_MENSAJE,
-  PERIODOS_REPORTE,
-  FORMATOS_EXPORTACION,
-  ROLES,
-  PERMISOS,
-  DEPARTAMENTOS_PERU,
-  FORMATOS_FECHA,
-  FORMATOS_NUMERO,
-  MENSAJES,
-  DEV_CONFIG,
+  NOMBRES_DOCUMENTO_IDENTIDAD,
+  TIPOS_DOCUMENTO_ELECTRONICO,
+  NOMBRES_DOCUMENTO_ELECTRONICO,
+  UNIDADES_MEDIDA,
+  NOMBRES_UNIDADES_MEDIDA,
+  AFECTACION_IGV,
+  NOMBRES_AFECTACION_IGV,
+  TRIBUTOS,
+  NOMBRES_TRIBUTOS,
+  TIPOS_OPERACION,
+  NOMBRES_TIPOS_OPERACION
 } as const;
+
+export const CATALOGOS_SISTEMA = {
+  MONEDAS,
+  NOMBRES_MONEDAS,
+  SIMBOLOS_MONEDAS,
+  METODOS_PAGO,
+  NOMBRES_METODOS_PAGO,
+  ESTADOS_DOCUMENTO,
+  NOMBRES_ESTADOS_DOCUMENTO,
+  COLORES_ESTADOS_DOCUMENTO,
+  ROLES_SISTEMA,
+  NOMBRES_ROLES
+} as const;
+
+// =======================================================
+// EXPORTACIÓN DEFAULT
+// =======================================================
+
+export default {
+  APP_INFO,
+  CONFIGURACION_SISTEMA,
+  CATALOGOS_SUNAT,
+  CATALOGOS_SISTEMA,
+  TASAS_IMPUESTOS,
+  PAGINACION,
+  LIMITES_SISTEMA,
+  ARCHIVOS,
+  URLS_SUNAT,
+  ENDPOINTS_API,
+  MENSAJES
+};
