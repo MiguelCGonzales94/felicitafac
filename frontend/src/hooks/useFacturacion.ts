@@ -1,562 +1,679 @@
 /**
- * useFacturacion Hook - FELICITAFAC
+ * Hook useFacturacion - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Hook específico para funcionalidades del punto de venta
+ * Hook completo para gestión de facturación electrónica SUNAT
  */
 
-import { useState, useCallback, useRef } from 'react';
-import { useFacturacion as useContextoFacturacion } from '../context/FacturacionContext';
-import { useApiPost } from './useApi';
-import type { 
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useApi } from './useApi';
+import { useNotificaciones } from '../componentes/comunes/Notificaciones';
+import { useCarga } from '../componentes/comunes/ComponenteCarga';
+import FacturacionAPI from '../servicios/facturacionAPI';
+import { 
   Factura, 
-  CrearFacturaRequest, 
+  DatosFactura, 
+  ItemFactura, 
+  TipoDocumento, 
+  EstadoFactura,
+  EstadoPago,
+  FiltrosFacturas,
   ValidacionFactura,
-  ItemFactura 
+  RespuestaFactura,
+  FacturasPaginadas,
+  ResumenVentas,
+  EstadoSunat,
+  SerieDocumento,
+  FormaPago
 } from '../types/factura';
-import type { ProductoListItem } from '../types/producto';
-import type { ClienteFactura } from '../types/cliente';
-import { API_ENDPOINTS, MENSAJES, POS_CONFIG } from '../utils/constantes';
-import { formatearMoneda } from '../utils/formatos';
+import { formatearMoneda } from '../utils/formatters';
+import { calcularIgv, calcularTotal } from '../utils/moneyUtils';
 
 // =======================================================
-// TIPOS ESPECÍFICOS DEL HOOK
+// INTERFACES Y TIPOS
 // =======================================================
 
-export interface ResultadoEmisionFactura {
-  exito: boolean;
-  factura?: Factura;
-  mensaje: string;
-  errores?: string[];
+interface EstadoFacturacion {
+  facturas: Factura[];
+  facturaActual: Factura | null;
+  series: SerieDocumento[];
+  formasPago: FormaPago[];
+  totalFacturas: number;
+  paginaActual: number;
+  totalPaginas: number;
+  cargandoFacturas: boolean;
+  cargandoFactura: boolean;
+  cargandoSeries: boolean;
+  error: string | null;
 }
 
-export interface ValidacionStockItem {
-  producto_id: number;
-  descripcion: string;
-  cantidad_solicitada: number;
-  stock_disponible: number;
-  diferencia: number;
+interface ConfiguracionFacturacion {
+  autoCalcularIgv: boolean;
+  validarStockAntes: boolean;
+  enviarSunatAutomatico: boolean;
+  imprimirAutomatico: boolean;
+  serieDefectoFactura: string;
+  serieDefectoBoleta: string;
 }
 
-export interface ResultadoValidacionStock {
+interface ResultadoValidacion {
   valido: boolean;
-  errores: ValidacionStockItem[];
-  advertencias: string[];
-}
-
-export interface OpcionesEmision {
-  validarStock?: boolean;
-  mostrarConfirmacion?: boolean;
-  limpiarDespuesEmision?: boolean;
-  imprimirAutomatico?: boolean;
-}
-
-export interface EstadisticasPOS {
-  ventasHoy: {
-    cantidad: number;
-    monto: number;
-  };
-  productosVendidos: number;
-  promedioVenta: number;
-  ticketPromedio: number;
+  errores: string[];
+  warnings: string[];
+  stockInsuficiente: Array<{
+    producto: string;
+    stockDisponible: number;
+    cantidadSolicitada: number;
+  }>;
 }
 
 // =======================================================
 // HOOK PRINCIPAL
 // =======================================================
 
-export const usePuntoDeVenta = () => {
-  const contexto = useContextoFacturacion();
-  const [estadisticas, setEstadisticas] = useState<EstadisticasPOS | null>(null);
-  const [historialVentas, setHistorialVentas] = useState<Factura[]>([]);
-  
-  // Referencias para shortcuts
-  const shortcutsRef = useRef<{ [key: string]: () => void }>({});
+export const useFacturacion = () => {
+  // =======================================================
+  // ESTADO LOCAL
+  // =======================================================
 
-  // APIs para emisión de documentos
+  const [estado, setEstado] = useState<EstadoFacturacion>({
+    facturas: [],
+    facturaActual: null,
+    series: [],
+    formasPago: [],
+    totalFacturas: 0,
+    paginaActual: 1,
+    totalPaginas: 1,
+    cargandoFacturas: false,
+    cargandoFactura: false,
+    cargandoSeries: false,
+    error: null,
+  });
+
+  const [configuracion, setConfiguracion] = useState<ConfiguracionFacturacion>({
+    autoCalcularIgv: true,
+    validarStockAntes: true,
+    enviarSunatAutomatico: false,
+    imprimirAutomatico: false,
+    serieDefectoFactura: 'F001',
+    serieDefectoBoleta: 'B001',
+  });
+
+  const [filtrosActivos, setFiltrosActivos] = useState<FiltrosFacturas>({});
+
+  // =======================================================
+  // HOOKS EXTERNOS
+  // =======================================================
+
+  const { mostrarExito, mostrarError, mostrarAdvertencia, mostrarInfo } = useNotificaciones();
+  const { mostrarCarga, ocultarCarga } = useCarga();
+
+  // Hooks API especializados
   const {
-    ejecutar: emitirFactura,
-    loading: emitiendoFactura,
-    error: errorEmision,
-  } = useApiPost<Factura, CrearFacturaRequest>(API_ENDPOINTS.FACTURACION.CREAR);
+    data: dataFacturas,
+    loading: cargandoListaFacturas,
+    ejecutar: ejecutarListarFacturas,
+    error: errorListaFacturas
+  } = useApi(
+    () => FacturacionAPI.listarFacturas(filtrosActivos),
+    { 
+      ejecutarInmediatamente: false,
+      cachear: true,
+      tiempoCacheMs: 30000 // 30 segundos
+    }
+  );
 
   const {
-    ejecutar: validarStock,
-    loading: validandoStock,
-  } = useApiPost<ResultadoValidacionStock, { items: ItemFactura[] }>(
-    API_ENDPOINTS.FACTURACION.VALIDAR_STOCK
+    ejecutar: ejecutarCrearFactura,
+    loading: cargandoCrearFactura
+  } = useApi(
+    (datosFactura: DatosFactura) => FacturacionAPI.crearFactura(datosFactura),
+    { ejecutarInmediatamente: false }
+  );
+
+  const {
+    ejecutar: ejecutarObtenerFactura,
+    loading: cargandoObtenerFactura
+  } = useApi(
+    (id: number) => FacturacionAPI.obtenerFactura(id),
+    { ejecutarInmediatamente: false }
   );
 
   // =======================================================
-  // FUNCIONES DE VALIDACIÓN
+  // EFECTOS
   // =======================================================
 
-  /**
-   * Validar stock antes de emitir
-   */
-  const validarStockItems = useCallback(async (): Promise<ResultadoValidacionStock> => {
-    if (!contexto.estado.configuracion.mostrarStock) {
-      return { valido: true, errores: [], advertencias: [] };
+  // Actualizar estado cuando cambien los datos de facturas
+  useEffect(() => {
+    if (dataFacturas) {
+      setEstado(prev => ({
+        ...prev,
+        facturas: dataFacturas.results || [],
+        totalFacturas: dataFacturas.count || 0,
+        totalPaginas: Math.ceil((dataFacturas.count || 0) / (filtrosActivos.limite || 10)),
+        cargandoFacturas: false,
+        error: null,
+      }));
     }
+  }, [dataFacturas, filtrosActivos.limite]);
 
+  // Manejar errores
+  useEffect(() => {
+    if (errorListaFacturas) {
+      setEstado(prev => ({
+        ...prev,
+        error: errorListaFacturas,
+        cargandoFacturas: false,
+      }));
+      mostrarError('Error al cargar facturas', errorListaFacturas);
+    }
+  }, [errorListaFacturas, mostrarError]);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    cargarDatosIniciales();
+  }, []);
+
+  // =======================================================
+  // FUNCIONES AUXILIARES
+  // =======================================================
+
+  const cargarDatosIniciales = useCallback(async () => {
     try {
-      const resultado = await validarStock({ items: contexto.estado.items });
-      return resultado || { valido: true, errores: [], advertencias: [] };
-    } catch (error) {
-      console.error('Error validando stock:', error);
-      return {
-        valido: false,
-        errores: [],
-        advertencias: ['Error al validar stock. Verifique manualmente.'],
-      };
-    }
-  }, [contexto.estado.items, contexto.estado.configuracion.mostrarStock, validarStock]);
+      setEstado(prev => ({ ...prev, cargandoSeries: true }));
+      
+      const [series, formasPago] = await Promise.all([
+        FacturacionAPI.obtenerSeries(),
+        FacturacionAPI.obtenerFormasPago()
+      ]);
 
-  /**
-   * Validación completa antes de emisión
-   */
-  const validarParaEmision = useCallback(async (opciones: OpcionesEmision = {}) => {
-    const { validarStock: debeValidarStock = true } = opciones;
-    
-    // Validación básica del contexto
-    const validacionBasica = contexto.validarFactura();
-    
-    if (!validacionBasica.valido) {
-      return {
-        valido: false,
-        errores: validacionBasica.errores,
-        advertencias: [],
-      };
-    }
+      setEstado(prev => ({
+        ...prev,
+        series,
+        formasPago,
+        cargandoSeries: false,
+      }));
 
-    // Validación de stock si está habilitada
-    let resultadoStock: ResultadoValidacionStock = {
-      valido: true,
-      errores: [],
-      advertencias: [],
-    };
-
-    if (debeValidarStock) {
-      resultadoStock = await validarStockItems();
+    } catch (error: any) {
+      console.error('Error al cargar datos iniciales:', error);
+      setEstado(prev => ({
+        ...prev,
+        cargandoSeries: false,
+        error: error.message,
+      }));
+      mostrarError('Error al cargar datos', 'No se pudieron cargar los datos iniciales de facturación');
     }
+  }, [mostrarError]);
+
+  const calcularTotalesFactura = useCallback((items: ItemFactura[], descuentoGlobal: number = 0) => {
+    const subtotal = items.reduce((acc, item) => {
+      const subtotalItem = item.cantidad * item.precio_unitario;
+      const descuentoItem = subtotalItem * (item.descuento / 100);
+      return acc + subtotalItem - descuentoItem;
+    }, 0);
+
+    const descuentoGlobalMonto = subtotal * (descuentoGlobal / 100);
+    const baseImponible = subtotal - descuentoGlobalMonto;
+    const igv = calcularIgv(baseImponible);
+    const total = calcularTotal(baseImponible, igv);
 
     return {
-      valido: validacionBasica.valido && resultadoStock.valido,
-      errores: [...validacionBasica.errores, ...resultadoStock.errores.map(e => 
-        `${e.descripcion}: Stock insuficiente (disponible: ${e.stock_disponible}, solicitado: ${e.cantidad_solicitada})`
-      )],
-      advertencias: resultadoStock.advertencias,
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      descuentoGlobal: parseFloat(descuentoGlobalMonto.toFixed(2)),
+      baseImponible: parseFloat(baseImponible.toFixed(2)),
+      igv: parseFloat(igv.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
     };
-  }, [contexto, validarStockItems]);
+  }, []);
 
   // =======================================================
-  // FUNCIONES DE EMISIÓN
+  // FUNCIONES PRINCIPALES
   // =======================================================
 
   /**
-   * Emitir documento (factura o boleta)
+   * Listar facturas con filtros
    */
-  const emitirDocumento = useCallback(async (
-    opciones: OpcionesEmision = {}
-  ): Promise<ResultadoEmisionFactura> => {
-    const {
-      validarStock: debeValidarStock = true,
-      mostrarConfirmacion = true,
-      limpiarDespuesEmision = true,
-      imprimirAutomatico = false,
-    } = opciones;
-
+  const listarFacturas = useCallback(async (filtros: FiltrosFacturas = {}) => {
     try {
-      // Validación previa
-      const validacion = await validarParaEmision({ validarStock: debeValidarStock });
+      setFiltrosActivos(filtros);
+      setEstado(prev => ({ ...prev, cargandoFacturas: true, error: null }));
       
-      if (!validacion.valido) {
-        return {
-          exito: false,
-          mensaje: 'Error de validación',
-          errores: validacion.errores,
-        };
+      await ejecutarListarFacturas();
+      
+    } catch (error: any) {
+      console.error('Error al listar facturas:', error);
+      mostrarError('Error al cargar facturas', error.message);
+    }
+  }, [ejecutarListarFacturas, mostrarError]);
+
+  /**
+   * Crear nueva factura
+   */
+  const crearFactura = useCallback(async (datosFactura: DatosFactura): Promise<RespuestaFactura | null> => {
+    try {
+      mostrarCarga('Creando factura...');
+      
+      // Validar antes de crear si está habilitado
+      if (configuracion.validarStockAntes) {
+        const validacion = await FacturacionAPI.validarFactura(datosFactura);
+        if (!validacion.valido) {
+          mostrarError('Datos inválidos', validacion.errores.join(', '));
+          return null;
+        }
+
+        if (validacion.stock_insuficiente.length > 0) {
+          const productos = validacion.stock_insuficiente
+            .map(item => `${item.producto} (disponible: ${item.stock_disponible})`)
+            .join(', ');
+          mostrarAdvertencia('Stock insuficiente', `Sin stock suficiente para: ${productos}`);
+          return null;
+        }
       }
 
-      // Mostrar advertencias si las hay
-      if (validacion.advertencias.length > 0 && mostrarConfirmacion) {
-        const confirmar = window.confirm(
-          `Se encontraron las siguientes advertencias:\n\n${validacion.advertencias.join('\n')}\n\n¿Desea continuar?`
-        );
+      const resultado = await ejecutarCrearFactura(datosFactura);
+      
+      if (resultado) {
+        mostrarExito('¡Factura creada!', `Factura ${resultado.factura.numero_completo} creada exitosamente`);
         
-        if (!confirmar) {
-          return {
-            exito: false,
-            mensaje: 'Emisión cancelada por el usuario',
-          };
+        // Enviar a SUNAT automáticamente si está configurado
+        if (configuracion.enviarSunatAutomatico) {
+          enviarASunat(resultado.factura.id);
         }
+
+        // Actualizar lista de facturas
+        await listarFacturas(filtrosActivos);
+        
+        return resultado;
       }
 
-      // Obtener datos de la factura
-      const datosFactura = contexto.obtenerResumenFactura();
-
-      // Emitir documento
-      const facturaEmitida = await emitirFactura(datosFactura);
-
-      if (facturaEmitida) {
-        // Agregar al historial
-        setHistorialVentas(prev => [facturaEmitida, ...prev.slice(0, 49)]); // Mantener últimas 50
-
-        // Limpiar carrito si está configurado
-        if (limpiarDespuesEmision) {
-          contexto.limpiarCarrito();
-          contexto.limpiarTemporal();
-        }
-
-        // Imprimir automáticamente si está configurado
-        if (imprimirAutomatico) {
-          // TODO: Implementar impresión automática
-          console.log('Imprimiendo documento automáticamente...');
-        }
-
-        return {
-          exito: true,
-          factura: facturaEmitida,
-          mensaje: `${contexto.estado.tipoDocumento === 'factura' ? 'Factura' : 'Boleta'} emitida correctamente`,
-        };
-      }
-
-      return {
-        exito: false,
-        mensaje: 'Error al emitir el documento',
-      };
-
-    } catch (error) {
-      console.error('Error emitiendo documento:', error);
-      return {
-        exito: false,
-        mensaje: 'Error interno al emitir el documento',
-        errores: [error instanceof Error ? error.message : 'Error desconocido'],
-      };
+      return null;
+    } catch (error: any) {
+      console.error('Error al crear factura:', error);
+      mostrarError('Error al crear factura', error.message);
+      return null;
+    } finally {
+      ocultarCarga();
     }
-  }, [contexto, validarParaEmision, emitirFactura]);
-
-  // =======================================================
-  // FUNCIONES DE PRODUCTOS
-  // =======================================================
+  }, [
+    configuracion.validarStockAntes, 
+    configuracion.enviarSunatAutomatico,
+    ejecutarCrearFactura, 
+    mostrarCarga, 
+    ocultarCarga, 
+    mostrarExito, 
+    mostrarError, 
+    mostrarAdvertencia,
+    filtrosActivos,
+    listarFacturas
+  ]);
 
   /**
-   * Agregar producto con validaciones
+   * Obtener factura por ID
    */
-  const agregarProductoConValidacion = useCallback((
-    producto: ProductoListItem,
-    cantidad = 1
-  ): { exito: boolean; mensaje?: string } => {
-    // Validar stock si está habilitado
-    if (contexto.estado.configuracion.mostrarStock && !contexto.estado.configuracion.permitirStockNegativo) {
-      if (producto.stock_actual !== undefined && cantidad > producto.stock_actual) {
-        return {
-          exito: false,
-          mensaje: `Stock insuficiente. Disponible: ${producto.stock_actual}`,
-        };
-      }
-    }
-
-    // Validar límite de items en carrito
-    if (contexto.estado.items.length >= POS_CONFIG.MAX_ITEMS_CARRITO) {
-      return {
-        exito: false,
-        mensaje: `Máximo ${POS_CONFIG.MAX_ITEMS_CARRITO} items por factura`,
-      };
-    }
-
-    // Validar precio del producto
-    if (!producto.precio_venta || producto.precio_venta <= 0) {
-      return {
-        exito: false,
-        mensaje: 'El producto no tiene precio configurado',
-      };
-    }
-
-    contexto.agregarProducto(producto, cantidad);
-    
-    return {
-      exito: true,
-      mensaje: `${producto.nombre} agregado al carrito`,
-    };
-  }, [contexto]);
-
-  /**
-   * Buscar y agregar producto por código
-   */
-  const buscarYAgregarPorCodigo = useCallback(async (codigo: string): Promise<{
-    exito: boolean;
-    mensaje: string;
-    producto?: ProductoListItem;
-  }> => {
+  const obtenerFactura = useCallback(async (id: number): Promise<Factura | null> => {
     try {
-      // TODO: Implementar búsqueda por código
-      // const producto = await buscarProductoPorCodigo(codigo);
+      setEstado(prev => ({ ...prev, cargandoFactura: true }));
       
-      // Por ahora, simulamos la búsqueda
-      const productoSimulado: ProductoListItem = {
-        id: Math.random(),
-        nombre: `Producto ${codigo}`,
-        codigo,
-        precio_venta: 10.00,
-        stock_actual: 100,
-        tipo_afectacion_igv: '10',
-        unidad_medida: 'NIU',
-        estado: 'activo',
-        categoria: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      const resultado = agregarProductoConValidacion(productoSimulado);
+      const factura = await ejecutarObtenerFactura(id);
       
-      return {
-        exito: resultado.exito,
-        mensaje: resultado.mensaje || '',
-        producto: resultado.exito ? productoSimulado : undefined,
-      };
+      if (factura) {
+        setEstado(prev => ({
+          ...prev,
+          facturaActual: factura,
+          cargandoFactura: false,
+        }));
+        return factura;
+      }
 
-    } catch (error) {
-      return {
-        exito: false,
-        mensaje: 'Error al buscar el producto',
-      };
+      return null;
+    } catch (error: any) {
+      console.error('Error al obtener factura:', error);
+      setEstado(prev => ({
+        ...prev,
+        cargandoFactura: false,
+        error: error.message,
+      }));
+      mostrarError('Error al cargar factura', error.message);
+      return null;
     }
-  }, [agregarProductoConValidacion]);
-
-  // =======================================================
-  // FUNCIONES DE CLIENTE
-  // =======================================================
+  }, [ejecutarObtenerFactura, mostrarError]);
 
   /**
-   * Seleccionar cliente con validaciones
+   * Actualizar factura (solo borrador)
    */
-  const seleccionarClienteConValidacion = useCallback((cliente: ClienteFactura): {
-    exito: boolean;
-    mensaje?: string;
-  } => {
-    // Validar tipo de documento según el tipo de comprobante
-    if (contexto.estado.tipoDocumento === 'factura' && cliente.tipo_documento !== '6') {
-      return {
-        exito: false,
-        mensaje: 'Para emitir factura el cliente debe tener RUC',
-      };
-    }
-
-    contexto.seleccionarCliente(cliente);
-    
-    return {
-      exito: true,
-      mensaje: `Cliente ${cliente.nombre_o_razon_social} seleccionado`,
-    };
-  }, [contexto]);
-
-  // =======================================================
-  // FUNCIONES DE SHORTCUTS
-  // =======================================================
-
-  /**
-   * Configurar shortcuts de teclado
-   */
-  const configurarShortcuts = useCallback(() => {
-    shortcutsRef.current = {
-      [POS_CONFIG.SHORTCUTS.NUEVA_FACTURA]: () => {
-        contexto.cambiarTipoDocumento('factura');
-      },
-      [POS_CONFIG.SHORTCUTS.NUEVA_BOLETA]: () => {
-        contexto.cambiarTipoDocumento('boleta');
-      },
-      [POS_CONFIG.SHORTCUTS.LIMPIAR_CARRITO]: () => {
-        if (window.confirm('¿Está seguro de limpiar el carrito?')) {
-          contexto.limpiarCarrito();
+  const actualizarFactura = useCallback(async (id: number, datosFactura: Partial<DatosFactura>): Promise<boolean> => {
+    try {
+      mostrarCarga('Actualizando factura...');
+      
+      const resultado = await FacturacionAPI.actualizarFactura(id, datosFactura);
+      
+      if (resultado) {
+        mostrarExito('Factura actualizada', 'Los cambios se guardaron correctamente');
+        
+        // Actualizar en el estado si es la factura actual
+        if (estado.facturaActual?.id === id) {
+          setEstado(prev => ({
+            ...prev,
+            facturaActual: resultado.factura,
+          }));
         }
-      },
-    };
-  }, [contexto]);
+
+        // Actualizar lista
+        await listarFacturas(filtrosActivos);
+        
+        return true;
+      }
+
+      return false;
+    } catch (error: any) {
+      console.error('Error al actualizar factura:', error);
+      mostrarError('Error al actualizar', error.message);
+      return false;
+    } finally {
+      ocultarCarga();
+    }
+  }, [estado.facturaActual, filtrosActivos, listarFacturas, mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
   /**
-   * Manejar eventos de teclado
+   * Anular factura
    */
-  const manejarShortcut = useCallback((event: KeyboardEvent) => {
-    const { key, ctrlKey, altKey } = event;
-    
-    let shortcut = key.toUpperCase();
-    if (ctrlKey) shortcut = `CTRL+${shortcut}`;
-    if (altKey) shortcut = `ALT+${shortcut}`;
+  const anularFactura = useCallback(async (id: number, motivo: string): Promise<boolean> => {
+    try {
+      mostrarCarga('Anulando factura...');
+      
+      await FacturacionAPI.anularFactura(id, motivo);
+      
+      mostrarExito('Factura anulada', 'La factura fue anulada correctamente');
+      
+      // Actualizar lista
+      await listarFacturas(filtrosActivos);
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error al anular factura:', error);
+      mostrarError('Error al anular', error.message);
+      return false;
+    } finally {
+      ocultarCarga();
+    }
+  }, [filtrosActivos, listarFacturas, mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
-    const accion = shortcutsRef.current[shortcut];
-    if (accion) {
-      event.preventDefault();
-      accion();
+  /**
+   * Enviar factura a SUNAT
+   */
+  const enviarASunat = useCallback(async (id: number): Promise<boolean> => {
+    try {
+      mostrarCarga('Enviando a SUNAT...');
+      
+      const estadoSunat = await FacturacionAPI.enviarASunat(id);
+      
+      if (estadoSunat.codigo_respuesta === '0') {
+        mostrarExito('Enviado a SUNAT', 'El documento fue aceptado por SUNAT');
+      } else if (estadoSunat.aceptada_con_observaciones) {
+        mostrarAdvertencia('Aceptado con observaciones', estadoSunat.descripcion_respuesta);
+      } else {
+        mostrarError('Rechazado por SUNAT', estadoSunat.descripcion_respuesta);
+      }
+      
+      // Actualizar lista para reflejar cambios de estado
+      await listarFacturas(filtrosActivos);
+      
+      return estadoSunat.codigo_respuesta === '0' || estadoSunat.aceptada_con_observaciones;
+    } catch (error: any) {
+      console.error('Error al enviar a SUNAT:', error);
+      mostrarError('Error en envío SUNAT', error.message);
+      return false;
+    } finally {
+      ocultarCarga();
+    }
+  }, [filtrosActivos, listarFacturas, mostrarCarga, ocultarCarga, mostrarExito, mostrarError, mostrarAdvertencia]);
+
+  /**
+   * Consultar estado en SUNAT
+   */
+  const consultarEstadoSunat = useCallback(async (id: number): Promise<EstadoSunat | null> => {
+    try {
+      mostrarCarga('Consultando estado SUNAT...');
+      
+      const estado = await FacturacionAPI.consultarEstadoSunat(id);
+      
+      mostrarInfo('Estado consultado', `Estado actual: ${estado.descripcion_respuesta}`);
+      
+      return estado;
+    } catch (error: any) {
+      console.error('Error al consultar estado SUNAT:', error);
+      mostrarError('Error en consulta', error.message);
+      return null;
+    } finally {
+      ocultarCarga();
+    }
+  }, [mostrarCarga, ocultarCarga, mostrarInfo, mostrarError]);
+
+  /**
+   * Descargar PDF de factura
+   */
+  const descargarPDF = useCallback(async (id: number, nombreFactura: string): Promise<boolean> => {
+    try {
+      mostrarCarga('Generando PDF...');
+      
+      const blob = await FacturacionAPI.descargarPDF(id);
+      
+      // Crear enlace de descarga
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${nombreFactura}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      mostrarExito('PDF descargado', 'El archivo se descargó correctamente');
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error al descargar PDF:', error);
+      mostrarError('Error en descarga', error.message);
+      return false;
+    } finally {
+      ocultarCarga();
+    }
+  }, [mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
+
+  /**
+   * Duplicar factura
+   */
+  const duplicarFactura = useCallback(async (id: number): Promise<RespuestaFactura | null> => {
+    try {
+      mostrarCarga('Duplicando factura...');
+      
+      const resultado = await FacturacionAPI.duplicarFactura(id);
+      
+      if (resultado) {
+        mostrarExito('Factura duplicada', `Nueva factura creada: ${resultado.factura.numero_completo}`);
+        
+        // Actualizar lista
+        await listarFacturas(filtrosActivos);
+        
+        return resultado;
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error('Error al duplicar factura:', error);
+      mostrarError('Error al duplicar', error.message);
+      return null;
+    } finally {
+      ocultarCarga();
+    }
+  }, [filtrosActivos, listarFacturas, mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
+
+  /**
+   * Validar factura antes de guardar
+   */
+  const validarFactura = useCallback(async (datosFactura: DatosFactura): Promise<ResultadoValidacion> => {
+    try {
+      const validacion = await FacturacionAPI.validarFactura(datosFactura);
+      
+      return {
+        valido: validacion.valido,
+        errores: validacion.errores,
+        warnings: validacion.warnings,
+        stockInsuficiente: validacion.stock_insuficiente,
+      };
+    } catch (error: any) {
+      console.error('Error al validar factura:', error);
+      return {
+        valido: false,
+        errores: [error.message],
+        warnings: [],
+        stockInsuficiente: [],
+      };
     }
   }, []);
 
+  /**
+   * Obtener resumen de ventas
+   */
+  const obtenerResumenVentas = useCallback(async (
+    fechaDesde: string,
+    fechaHasta: string,
+    tipoDocumento?: TipoDocumento
+  ): Promise<ResumenVentas | null> => {
+    try {
+      mostrarCarga('Generando resumen...');
+      
+      const resumen = await FacturacionAPI.obtenerResumenVentas(fechaDesde, fechaHasta, tipoDocumento);
+      
+      return resumen;
+    } catch (error: any) {
+      console.error('Error al obtener resumen:', error);
+      mostrarError('Error en resumen', error.message);
+      return null;
+    } finally {
+      ocultarCarga();
+    }
+  }, [mostrarCarga, ocultarCarga, mostrarError]);
+
   // =======================================================
-  // FUNCIONES UTILITARIAS
+  // FUNCIONES DE UTILIDADES
   // =======================================================
 
   /**
-   * Obtener resumen del carrito
+   * Limpiar estado de facturación
    */
-  const obtenerResumenCarrito = useCallback(() => {
-    const { estado } = contexto;
+  const limpiarEstado = useCallback(() => {
+    setEstado({
+      facturas: [],
+      facturaActual: null,
+      series: estado.series,
+      formasPago: estado.formasPago,
+      totalFacturas: 0,
+      paginaActual: 1,
+      totalPaginas: 1,
+      cargandoFacturas: false,
+      cargandoFactura: false,
+      cargandoSeries: false,
+      error: null,
+    });
+    setFiltrosActivos({});
+  }, [estado.series, estado.formasPago]);
+
+  /**
+   * Actualizar configuración
+   */
+  const actualizarConfiguracion = useCallback((nuevaConfig: Partial<ConfiguracionFacturacion>) => {
+    setConfiguracion(prev => ({ ...prev, ...nuevaConfig }));
+  }, []);
+
+  /**
+   * Obtener serie por defecto según tipo de documento
+   */
+  const obtenerSerieDefecto = useCallback((tipoDocumento: TipoDocumento): string => {
+    switch (tipoDocumento) {
+      case 'factura':
+        return configuracion.serieDefectoFactura;
+      case 'boleta':
+        return configuracion.serieDefectoBoleta;
+      default:
+        return configuracion.serieDefectoFactura;
+    }
+  }, [configuracion]);
+
+  // =======================================================
+  // VALORES COMPUTADOS
+  // =======================================================
+
+  const estadisticas = useMemo(() => {
+    const facturas = estado.facturas;
     
     return {
-      cantidadItems: estado.items.length,
-      totalUnidades: estado.items.reduce((total, item) => total + item.cantidad, 0),
-      subtotal: formatearMoneda(estado.subtotal),
-      igv: formatearMoneda(estado.igv),
-      total: formatearMoneda(estado.total),
-      descuentoGlobal: estado.descuentoGlobal,
-      tipoDocumento: estado.tipoDocumento,
-      cliente: estado.cliente?.nombre_o_razon_social || 'Cliente genérico',
+      totalFacturas: facturas.length,
+      totalFacturado: facturas.reduce((acc, f) => acc + f.total, 0),
+      facturasPendientes: facturas.filter(f => f.estado === 'pendiente').length,
+      facturasEmitidas: facturas.filter(f => f.estado === 'emitida').length,
+      facturasAnuladas: facturas.filter(f => f.estado === 'anulada').length,
+      promedioFactura: facturas.length > 0 
+        ? facturas.reduce((acc, f) => acc + f.total, 0) / facturas.length 
+        : 0,
     };
-  }, [contexto]);
+  }, [estado.facturas]);
 
-  /**
-   * Obtener estadísticas del día
-   */
-  const cargarEstadisticas = useCallback(async () => {
-    try {
-      // TODO: Implementar carga de estadísticas reales
-      setEstadisticas({
-        ventasHoy: {
-          cantidad: historialVentas.length,
-          monto: historialVentas.reduce((total, venta) => total + venta.total, 0),
-        },
-        productosVendidos: historialVentas.reduce((total, venta) => 
-          total + venta.items.reduce((subtotal, item) => subtotal + item.cantidad, 0), 0
-        ),
-        promedioVenta: historialVentas.length > 0 ? 
-          historialVentas.reduce((total, venta) => total + venta.total, 0) / historialVentas.length : 0,
-        ticketPromedio: historialVentas.length > 0 ? 
-          historialVentas.reduce((total, venta) => total + venta.items.length, 0) / historialVentas.length : 0,
-      });
-    } catch (error) {
-      console.error('Error cargando estadísticas:', error);
-    }
-  }, [historialVentas]);
+  const cargando = useMemo(() => ({
+    facturas: estado.cargandoFacturas || cargandoListaFacturas,
+    factura: estado.cargandoFactura || cargandoObtenerFactura,
+    series: estado.cargandoSeries,
+    creando: cargandoCrearFactura,
+  }), [
+    estado.cargandoFacturas,
+    estado.cargandoFactura,
+    estado.cargandoSeries,
+    cargandoListaFacturas,
+    cargandoObtenerFactura,
+    cargandoCrearFactura
+  ]);
 
   // =======================================================
-  // VALOR DE RETORNO
+  // RETURN DEL HOOK
   // =======================================================
 
   return {
-    // Estado del contexto
-    ...contexto,
-    
-    // Estados específicos del hook
+    // Estado
+    facturas: estado.facturas,
+    facturaActual: estado.facturaActual,
+    series: estado.series,
+    formasPago: estado.formasPago,
+    totalFacturas: estado.totalFacturas,
+    paginaActual: estado.paginaActual,
+    totalPaginas: estado.totalPaginas,
+    filtrosActivos,
+    configuracion,
     estadisticas,
-    historialVentas,
-    validandoStock,
-    emitiendoFactura,
-    errorEmision,
-    
-    // Funciones de emisión
-    emitirDocumento,
-    validarParaEmision,
-    validarStockItems,
-    
-    // Funciones de productos
-    agregarProductoConValidacion,
-    buscarYAgregarPorCodigo,
-    
-    // Funciones de cliente
-    seleccionarClienteConValidacion,
-    
-    // Funciones de shortcuts
-    configurarShortcuts,
-    manejarShortcut,
-    
-    // Funciones utilitarias
-    obtenerResumenCarrito,
-    cargarEstadisticas,
-    
-    // Estados computados adicionales
-    puedeEmitir: contexto.puedeFacturar && !emitiendoFactura,
-    tieneErrores: !!errorEmision,
-    carritoPendiente: contexto.tieneItems && !contexto.estado.guardadoTemporal,
+    error: estado.error,
+    cargando,
+
+    // Funciones principales
+    listarFacturas,
+    crearFactura,
+    obtenerFactura,
+    actualizarFactura,
+    anularFactura,
+    enviarASunat,
+    consultarEstadoSunat,
+    descargarPDF,
+    duplicarFactura,
+    validarFactura,
+    obtenerResumenVentas,
+
+    // Utilidades
+    calcularTotalesFactura,
+    limpiarEstado,
+    actualizarConfiguracion,
+    obtenerSerieDefecto,
+    cargarDatosIniciales,
+
+    // Formatters útiles
+    formatearMoneda: (monto: number) => formatearMoneda(monto),
   };
 };
 
-// =======================================================
-// HOOKS AUXILIARES
-// =======================================================
-
-/**
- * Hook para manejo de productos en el POS
- */
-export const useProductosPOS = () => {
-  const { agregarProductoConValidacion, buscarYAgregarPorCodigo } = usePuntoDeVenta();
-  const [productoSeleccionado, setProductoSeleccionado] = useState<ProductoListItem | null>(null);
-  const [modalAgregarVisible, setModalAgregarVisible] = useState(false);
-
-  const mostrarModalAgregar = useCallback((producto: ProductoListItem) => {
-    setProductoSeleccionado(producto);
-    setModalAgregarVisible(true);
-  }, []);
-
-  const cerrarModalAgregar = useCallback(() => {
-    setProductoSeleccionado(null);
-    setModalAgregarVisible(false);
-  }, []);
-
-  const agregarConCantidad = useCallback((cantidad: number) => {
-    if (productoSeleccionado) {
-      const resultado = agregarProductoConValidacion(productoSeleccionado, cantidad);
-      if (resultado.exito) {
-        cerrarModalAgregar();
-      }
-      return resultado;
-    }
-    return { exito: false, mensaje: 'No hay producto seleccionado' };
-  }, [productoSeleccionado, agregarProductoConValidacion, cerrarModalAgregar]);
-
-  return {
-    productoSeleccionado,
-    modalAgregarVisible,
-    mostrarModalAgregar,
-    cerrarModalAgregar,
-    agregarConCantidad,
-    agregarProductoConValidacion,
-    buscarYAgregarPorCodigo,
-  };
-};
-
-/**
- * Hook para manejo de clientes en el POS
- */
-export const useClientesPOS = () => {
-  const { seleccionarClienteConValidacion, estado } = usePuntoDeVenta();
-  const [modalClienteVisible, setModalClienteVisible] = useState(false);
-  const [clienteBuscado, setClienteBuscado] = useState<string>('');
-
-  const mostrarModalCliente = useCallback(() => {
-    setModalClienteVisible(true);
-  }, []);
-
-  const cerrarModalCliente = useCallback(() => {
-    setModalClienteVisible(false);
-    setClienteBuscado('');
-  }, []);
-
-  const seleccionarYCerrar = useCallback((cliente: ClienteFactura) => {
-    const resultado = seleccionarClienteConValidacion(cliente);
-    if (resultado.exito) {
-      cerrarModalCliente();
-    }
-    return resultado;
-  }, [seleccionarClienteConValidacion, cerrarModalCliente]);
-
-  return {
-    clienteActual: estado.cliente,
-    modalClienteVisible,
-    clienteBuscado,
-    setClienteBuscado,
-    mostrarModalCliente,
-    cerrarModalCliente,
-    seleccionarYCerrar,
-    seleccionarClienteConValidacion,
-  };
-};
-
-export default usePuntoDeVenta;
+export default useFacturacion;

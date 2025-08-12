@@ -33,7 +33,7 @@
       "@/router/*": ["src/router/*"],
       "@/layout/*": ["src/layout/*"],
       "@/config/*": ["src/config/*"],
-      "@/styles/*": ["src/styles/*"]
+      "@/styles/*": ["src/estilos/*"]
     },
     
     // Configuración de tipos

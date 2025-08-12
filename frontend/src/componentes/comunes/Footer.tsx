@@ -13,7 +13,7 @@ import {
   Clock, CheckCircle
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { Badge } from '../ui/badge';
+import { Badge } from '../ui/bagde';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 
