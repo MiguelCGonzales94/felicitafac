@@ -1,10 +1,17 @@
 /**
- * Componente Tooltip UI - FELICITAFAC
+ * Componente Tooltip Compatible con shadcn/ui - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
- * Tooltip reutilizable con posicionamiento inteligente
+ * Componente tooltip con patrón de composición como shadcn/ui
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { 
+  createContext, 
+  useContext, 
+  useState, 
+  useRef, 
+  useEffect, 
+  useCallback 
+} from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../utils/cn';
 
@@ -12,411 +19,410 @@ import { cn } from '../../utils/cn';
 // TIPOS E INTERFACES
 // =======================================================
 
-export type PosicionTooltip = 'top' | 'bottom' | 'left' | 'right' | 'auto';
-export type AlineacionTooltip = 'start' | 'center' | 'end';
-export type TriggerTooltip = 'hover' | 'click' | 'focus' | 'manual';
+export type TooltipSide = 'top' | 'right' | 'bottom' | 'left';
+export type TooltipAlign = 'start' | 'center' | 'end';
 
-export interface PropiedadesTooltip {
-  contenido: React.ReactNode;
+interface TooltipContextType {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  triggerRef: React.RefObject<HTMLElement>;
+  contentRef: React.RefObject<HTMLDivElement>;
+  side: TooltipSide;
+  align: TooltipAlign;
+  sideOffset: number;
+  alignOffset: number;
+  delayDuration: number;
+  skipDelayDuration: number;
+}
+
+export interface TooltipProviderProps {
+  children: React.ReactNode;
+  delayDuration?: number;
+  skipDelayDuration?: number;
+}
+
+export interface TooltipProps {
+  children: React.ReactNode;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export interface TooltipTriggerProps {
   children: React.ReactElement;
-  
-  // Posicionamiento
-  posicion?: PosicionTooltip;
-  alineacion?: AlineacionTooltip;
-  offset?: number;
-  
-  // Comportamiento
-  trigger?: TriggerTooltip;
-  delay?: number;
-  delayEsconder?: number;
-  disabled?: boolean;
-  
-  // Estilos
+  asChild?: boolean;
+}
+
+export interface TooltipContentProps {
+  children: React.ReactNode;
   className?: string;
-  classNameContenido?: string;
-  variant?: 'default' | 'dark' | 'light' | 'success' | 'warning' | 'error';
-  tamaño?: 'sm' | 'md' | 'lg';
-  maxWidth?: string;
-  
-  // Eventos
-  onAbrir?: () => void;
-  onCerrar?: () => void;
-  
-  // Control manual
-  abierto?: boolean;
-  onCambioEstado?: (abierto: boolean) => void;
-}
-
-export interface CoordendasTooltip {
-  x: number;
-  y: number;
-  posicionFinal: PosicionTooltip;
+  side?: TooltipSide;
+  sideOffset?: number;
+  align?: TooltipAlign;
+  alignOffset?: number;
+  avoidCollisions?: boolean;
+  collisionBoundary?: Element | null;
+  sticky?: 'partial' | 'always';
+  hideWhenDetached?: boolean;
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
+  onPointerDownOutside?: (event: PointerEvent) => void;
 }
 
 // =======================================================
-// HOOKS AUXILIARES
+// CONTEXTO
 // =======================================================
 
-const usePositionCalculator = () => {
-  const calcularPosicion = useCallback((
-    elementoTrigger: HTMLElement,
-    elementoTooltip: HTMLElement,
-    posicionDeseada: PosicionTooltip,
-    alineacion: AlineacionTooltip,
-    offset: number
-  ): CoordendasTooltip => {
-    const rectTrigger = elementoTrigger.getBoundingClientRect();
-    const rectTooltip = elementoTooltip.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Funciones para calcular cada posición
-    const posiciones = {
-      top: () => ({
-        x: rectTrigger.left + rectTrigger.width / 2 - rectTooltip.width / 2,
-        y: rectTrigger.top - rectTooltip.height - offset,
-      }),
-      bottom: () => ({
-        x: rectTrigger.left + rectTrigger.width / 2 - rectTooltip.width / 2,
-        y: rectTrigger.bottom + offset,
-      }),
-      left: () => ({
-        x: rectTrigger.left - rectTooltip.width - offset,
-        y: rectTrigger.top + rectTrigger.height / 2 - rectTooltip.height / 2,
-      }),
-      right: () => ({
-        x: rectTrigger.right + offset,
-        y: rectTrigger.top + rectTrigger.height / 2 - rectTooltip.height / 2,
-      }),
-    };
+const TooltipContext = createContext<TooltipContextType | null>(null);
 
-    // Ajustar posición según alineación
-    const ajustarAlineacion = (coords: {x: number, y: number}, pos: PosicionTooltip) => {
-      if (pos === 'top' || pos === 'bottom') {
-        switch (alineacion) {
-          case 'start':
-            return { ...coords, x: rectTrigger.left };
-          case 'end':
-            return { ...coords, x: rectTrigger.right - rectTooltip.width };
-          default:
-            return coords;
-        }
-      } else {
-        switch (alineacion) {
-          case 'start':
-            return { ...coords, y: rectTrigger.top };
-          case 'end':
-            return { ...coords, y: rectTrigger.bottom - rectTooltip.height };
-          default:
-            return coords;
-        }
-      }
-    };
-
-    // Verificar si una posición cabe en el viewport
-    const cabEnViewport = (coords: {x: number, y: number}) => {
-      return coords.x >= 0 && 
-             coords.y >= 0 && 
-             coords.x + rectTooltip.width <= viewportWidth && 
-             coords.y + rectTooltip.height <= viewportHeight;
-    };
-
-    // Determinar la mejor posición
-    let posicionFinal: PosicionTooltip = posicionDeseada;
-    let coordenadas: {x: number, y: number};
-
-    if (posicionDeseada === 'auto') {
-      // Probar posiciones en orden de preferencia
-      const posicionesAProbrar: PosicionTooltip[] = ['top', 'bottom', 'right', 'left'];
-      
-      for (const pos of posicionesAProbrar) {
-        const coords = ajustarAlineacion(posiciones[pos](), pos);
-        if (cabEnViewport(coords)) {
-          posicionFinal = pos;
-          coordenadas = coords;
-          break;
-        }
-      }
-      
-      // Si ninguna cabe, usar 'top' como fallback
-      if (!coordenadas!) {
-        posicionFinal = 'top';
-        coordenadas = ajustarAlineacion(posiciones.top(), 'top');
-      }
-    } else {
-      coordenadas = ajustarAlineacion(posiciones[posicionDeseada](), posicionDeseada);
-      
-      // Si no cabe, intentar con auto
-      if (!cabEnViewport(coordenadas)) {
-        return calcularPosicion(elementoTrigger, elementoTooltip, 'auto', alineacion, offset);
-      }
-    }
-
-    // Ajustar si se sale del viewport
-    coordenadas.x = Math.max(0, Math.min(coordenadas.x, viewportWidth - rectTooltip.width));
-    coordenadas.y = Math.max(0, Math.min(coordenadas.y, viewportHeight - rectTooltip.height));
-
-    return {
-      x: coordenadas.x,
-      y: coordenadas.y,
-      posicionFinal,
-    };
-  }, []);
-
-  return { calcularPosicion };
+const useTooltipContext = () => {
+  const context = useContext(TooltipContext);
+  if (!context) {
+    throw new Error('Tooltip components must be used within TooltipProvider');
+  }
+  return context;
 };
 
 // =======================================================
-// COMPONENTE PRINCIPAL
+// UTILIDADES DE POSICIONAMIENTO
 // =======================================================
 
-export const Tooltip: React.FC<PropiedadesTooltip> = ({
-  contenido,
+const getTooltipPosition = (
+  triggerElement: HTMLElement,
+  contentElement: HTMLElement,
+  side: TooltipSide,
+  align: TooltipAlign,
+  sideOffset: number,
+  alignOffset: number
+) => {
+  const triggerRect = triggerElement.getBoundingClientRect();
+  const contentRect = contentElement.getBoundingClientRect();
+  const viewport = {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+
+  let x = 0;
+  let y = 0;
+
+  // Calcular posición base según el side
+  switch (side) {
+    case 'top':
+      x = triggerRect.left + triggerRect.width / 2 - contentRect.width / 2;
+      y = triggerRect.top - contentRect.height - sideOffset;
+      break;
+    case 'bottom':
+      x = triggerRect.left + triggerRect.width / 2 - contentRect.width / 2;
+      y = triggerRect.bottom + sideOffset;
+      break;
+    case 'left':
+      x = triggerRect.left - contentRect.width - sideOffset;
+      y = triggerRect.top + triggerRect.height / 2 - contentRect.height / 2;
+      break;
+    case 'right':
+      x = triggerRect.right + sideOffset;
+      y = triggerRect.top + triggerRect.height / 2 - contentRect.height / 2;
+      break;
+  }
+
+  // Ajustar según alignment
+  if (side === 'top' || side === 'bottom') {
+    switch (align) {
+      case 'start':
+        x = triggerRect.left + alignOffset;
+        break;
+      case 'end':
+        x = triggerRect.right - contentRect.width - alignOffset;
+        break;
+      case 'center':
+        // Ya está centrado por defecto
+        x += alignOffset;
+        break;
+    }
+  } else {
+    switch (align) {
+      case 'start':
+        y = triggerRect.top + alignOffset;
+        break;
+      case 'end':
+        y = triggerRect.bottom - contentRect.height - alignOffset;
+        break;
+      case 'center':
+        // Ya está centrado por defecto
+        y += alignOffset;
+        break;
+    }
+  }
+
+  // Asegurar que no se salga del viewport
+  x = Math.max(8, Math.min(x, viewport.width - contentRect.width - 8));
+  y = Math.max(8, Math.min(y, viewport.height - contentRect.height - 8));
+
+  return { x, y };
+};
+
+// =======================================================
+// PROVIDER
+// =======================================================
+
+export const TooltipProvider: React.FC<TooltipProviderProps> = ({
   children,
-  posicion = 'top',
-  alineacion = 'center',
-  offset = 8,
-  trigger = 'hover',
-  delay = 200,
-  delayEsconder = 100,
-  disabled = false,
-  className,
-  classNameContenido,
-  variant = 'default',
-  tamaño = 'md',
-  maxWidth = '200px',
-  onAbrir,
-  onCerrar,
-  abierto: abiertoControlado,
-  onCambioEstado,
+  delayDuration = 700,
+  skipDelayDuration = 300,
 }) => {
-  // Estado
-  const [abiertoInterno, setAbiertoInterno] = useState(false);
-  const [coordenadas, setCoordenadas] = useState<CoordendasTooltip | null>(null);
-  
-  // Referencias
-  const triggerRef = useRef<HTMLElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const timeoutEsconderRef = useRef<NodeJS.Timeout>();
-  
-  // Hooks
-  const { calcularPosicion } = usePositionCalculator();
-  
-  // Estado actual del tooltip
-  const estaAbierto = abiertoControlado !== undefined ? abiertoControlado : abiertoInterno;
-
-  // Funciones de control
-  const mostrarTooltip = useCallback(() => {
-    if (disabled) return;
-    
-    if (timeoutEsconderRef.current) {
-      clearTimeout(timeoutEsconderRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(() => {
-      setAbiertoInterno(true);
-      onCambioEstado?.(true);
-      onAbrir?.();
-    }, delay);
-  }, [disabled, delay, onAbrir, onCambioEstado]);
-
-  const esconderTooltip = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutEsconderRef.current = setTimeout(() => {
-      setAbiertoInterno(false);
-      onCambioEstado?.(false);
-      onCerrar?.();
-    }, delayEsconder);
-  }, [delayEsconder, onCerrar, onCambioEstado]);
-
-  const toggleTooltip = useCallback(() => {
-    if (estaAbierto) {
-      esconderTooltip();
-    } else {
-      mostrarTooltip();
-    }
-  }, [estaAbierto, mostrarTooltip, esconderTooltip]);
-
-  // Actualizar posición del tooltip
-  const actualizarPosicion = useCallback(() => {
-    if (!triggerRef.current || !tooltipRef.current || !estaAbierto) return;
-
-    const nuevasCoordenadas = calcularPosicion(
-      triggerRef.current,
-      tooltipRef.current,
-      posicion,
-      alineacion,
-      offset
-    );
-    
-    setCoordenadas(nuevasCoordenadas);
-  }, [calcularPosicion, posicion, alineacion, offset, estaAbierto]);
-
-  // Efectos
-  useEffect(() => {
-    if (estaAbierto) {
-      actualizarPosicion();
-      
-      const manejarScroll = () => actualizarPosicion();
-      const manejarResize = () => actualizarPosicion();
-      
-      window.addEventListener('scroll', manejarScroll, true);
-      window.addEventListener('resize', manejarResize);
-      
-      return () => {
-        window.removeEventListener('scroll', manejarScroll, true);
-        window.removeEventListener('resize', manejarResize);
-      };
-    }
-  }, [estaAbierto, actualizarPosicion]);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (timeoutEsconderRef.current) clearTimeout(timeoutEsconderRef.current);
-    };
-  }, []);
-
-  // Event handlers
-  const manejarClickAfuera = useCallback((event: MouseEvent) => {
-    if (
-      tooltipRef.current && 
-      !tooltipRef.current.contains(event.target as Node) &&
-      triggerRef.current &&
-      !triggerRef.current.contains(event.target as Node)
-    ) {
-      esconderTooltip();
-    }
-  }, [esconderTooltip]);
-
-  useEffect(() => {
-    if (trigger === 'click' && estaAbierto) {
-      document.addEventListener('mousedown', manejarClickAfuera);
-      return () => document.removeEventListener('mousedown', manejarClickAfuera);
-    }
-  }, [trigger, estaAbierto, manejarClickAfuera]);
-
-  // Clonar elemento hijo con event handlers
-  const elementoTrigger = React.cloneElement(children, {
-    ref: triggerRef,
-    ...(trigger === 'hover' && {
-      onMouseEnter: mostrarTooltip,
-      onMouseLeave: esconderTooltip,
-    }),
-    ...(trigger === 'click' && {
-      onClick: toggleTooltip,
-    }),
-    ...(trigger === 'focus' && {
-      onFocus: mostrarTooltip,
-      onBlur: esconderTooltip,
-    }),
-  });
-
-  // Clases CSS del tooltip
-  const clasesTooltip = cn(
-    'absolute z-50 px-2 py-1 text-sm rounded-md shadow-lg transition-opacity duration-200 pointer-events-none',
-    // Variantes de color
-    {
-      'bg-gray-900 text-white': variant === 'default' || variant === 'dark',
-      'bg-white text-gray-900 border border-gray-200': variant === 'light',
-      'bg-green-600 text-white': variant === 'success',
-      'bg-yellow-500 text-black': variant === 'warning',
-      'bg-red-600 text-white': variant === 'error',
-    },
-    // Tamaños
-    {
-      'text-xs px-1.5 py-0.5': tamaño === 'sm',
-      'text-sm px-2 py-1': tamaño === 'md',
-      'text-base px-3 py-2': tamaño === 'lg',
-    },
-    classNameContenido
+  return (
+    <div data-tooltip-provider="">
+      {children}
+    </div>
   );
+};
 
-  // Renderizar tooltip
-  const renderizarTooltip = () => {
-    if (!estaAbierto || !coordenadas) return null;
+// =======================================================
+// TOOLTIP ROOT
+// =======================================================
 
-    return createPortal(
-      <div
-        ref={tooltipRef}
-        className={clasesTooltip}
-        style={{
-          left: coordenadas.x,
-          top: coordenadas.y,
-          maxWidth,
-        }}
-        role="tooltip"
-        aria-hidden={!estaAbierto}
-      >
-        {contenido}
-        
-        {/* Flecha del tooltip */}
-        <div
-          className={cn(
-            'absolute w-2 h-2 transform rotate-45',
-            {
-              'bg-gray-900': variant === 'default' || variant === 'dark',
-              'bg-white border-l border-t border-gray-200': variant === 'light',
-              'bg-green-600': variant === 'success',
-              'bg-yellow-500': variant === 'warning',
-              'bg-red-600': variant === 'error',
-            },
-            // Posicionamiento de la flecha
-            {
-              'bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2': coordenadas.posicionFinal === 'top',
-              'top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2': coordenadas.posicionFinal === 'bottom',
-              'right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2': coordenadas.posicionFinal === 'left',
-              'left-0 top-1/2 transform -translate-x-1/2 -translate-y-1/2': coordenadas.posicionFinal === 'right',
-            }
-          )}
-        />
-      </div>,
-      document.body
-    );
+export const Tooltip: React.FC<TooltipProps> = ({
+  children,
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
+}) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const triggerRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const open = controlledOpen !== undefined ? controlledOpen : uncontrolledOpen;
+  
+  const setOpen = useCallback((newOpen: boolean) => {
+    if (controlledOpen === undefined) {
+      setUncontrolledOpen(newOpen);
+    }
+    onOpenChange?.(newOpen);
+  }, [controlledOpen, onOpenChange]);
+
+  const contextValue: TooltipContextType = {
+    open,
+    setOpen,
+    triggerRef,
+    contentRef,
+    side: 'top',
+    align: 'center',
+    sideOffset: 4,
+    alignOffset: 0,
+    delayDuration: 700,
+    skipDelayDuration: 300,
   };
 
   return (
-    <>
-      {elementoTrigger}
-      {renderizarTooltip()}
-    </>
+    <TooltipContext.Provider value={contextValue}>
+      {children}
+    </TooltipContext.Provider>
   );
 };
 
 // =======================================================
-// COMPONENTE SIMPLIFICADO
+// TOOLTIP TRIGGER
 // =======================================================
 
-export interface PropiedadesTooltipSimple {
-  texto: string;
-  children: React.ReactElement;
-  posicion?: PosicionTooltip;
-  variant?: 'default' | 'dark' | 'light' | 'success' | 'warning' | 'error';
-}
-
-export const TooltipSimple: React.FC<PropiedadesTooltipSimple> = ({
-  texto,
+export const TooltipTrigger: React.FC<TooltipTriggerProps> = ({
   children,
-  posicion = 'top',
-  variant = 'dark',
+  asChild = false,
 }) => {
+  const { setOpen, triggerRef } = useTooltipContext();
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = useCallback(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    const id = setTimeout(() => {
+      setOpen(true);
+    }, 200);
+    
+    setTimeoutId(id);
+  }, [setOpen, timeoutId]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      setTimeoutId(null);
+    }
+    
+    const id = setTimeout(() => {
+      setOpen(false);
+    }, 100);
+    
+    setTimeoutId(id);
+  }, [setOpen, timeoutId]);
+
+  const handleFocus = useCallback(() => {
+    setOpen(true);
+  }, [setOpen]);
+
+  const handleBlur = useCallback(() => {
+    setOpen(false);
+  }, [setOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [timeoutId]);
+
+  if (asChild) {
+    return React.cloneElement(children, {
+      ref: triggerRef,
+      onMouseEnter: handleMouseEnter,
+      onMouseLeave: handleMouseLeave,
+      onFocus: handleFocus,
+      onBlur: handleBlur,
+    });
+  }
+
   return (
-    <Tooltip
-      contenido={texto}
-      posicion={posicion}
-      variant={variant}
+    <button
+      ref={triggerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      className="inline-flex"
     >
       {children}
-    </Tooltip>
+    </button>
   );
 };
 
 // =======================================================
-// EXPORTACIONES
+// TOOLTIP CONTENT
 // =======================================================
 
-export default Tooltip;
+export const TooltipContent: React.FC<TooltipContentProps> = ({
+  children,
+  className,
+  side = 'top',
+  sideOffset = 4,
+  align = 'center',
+  alignOffset = 0,
+  avoidCollisions = true,
+  collisionBoundary,
+  sticky = 'partial',
+  hideWhenDetached = false,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  ...props
+}) => {
+  const { open, setOpen, triggerRef, contentRef } = useTooltipContext();
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current || !contentRef.current) return;
+
+    const pos = getTooltipPosition(
+      triggerRef.current,
+      contentRef.current,
+      side,
+      align,
+      sideOffset,
+      alignOffset
+    );
+
+    setPosition(pos);
+  }, [side, align, sideOffset, alignOffset]);
+
+  useEffect(() => {
+    if (open) {
+      updatePosition();
+
+      const handleScroll = () => updatePosition();
+      const handleResize = () => updatePosition();
+
+      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('scroll', handleScroll, true);
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+  }, [open, updatePosition]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        onEscapeKeyDown?.(event);
+      }
+    };
+
+    if (open) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [open, setOpen, onEscapeKeyDown]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: PointerEvent) => {
+      if (
+        contentRef.current &&
+        !contentRef.current.contains(event.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+        onPointerDownOutside?.(event);
+      }
+    };
+
+    if (open) {
+      document.addEventListener('pointerdown', handleClickOutside);
+      return () => document.removeEventListener('pointerdown', handleClickOutside);
+    }
+  }, [open, setOpen, onPointerDownOutside]);
+
+  if (!open) return null;
+
+  const content = (
+    <div
+      ref={contentRef}
+      className={cn(
+        'z-50 overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-950 shadow-md animate-in fade-in-0 zoom-in-95',
+        'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
+        {
+          'data-[side=bottom]:slide-in-from-top-2': side === 'bottom',
+          'data-[side=left]:slide-in-from-right-2': side === 'left',
+          'data-[side=right]:slide-in-from-left-2': side === 'right',
+          'data-[side=top]:slide-in-from-bottom-2': side === 'top',
+        },
+        className
+      )}
+      style={{
+        position: 'fixed',
+        left: position.x,
+        top: position.y,
+        zIndex: 50,
+      }}
+      data-state={open ? 'open' : 'closed'}
+      data-side={side}
+      role="tooltip"
+      {...props}
+    >
+      {children}
+    </div>
+  );
+
+  return createPortal(content, document.body);
+};
+
+// =======================================================
+// EXPORT DEFAULT INDIVIDUAL
+// =======================================================
+
+export default {
+  Provider: TooltipProvider,
+  Root: Tooltip,
+  Trigger: TooltipTrigger,
+  Content: TooltipContent,
+};

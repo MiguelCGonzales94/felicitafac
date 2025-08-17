@@ -25,8 +25,8 @@ import {
   ValidacionProducto,
   ConfiguracionPrecios
 } from '../types/producto';
-import { formatearMoneda, formatearPorcentaje } from '../utils/formatters';
-import { calcularMargenGanancia, calcularPrecioConMargen } from '../utils/moneyUtils';
+import { formatearMoneda, formatearPorcentaje } from '../utils/formateo';
+import { calcularMargenGanancia, calcularPrecioConMargen } from '../utils/dinero';
 
 // =======================================================
 // INTERFACES Y TIPOS

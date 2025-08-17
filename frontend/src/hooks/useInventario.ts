@@ -25,7 +25,7 @@ import {
   ConfiguracionInventario
 } from '../types/inventario';
 import { RespuestaPaginada } from '../types/common';
-import { formatearMoneda, formatearFecha } from '../utils/formatters';
+import { formatearMoneda, formatearFecha } from '../utils/formateo';
 
 // =======================================================
 // INTERFACES Y TIPOS

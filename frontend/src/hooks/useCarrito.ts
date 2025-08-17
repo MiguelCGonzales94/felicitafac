@@ -15,8 +15,8 @@ import {
 } from '../types/pos';
 import { Cliente } from '../types/cliente';
 import { Producto } from '../types/producto';
-import { calcularIgv, calcularTotal } from '../utils/moneyUtils';
-import { formatearMoneda } from '../utils/formatters';
+import { calcularIgv, calcularTotal } from '../utils/dinero';
+import { formatearMoneda } from '../utils/formateo';
 import { validarRuc, validarDni } from '../utils/validaciones';
 
 // =======================================================

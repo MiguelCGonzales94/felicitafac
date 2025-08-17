@@ -13,7 +13,24 @@ export type EstadoProducto = 'activo' | 'inactivo' | 'descontinuado';
 export type UnidadMedidaSunat = 'NIU' | 'KGM' | 'MTR' | 'LTR' | 'H87' | 'BX' | 'PK' | 'SET' | 'ZZ';
 export type MetodoValuacion = 'PEPS' | 'PROMEDIO' | 'UEPS';
 export type TipoImpuesto = 'gravado' | 'exonerado' | 'inafecto' | 'exportacion';
+// =======================================================
+// CORRECCIONES Y ALIAS PARA COMPATIBILIDAD
+// =======================================================
 
+/**
+ * Alias para compatibilidad con importaciones
+ */
+export type UnidadMedida = UnidadMedidaSunat;
+
+/**
+ * Alias para compatibilidad (FiltrosProductos vs FiltrosProducto)
+ */
+export type FiltrosProductos = FiltrosProducto;
+
+/**
+ * Alias para compatibilidad (ProductoProveedor vs ProveedorProducto)
+ */
+export type ProductoProveedor = ProveedorProducto;
 // =======================================================
 // INTERFACE PRINCIPAL DE PRODUCTO
 // =======================================================
@@ -596,6 +613,301 @@ export interface ProductoCompleto extends Producto {
   precios_historia: HistorialPrecioProducto[];
   proveedores: ProveedorProducto[];
   componentes?: ComponenteCombo[];
+}
+
+/**
+ * Configuración de precios específica (faltaba esta interface)
+ */
+export interface ConfiguracionPrecios {
+  // Configuración general
+  incluir_igv_por_defecto: boolean;
+  moneda_default: string;
+  decimales_precio: number;
+  redondeo_automatico: boolean;
+  
+  // Márgenes y descuentos
+  margen_minimo: number;
+  margen_maximo: number;
+  margen_default: number;
+  descuento_maximo_permitido: number;
+  
+  // Precios múltiples
+  permitir_precios_multiples: boolean;
+  tipos_precio_activos: string[];
+  precio_mayorista_habilitado: boolean;
+  cantidad_minima_mayorista: number;
+  
+  // Validaciones
+  validar_precio_minimo: boolean;
+  alertar_margen_bajo: boolean;
+  umbral_margen_bajo: number;
+  
+  // Actualizaciones masivas
+  permitir_actualizacion_masiva: boolean;
+  requiere_autorizacion_cambios: boolean;
+  historial_cambios_habilitado: boolean;
+  
+  // Promociones y ofertas
+  permitir_precios_promocionales: boolean;
+  duracion_maxima_promocion_dias: number;
+  descuento_promocional_maximo: number;
+  
+  // Configuración por categoría
+  margenes_por_categoria: Array<{
+    categoria_id: number;
+    categoria_nombre: string;
+    margen_minimo: number;
+    margen_default: number;
+  }>;
+  
+  // Configuración de competencia
+  seguimiento_precios_competencia: boolean;
+  alerta_precios_por_debajo_competencia: boolean;
+  
+  // Fechas de configuración
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+  usuario_actualizacion: number;
+}
+
+/**
+ * Lista de precios por categoría
+ */
+export interface ListaPreciosPorCategoria {
+  categoria_id: number;
+  categoria_nombre: string;
+  productos: Array<{
+    producto_id: number;
+    codigo: string;
+    nombre: string;
+    precio_actual: number;
+    precio_anterior?: number;
+    margen_actual: number;
+    fecha_ultimo_cambio?: string;
+  }>;
+  estadisticas: {
+    total_productos: number;
+    precio_promedio: number;
+    margen_promedio: number;
+    productos_sin_precio: number;
+  };
+}
+
+/**
+ * Historial de cambios de precios
+ */
+export interface HistorialCambioPrecios {
+  id: number;
+  producto_id: number;
+  tipo_precio: 'venta' | 'compra' | 'mayorista' | 'promocional';
+  precio_anterior: number;
+  precio_nuevo: number;
+  margen_anterior?: number;
+  margen_nuevo?: number;
+  motivo_cambio: string;
+  fecha_cambio: string;
+  fecha_vigencia_desde: string;
+  fecha_vigencia_hasta?: string;
+  usuario_id: number;
+  usuario_nombre: string;
+  aprobado_por?: number;
+  aprobado_por_nombre?: string;
+  fecha_aprobacion?: string;
+  activo: boolean;
+}
+
+/**
+ * Configuración de promociones
+ */
+export interface ConfiguracionPromociones {
+  id: number;
+  nombre: string;
+  descripcion?: string;
+  tipo_descuento: 'porcentaje' | 'monto' | 'precio_fijo';
+  valor_descuento: number;
+  
+  // Vigencia
+  fecha_inicio: string;
+  fecha_fin: string;
+  dias_semana?: number[]; // 0=Domingo, 1=Lunes, etc.
+  hora_inicio?: string;
+  hora_fin?: string;
+  
+  // Aplicabilidad
+  aplica_todos_productos: boolean;
+  productos_incluidos?: number[];
+  categorias_incluidas?: number[];
+  productos_excluidos?: number[];
+  
+  // Condiciones
+  cantidad_minima?: number;
+  monto_minimo_compra?: number;
+  solo_para_clientes?: number[];
+  limite_por_cliente?: number;
+  limite_total_promocion?: number;
+  
+  // Control
+  activa: boolean;
+  stack_con_otras_promociones: boolean;
+  prioridad: number;
+  
+  // Estadísticas
+  veces_aplicada?: number;
+  monto_total_descuentos?: number;
+  productos_vendidos?: number;
+}
+
+/**
+ * Análisis de precios y competencia
+ */
+export interface AnalisisPreciosCompetencia {
+  producto_id: number;
+  producto_nombre: string;
+  nuestro_precio: number;
+  
+  // Precios de competencia
+  precios_competencia: Array<{
+    competidor: string;
+    precio: number;
+    fecha_consulta: string;
+    url_referencia?: string;
+    disponible: boolean;
+  }>;
+  
+  // Análisis
+  precio_promedio_mercado: number;
+  precio_minimo_mercado: number;
+  precio_maximo_mercado: number;
+  posicion_ranking: number; // 1 = más barato
+  diferencia_vs_promedio: number;
+  diferencia_vs_minimo: number;
+  
+  // Recomendaciones
+  precio_recomendado: number;
+  razon_recomendacion: string;
+  impacto_estimado_ventas: number;
+  impacto_estimado_margen: number;
+  
+  // Metadatos
+  fecha_analisis: string;
+  fuentes_consultadas: number;
+  confiabilidad_datos: 'alta' | 'media' | 'baja';
+}
+
+/**
+ * Configuración de márgenes por tipo de cliente
+ */
+export interface MargenPorTipoCliente {
+  id: number;
+  tipo_cliente: string;
+  descripcion: string;
+  margen_default: number;
+  descuento_maximo: number;
+  
+  // Configuración por categoría
+  margenes_categoria: Array<{
+    categoria_id: number;
+    margen_especifico: number;
+    descuento_maximo_categoria: number;
+  }>;
+  
+  // Productos específicos
+  productos_especiales: Array<{
+    producto_id: number;
+    precio_especial: number;
+    margen_especial: number;
+  }>;
+  
+  activo: boolean;
+}
+
+// =======================================================
+// EXTENSIONES A INTERFACES EXISTENTES
+// =======================================================
+
+/**
+ * Producto con información de precios extendida
+ */
+export interface ProductoConPreciosExtendidos extends Producto {
+  // Precios alternativos
+  precios_alternativos: PrecioProducto[];
+  
+  // Promociones activas
+  promociones_activas: ConfiguracionPromociones[];
+  precio_promocional?: number;
+  descuento_activo?: number;
+  
+  // Márgenes calculados
+  margen_actual: number;
+  margen_porcentaje: number;
+  costo_real: number;
+  
+  // Análisis de mercado
+  analisis_competencia?: AnalisisPreciosCompetencia;
+  precio_sugerido?: number;
+  
+  // Historial
+  ultimo_cambio_precio?: string;
+  cambios_precio_mes: number;
+  
+  // Información adicional
+  es_precio_especial: boolean;
+  requiere_autorizacion_descuento: boolean;
+  precio_bloqueado: boolean;
+}
+
+// =======================================================
+// CONSTANTES ADICIONALES
+// =======================================================
+
+export const TIPOS_PRECIO = {
+  VENTA: 'venta',
+  MAYORISTA: 'mayorista',
+  PROMOCIONAL: 'promocional',
+  ESPECIAL: 'especial',
+  COMPETENCIA: 'competencia'
+} as const;
+
+export const MOTIVOS_CAMBIO_PRECIO = {
+  ACTUALIZACION_COSTOS: 'actualizacion_costos',
+  AJUSTE_MARGEN: 'ajuste_margen',
+  PROMOCION: 'promocion',
+  COMPETENCIA: 'competencia',
+  LIQUIDACION: 'liquidacion',
+  ESTACIONAL: 'estacional',
+  CORRECCION_ERROR: 'correccion_error',
+  POLITICA_EMPRESA: 'politica_empresa'
+} as const;
+
+export const INTERVALOS_ANALISIS_PRECIO = [
+  { value: 'diario', label: 'Diario' },
+  { value: 'semanal', label: 'Semanal' },
+  { value: 'quincenal', label: 'Quincenal' },
+  { value: 'mensual', label: 'Mensual' },
+  { value: 'manual', label: 'Manual' }
+];
+
+// =======================================================
+// TIPOS AUXILIARES PARA CÁLCULOS
+// =======================================================
+
+export interface CalculoMargenes {
+  precio_venta: number;
+  precio_compra: number;
+  margen_bruto: number;
+  margen_porcentaje: number;
+  markup: number;
+  precio_con_igv: number;
+  precio_sin_igv: number;
+  igv_calculado: number;
+}
+
+export interface ConfiguracionCalculoPrecios {
+  incluir_igv: boolean;
+  tasa_igv: number;
+  redondear_centavos: boolean;
+  redondear_a: number; // 0.05, 0.10, 1.00, etc.
+  moneda: string;
 }
 
 // =======================================================

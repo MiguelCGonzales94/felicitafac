@@ -4,7 +4,7 @@
  * Manejo específico de cálculos monetarios y conversiones
  */
 
-import { MONEDAS, SIMBOLOS_MONEDAS, TASAS_IMPUESTOS } from './constants';
+import { MONEDAS, SIMBOLOS_MONEDAS, TASAS_IMPUESTOS } from './constantes';
 
 // =======================================================
 // TIPOS PARA CÁLCULOS MONETARIOS
@@ -497,6 +497,570 @@ export const calcularDescuentoFijo = (
   const montoFinal = redondearMonto(monto - montoDescuento, 2);
   
   return { montoDescuento: redondearMonto(montoDescuento, 2), montoFinal };
+};
+
+/**
+ * Calcular total de factura con todos los componentes
+ */
+export const calcularTotal = (
+  subtotal: number,
+  descuentos: number = 0,
+  otrosCargos: number = 0,
+  aplicaIgv: boolean = true,
+  tasaIgv: number = 0.18,
+  aplicaIsc: boolean = false,
+  tasaIsc: number = 0,
+  aplicaIcbper: boolean = false,
+  cantidadBolsas: number = 0
+): {
+  subtotal: number;
+  descuentos: number;
+  baseImponible: number;
+  igv: number;
+  isc: number;
+  icbper: number;
+  otrosCargos: number;
+  total: number;
+} => {
+  // Validar inputs
+  if (isNaN(subtotal) || subtotal < 0) subtotal = 0;
+  if (isNaN(descuentos) || descuentos < 0) descuentos = 0;
+  if (isNaN(otrosCargos) || otrosCargos < 0) otrosCargos = 0;
+  if (isNaN(cantidadBolsas) || cantidadBolsas < 0) cantidadBolsas = 0;
+
+  // Calcular base imponible (subtotal menos descuentos)
+  const baseImponible = redondearMonto(subtotal - descuentos, 2);
+
+  // Calcular ISC (si aplica, se calcula primero)
+  const isc = aplicaIsc ? calcularIsc(baseImponible, tasaIsc) : 0;
+
+  // Calcular IGV sobre base imponible + ISC
+  const baseParaIgv = baseImponible + isc;
+  const igv = aplicaIgv ? calcularIgv(baseParaIgv, tasaIgv) : 0;
+
+  // Calcular ICBPER (impuesto a bolsas plásticas)
+  const icbper = aplicaIcbper ? calcularIcbper(cantidadBolsas) : 0;
+
+  // Calcular total final
+  const total = redondearMonto(
+    baseImponible + igv + isc + icbper + otrosCargos, 
+    2
+  );
+
+  return {
+    subtotal: redondearMonto(subtotal, 2),
+    descuentos: redondearMonto(descuentos, 2),
+    baseImponible: redondearMonto(baseImponible, 2),
+    igv: redondearMonto(igv, 2),
+    isc: redondearMonto(isc, 2),
+    icbper: redondearMonto(icbper, 2),
+    otrosCargos: redondearMonto(otrosCargos, 2),
+    total
+  };
+};
+
+/**
+ * Calcular total simple (subtotal + IGV - descuentos)
+ * Función simplificada para casos básicos
+ */
+export const calcularTotalSimple = (
+  subtotal: number,
+  descuentos: number = 0,
+  aplicaIgv: boolean = true,
+  tasaIgv: number = 0.18
+): number => {
+  const resultado = calcularTotal(subtotal, descuentos, 0, aplicaIgv, tasaIgv);
+  return resultado.total;
+};
+
+/**
+ * Calcular total de array de items
+ * Para calcular el total de múltiples productos/servicios
+ */
+export const calcularTotalItems = (
+  items: Array<{
+    cantidad: number;
+    precio_unitario: number;
+    descuento?: number;
+    aplica_igv?: boolean;
+    aplica_isc?: boolean;
+    tasa_isc?: number;
+  }>,
+  descuentoGlobal: number = 0,
+  otrosCargos: number = 0,
+  tasaIgvDefault: number = 0.18
+): {
+  subtotalItems: number;
+  totalDescuentosItems: number;
+  totalIgvItems: number;
+  totalIscItems: number;
+  descuentoGlobal: number;
+  otrosCargos: number;
+  total: number;
+  detalleItems: Array<{
+    subtotal: number;
+    descuento: number;
+    baseImponible: number;
+    igv: number;
+    isc: number;
+    total: number;
+  }>;
+} => {
+  let subtotalItems = 0;
+  let totalDescuentosItems = 0;
+  let totalIgvItems = 0;
+  let totalIscItems = 0;
+  
+  const detalleItems = items.map(item => {
+    const subtotalItem = redondearMonto(item.cantidad * item.precio_unitario, 2);
+    const descuentoItem = redondearMonto(item.descuento || 0, 2);
+    const baseImponible = redondearMonto(subtotalItem - descuentoItem, 2);
+    
+    // Calcular ISC si aplica
+    const isc = (item.aplica_isc && item.tasa_isc) 
+      ? calcularIsc(baseImponible, item.tasa_isc) 
+      : 0;
+    
+    // Calcular IGV
+    const baseParaIgv = baseImponible + isc;
+    const igv = (item.aplica_igv !== false) 
+      ? calcularIgv(baseParaIgv, tasaIgvDefault) 
+      : 0;
+    
+    const totalItem = redondearMonto(baseImponible + igv + isc, 2);
+    
+    // Acumular totales
+    subtotalItems += subtotalItem;
+    totalDescuentosItems += descuentoItem;
+    totalIgvItems += igv;
+    totalIscItems += isc;
+    
+    return {
+      subtotal: subtotalItem,
+      descuento: descuentoItem,
+      baseImponible,
+      igv,
+      isc,
+      total: totalItem
+    };
+  });
+  
+  // Calcular total final considerando descuento global y otros cargos
+  const subtotalFinal = redondearMonto(subtotalItems - totalDescuentosItems, 2);
+  const descuentoGlobalAplicado = redondearMonto(descuentoGlobal, 2);
+  const baseImponibleFinal = redondearMonto(subtotalFinal - descuentoGlobalAplicado, 2);
+  const otrosCargosAplicados = redondearMonto(otrosCargos, 2);
+  
+  const total = redondearMonto(
+    baseImponibleFinal + totalIgvItems + totalIscItems + otrosCargosAplicados, 
+    2
+  );
+  
+  return {
+    subtotalItems: redondearMonto(subtotalItems, 2),
+    totalDescuentosItems: redondearMonto(totalDescuentosItems, 2),
+    totalIgvItems: redondearMonto(totalIgvItems, 2),
+    totalIscItems: redondearMonto(totalIscItems, 2),
+    descuentoGlobal: descuentoGlobalAplicado,
+    otrosCargos: otrosCargosAplicados,
+    total,
+    detalleItems
+  };
+};
+
+/**
+ * Calcular total con múltiples formas de pago
+ * Para facturas que se pagan con diferentes métodos
+ */
+export const calcularTotalConPagos = (
+  montoTotal: number,
+  pagos: Array<{
+    monto: number;
+    metodo: string;
+    fecha?: string;
+  }>
+): {
+  montoTotal: number;
+  totalPagado: number;
+  saldoPendiente: number;
+  pagos: Array<{
+    monto: number;
+    metodo: string;
+    fecha?: string;
+  }>;
+  estaPagado: boolean;
+  tieneSaldo: boolean;
+} => {
+  const totalPagado = pagos.reduce((sum, pago) => sum + (pago.monto || 0), 0);
+  const saldoPendiente = redondearMonto(montoTotal - totalPagado, 2);
+  
+  return {
+    montoTotal: redondearMonto(montoTotal, 2),
+    totalPagado: redondearMonto(totalPagado, 2),
+    saldoPendiente,
+    pagos: pagos.map(pago => ({
+      ...pago,
+      monto: redondearMonto(pago.monto, 2)
+    })),
+    estaPagado: saldoPendiente <= 0,
+    tieneSaldo: saldoPendiente > 0
+  };
+};
+
+// =======================================================
+// FUNCIONES DE CÁLCULO DE MÁRGENES Y PRECIOS
+// =======================================================
+
+/**
+ * Calcular margen de ganancia
+ * @param precioVenta Precio de venta del producto
+ * @param precioCompra Precio de compra/costo del producto
+ * @param incluyeIgv Si el precio de venta incluye IGV
+ * @param tasaIgv Tasa de IGV (por defecto 18%)
+ * @returns Objeto con diferentes tipos de márgenes calculados
+ */
+export const calcularMargenGanancia = (
+  precioVenta: number,
+  precioCompra: number,
+  incluyeIgv: boolean = true,
+  tasaIgv: number = 0.18
+): {
+  margenBruto: number;
+  margenPorcentaje: number;
+  markup: number;
+  precioVentaSinIgv: number;
+  precioVentaConIgv: number;
+  igvCalculado: number;
+  utilidadBruta: number;
+  esPrecioRentable: boolean;
+} => {
+  // Validar inputs
+  if (isNaN(precioVenta) || precioVenta < 0) precioVenta = 0;
+  if (isNaN(precioCompra) || precioCompra < 0) precioCompra = 0;
+  
+  // Calcular precio sin IGV si viene con IGV
+  let precioVentaSinIgv: number;
+  let precioVentaConIgv: number;
+  let igvCalculado: number;
+  
+  if (incluyeIgv) {
+    const resultado = extraerIgv(precioVenta, tasaIgv);
+    precioVentaSinIgv = resultado.baseImponible;
+    igvCalculado = resultado.igv;
+    precioVentaConIgv = precioVenta;
+  } else {
+    precioVentaSinIgv = precioVenta;
+    igvCalculado = calcularIgv(precioVenta, tasaIgv);
+    precioVentaConIgv = redondearMonto(precioVenta + igvCalculado, 2);
+  }
+  
+  // Calcular utilidad bruta (sobre precio sin IGV)
+  const utilidadBruta = redondearMonto(precioVentaSinIgv - precioCompra, 2);
+  
+  // Calcular margen porcentual (utilidad / precio de venta sin IGV)
+  const margenPorcentaje = precioVentaSinIgv > 0 
+    ? redondearMonto((utilidadBruta / precioVentaSinIgv) * 100, 2)
+    : 0;
+  
+  // Calcular markup (utilidad / costo)
+  const markup = precioCompra > 0 
+    ? redondearMonto((utilidadBruta / precioCompra) * 100, 2)
+    : 0;
+  
+  // Determinar si es rentable (margen positivo)
+  const esPrecioRentable = utilidadBruta > 0;
+  
+  return {
+    margenBruto: utilidadBruta,
+    margenPorcentaje,
+    markup,
+    precioVentaSinIgv: redondearMonto(precioVentaSinIgv, 2),
+    precioVentaConIgv: redondearMonto(precioVentaConIgv, 2),
+    igvCalculado: redondearMonto(igvCalculado, 2),
+    utilidadBruta,
+    esPrecioRentable
+  };
+};
+
+/**
+ * Calcular precio con margen específico
+ * @param precioCompra Precio de compra/costo del producto
+ * @param margenPorcentaje Margen deseado en porcentaje (ej: 25 para 25%)
+ * @param incluyeIgvEnPrecioFinal Si el precio final debe incluir IGV
+ * @param tasaIgv Tasa de IGV (por defecto 18%)
+ * @returns Objeto con precios calculados
+ */
+export const calcularPrecioConMargen = (
+  precioCompra: number,
+  margenPorcentaje: number,
+  incluyeIgvEnPrecioFinal: boolean = true,
+  tasaIgv: number = 0.18
+): {
+  precioVentaSinIgv: number;
+  precioVentaConIgv: number;
+  margenBruto: number;
+  margenPorcentaje: number;
+  markup: number;
+  igvCalculado: number;
+  precioSugerido: number;
+} => {
+  // Validar inputs
+  if (isNaN(precioCompra) || precioCompra < 0) precioCompra = 0;
+  if (isNaN(margenPorcentaje)) margenPorcentaje = 0;
+  
+  // Calcular precio de venta sin IGV con el margen deseado
+  // Fórmula: precio_venta = precio_compra / (1 - margen_decimal)
+  const margenDecimal = margenPorcentaje / 100;
+  const precioVentaSinIgv = precioCompra > 0 && margenDecimal < 1
+    ? redondearMonto(precioCompra / (1 - margenDecimal), 2)
+    : 0;
+  
+  // Calcular IGV
+  const igvCalculado = calcularIgv(precioVentaSinIgv, tasaIgv);
+  
+  // Calcular precio con IGV
+  const precioVentaConIgv = redondearMonto(precioVentaSinIgv + igvCalculado, 2);
+  
+  // Calcular margen bruto
+  const margenBruto = redondearMonto(precioVentaSinIgv - precioCompra, 2);
+  
+  // Calcular markup
+  const markup = precioCompra > 0 
+    ? redondearMonto((margenBruto / precioCompra) * 100, 2)
+    : 0;
+  
+  // El precio sugerido depende de si queremos incluir IGV o no
+  const precioSugerido = incluyeIgvEnPrecioFinal ? precioVentaConIgv : precioVentaSinIgv;
+  
+  return {
+    precioVentaSinIgv: redondearMonto(precioVentaSinIgv, 2),
+    precioVentaConIgv: redondearMonto(precioVentaConIgv, 2),
+    margenBruto: redondearMonto(margenBruto, 2),
+    margenPorcentaje: redondearMonto(margenPorcentaje, 2),
+    markup,
+    igvCalculado: redondearMonto(igvCalculado, 2),
+    precioSugerido: redondearMonto(precioSugerido, 2)
+  };
+};
+
+/**
+ * Calcular precio con markup específico
+ * @param precioCompra Precio de compra/costo
+ * @param markupPorcentaje Markup deseado en porcentaje (ej: 30 para 30% sobre el costo)
+ * @param incluyeIgvEnPrecioFinal Si el precio final debe incluir IGV
+ * @param tasaIgv Tasa de IGV
+ * @returns Precio calculado con markup
+ */
+export const calcularPrecioConMarkup = (
+  precioCompra: number,
+  markupPorcentaje: number,
+  incluyeIgvEnPrecioFinal: boolean = true,
+  tasaIgv: number = 0.18
+): {
+  precioVentaSinIgv: number;
+  precioVentaConIgv: number;
+  margenBruto: number;
+  margenPorcentaje: number;
+  markup: number;
+  igvCalculado: number;
+  precioSugerido: number;
+} => {
+  // Validar inputs
+  if (isNaN(precioCompra) || precioCompra < 0) precioCompra = 0;
+  if (isNaN(markupPorcentaje)) markupPorcentaje = 0;
+  
+  // Calcular precio de venta sin IGV con markup
+  // Fórmula: precio_venta = precio_compra * (1 + markup_decimal)
+  const markupDecimal = markupPorcentaje / 100;
+  const precioVentaSinIgv = redondearMonto(precioCompra * (1 + markupDecimal), 2);
+  
+  // Calcular IGV
+  const igvCalculado = calcularIgv(precioVentaSinIgv, tasaIgv);
+  
+  // Calcular precio con IGV
+  const precioVentaConIgv = redondearMonto(precioVentaSinIgv + igvCalculado, 2);
+  
+  // Calcular margen bruto
+  const margenBruto = redondearMonto(precioVentaSinIgv - precioCompra, 2);
+  
+  // Calcular margen porcentual
+  const margenPorcentaje = precioVentaSinIgv > 0 
+    ? redondearMonto((margenBruto / precioVentaSinIgv) * 100, 2)
+    : 0;
+  
+  // El precio sugerido depende de si queremos incluir IGV o no
+  const precioSugerido = incluyeIgvEnPrecioFinal ? precioVentaConIgv : precioVentaSinIgv;
+  
+  return {
+    precioVentaSinIgv: redondearMonto(precioVentaSinIgv, 2),
+    precioVentaConIgv: redondearMonto(precioVentaConIgv, 2),
+    margenBruto: redondearMonto(margenBruto, 2),
+    margenPorcentaje,
+    markup: redondearMonto(markupPorcentaje, 2),
+    igvCalculado: redondearMonto(igvCalculado, 2),
+    precioSugerido: redondearMonto(precioSugerido, 2)
+  };
+};
+
+/**
+ * Analizar múltiples precios con diferentes márgenes
+ * @param precioCompra Precio de compra base
+ * @param margenes Array de márgenes a analizar
+ * @param incluyeIgv Si incluir IGV en análisis
+ * @param tasaIgv Tasa de IGV
+ * @returns Array con análisis de cada margen
+ */
+export const analizarMargenesMultiples = (
+  precioCompra: number,
+  margenes: number[],
+  incluyeIgv: boolean = true,
+  tasaIgv: number = 0.18
+): Array<{
+  margen: number;
+  precioVenta: number;
+  utilidad: number;
+  markup: number;
+  competitivo: boolean;
+}> => {
+  return margenes.map(margen => {
+    const resultado = calcularPrecioConMargen(precioCompra, margen, incluyeIgv, tasaIgv);
+    
+    return {
+      margen: margen,
+      precioVenta: resultado.precioSugerido,
+      utilidad: resultado.margenBruto,
+      markup: resultado.markup,
+      competitivo: margen >= 15 && margen <= 40 // Rango competitivo típico
+    };
+  });
+};
+
+/**
+ * Calcular punto de equilibrio
+ * @param precioVenta Precio de venta
+ * @param costoVariable Costo variable por unidad
+ * @param costosFixosMensuales Costos fijos mensuales
+ * @returns Unidades necesarias para punto de equilibrio
+ */
+export const calcularPuntoEquilibrio = (
+  precioVenta: number,
+  costoVariable: number,
+  costosFixosMensuales: number
+): {
+  unidadesEquilibrio: number;
+  ventasEquilibrio: number;
+  margenContribucion: number;
+  margenContribucionPorcentaje: number;
+} => {
+  // Validar inputs
+  if (isNaN(precioVenta) || precioVenta <= 0) precioVenta = 0;
+  if (isNaN(costoVariable) || costoVariable < 0) costoVariable = 0;
+  if (isNaN(costosFixosMensuales) || costosFixosMensuales < 0) costosFixosMensuales = 0;
+  
+  // Calcular margen de contribución
+  const margenContribucion = redondearMonto(precioVenta - costoVariable, 2);
+  const margenContribucionPorcentaje = precioVenta > 0 
+    ? redondearMonto((margenContribucion / precioVenta) * 100, 2)
+    : 0;
+  
+  // Calcular punto de equilibrio
+  const unidadesEquilibrio = margenContribucion > 0 
+    ? Math.ceil(costosFixosMensuales / margenContribucion)
+    : 0;
+  
+  const ventasEquilibrio = redondearMonto(unidadesEquilibrio * precioVenta, 2);
+  
+  return {
+    unidadesEquilibrio,
+    ventasEquilibrio,
+    margenContribucion,
+    margenContribucionPorcentaje
+  };
+};
+
+/**
+ * Calcular descuento máximo permitido manteniendo margen mínimo
+ * @param precioVenta Precio de venta actual
+ * @param precioCompra Precio de compra
+ * @param margenMinimoRequerido Margen mínimo en porcentaje
+ * @param incluyeIgv Si el precio incluye IGV
+ * @param tasaIgv Tasa de IGV
+ * @returns Información sobre descuentos permitidos
+ */
+export const calcularDescuentoMaximoPermitido = (
+  precioVenta: number,
+  precioCompra: number,
+  margenMinimoRequerido: number,
+  incluyeIgv: boolean = true,
+  tasaIgv: number = 0.18
+): {
+  descuentoMaximoPorcentaje: number;
+  descuentoMaximoMonto: number;
+  precioMinimoVenta: number;
+  margenActual: number;
+  puedeDescuento: boolean;
+} => {
+  // Calcular margen actual
+  const margenActual = calcularMargenGanancia(precioVenta, precioCompra, incluyeIgv, tasaIgv);
+  
+  // Calcular precio mínimo que mantiene el margen requerido
+  const precioMinimo = calcularPrecioConMargen(precioCompra, margenMinimoRequerido, incluyeIgv, tasaIgv);
+  
+  // Calcular descuento máximo
+  const descuentoMaximoMonto = redondearMonto(precioVenta - precioMinimo.precioSugerido, 2);
+  const descuentoMaximoPorcentaje = precioVenta > 0 
+    ? redondearMonto((descuentoMaximoMonto / precioVenta) * 100, 2)
+    : 0;
+  
+  return {
+    descuentoMaximoPorcentaje: Math.max(0, descuentoMaximoPorcentaje),
+    descuentoMaximoMonto: Math.max(0, descuentoMaximoMonto),
+    precioMinimoVenta: precioMinimo.precioSugerido,
+    margenActual: margenActual.margenPorcentaje,
+    puedeDescuento: descuentoMaximoMonto > 0
+  };
+};
+
+// =======================================================
+// UTILIDADES DE VALIDACIÓN DE PRECIOS
+// =======================================================
+
+/**
+ * Validar si un precio es rentable según parámetros
+ * @param precioVenta Precio de venta propuesto
+ * @param precioCompra Precio de compra
+ * @param margenMinimoRequerido Margen mínimo requerido en porcentaje
+ * @param incluyeIgv Si el precio incluye IGV
+ * @returns Resultado de validación
+ */
+export const validarRentabilidadPrecio = (
+  precioVenta: number,
+  precioCompra: number,
+  margenMinimoRequerido: number = 15,
+  incluyeIgv: boolean = true
+): {
+  esRentable: boolean;
+  margenActual: number;
+  diferenciaNecesaria: number;
+  mensaje: string;
+} => {
+  const margen = calcularMargenGanancia(precioVenta, precioCompra, incluyeIgv);
+  const esRentable = margen.margenPorcentaje >= margenMinimoRequerido;
+  const diferenciaNecesaria = margenMinimoRequerido - margen.margenPorcentaje;
+  
+  let mensaje = '';
+  if (esRentable) {
+    mensaje = `Precio rentable con margen de ${margen.margenPorcentaje}%`;
+  } else {
+    mensaje = `Precio no rentable. Necesita ${diferenciaNecesaria.toFixed(2)}% más de margen`;
+  }
+  
+  return {
+    esRentable,
+    margenActual: margen.margenPorcentaje,
+    diferenciaNecesaria: Math.max(0, diferenciaNecesaria),
+    mensaje
+  };
 };
 
 // =======================================================

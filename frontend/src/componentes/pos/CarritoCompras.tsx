@@ -16,7 +16,7 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { cn } from '../../utils/cn.ts';
+import { cn } from '../../utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button, ButtonIcono } from '../ui/button';
 import { Input, InputCantidad, InputMonto } from '../ui/input';

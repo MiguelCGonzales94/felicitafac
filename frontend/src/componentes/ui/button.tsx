@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { cn } from '../../utils/cn.ts';
+import { cn } from '../../utils/cn';
 
 // =======================================================
 // TIPOS Y VARIANTES

@@ -8,13 +8,13 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '../utils/cn';
-import { useAuth } from '../hooks/useAuth';
-import useDashboardAdmin from '../hooks/useDashboardAdmin';
-import SidebarAdmin from '../componentes/admin/sidebarAdmin';
-import HeaderAdmin from '../componentes/admin/HeaderAdmin';
-import { Alert, AlertDescription } from '../componentes/ui/alert';
-import { PageLoader } from '../componentes/ui/spinner';
+import { cn } from '../../utils/cn';
+import { useAuth } from '../../hooks/useAuth';
+import useDashboardAdmin from '../../hooks/useDashboardAdmin';
+import SidebarAdmin from '../../componentes/admin/SidebarAdmin';
+import HeaderAdmin from '../../componentes/admin/HeaderAdmin';
+import { Alert, AlertDescription } from '../../componentes/ui/alert';
+import { PageLoader } from '../../componentes/ui/spinner';
 
 // =======================================================
 // INTERFACES

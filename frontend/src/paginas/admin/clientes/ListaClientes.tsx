@@ -15,12 +15,12 @@ import LayoutAdmin from '../../../componentes/layouts/LayoutAdmin';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../componentes/ui/card';
 import { Button } from '../../../componentes/ui/button';
 import { Input } from '../../../componentes/ui/input';
-import { Badge } from '../../../componentes/ui/badge';
+import { Badge } from '../../../componentes/ui/bagde';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../componentes/ui/avatar';
 import { useNavigate } from 'react-router-dom';
 import { useClientes } from '../../../hooks/useClientes';
 import { useNotificaciones } from '../../../hooks/useNotificaciones';
-import { formatearMoneda, formatearFecha } from '../../../utils/formatters';
+import { formatearMoneda, formatearFecha } from '../../../utils/formateo';
 import FiltrosAvanzados from '../../../componentes/comunes/FiltrosAvanzados';
 import PaginacionPersonalizada from '../../../componentes/comunes/PaginacionPersonalizada';
 

@@ -14,11 +14,11 @@ import {
 import LayoutAdmin from '../../../componentes/layouts/LayoutAdmin';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../componentes/ui/card';
 import { Button } from '../../../componentes/ui/button';
-import { Badge } from '../../../componentes/ui/badge';
+import { Badge } from '../../../componentes/ui/bagde';
 import { useNavigate } from 'react-router-dom';
 import { useProductos } from '../../../hooks/useProductos';
 import { useNotificaciones } from '../../../hooks/useNotificaciones';
-import { formatearMoneda } from '../../../utils/formatters';
+import { formatearMoneda } from '../../../utils/formateo';
 import FiltrosAvanzados from '../../../componentes/comunes/FiltrosAvanzados';
 import PaginacionPersonalizada from '../../../componentes/comunes/PaginacionPersonalizada';
 

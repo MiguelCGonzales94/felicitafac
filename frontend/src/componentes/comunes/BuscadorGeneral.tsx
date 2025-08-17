@@ -1,5 +1,5 @@
 /**
- * Buscador General - FELICITAFAC
+ * Buscador General - FELICITAFAC (CORREGIDO)
  * Sistema de Facturación Electrónica para Perú
  * Búsqueda global con múltiples fuentes y resultados categorizados
  */
@@ -11,10 +11,8 @@ import {
   Calculator, Settings, ChevronRight, Loader
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { useApi } from '../../hooks/useApi';
+import { useApiGet } from '../../hooks/useApi';
 import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { debounce } from '../../utils/helpers';
 
 // =======================================================
 // TIPOS E INTERFACES
@@ -59,6 +57,37 @@ export interface PropiedadesBuscadorGeneral {
   configuracion?: Partial<ConfiguracionBusqueda>;
   modalFijo?: boolean;
   abiertoPorDefecto?: boolean;
+}
+
+// Interfaces para respuestas de API
+interface ClienteRespuesta {
+  id: number;
+  razon_social: string;
+  tipo_documento: string;
+  numero_documento: string;
+  email?: string;
+  telefono?: string;
+  relevancia?: number;
+}
+
+interface ProductoRespuesta {
+  id: number;
+  nombre: string;
+  codigo: string;
+  stock_actual: number;
+  precio_venta: number;
+  relevancia?: number;
+}
+
+interface DocumentoRespuesta {
+  id: number;
+  tipo_documento: string;
+  serie: string;
+  numero: string;
+  cliente_nombre: string;
+  total: number;
+  fecha_emision: string;
+  relevancia?: number;
 }
 
 // =======================================================
@@ -140,6 +169,26 @@ const ACCIONES_RAPIDAS: ResultadoBusqueda[] = [
 ];
 
 // =======================================================
+// UTILIDAD DEBOUNCE
+// =======================================================
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// =======================================================
 // HOOK PERSONALIZADO PARA BÚSQUEDA
 // =======================================================
 
@@ -147,117 +196,153 @@ const useBusquedaGlobal = (termino: string, configuracion: ConfiguracionBusqueda
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
   const [cargando, setCargando] = useState(false);
   const [historialBusquedas, setHistorialBusquedas] = useState<string[]>([]);
-  const { api } = useApi();
+  
+  // Debounce del término de búsqueda
+  const terminoDebounced = useDebounce(termino, configuracion.retrasoBusqueda);
 
-  // Función de búsqueda con debounce
-  const buscar = useCallback(
-    debounce(async (terminoBusqueda: string) => {
-      if (!terminoBusqueda.trim()) {
-        setResultados([]);
-        setCargando(false);
-        return;
+  // Hooks de API para diferentes endpoints
+  const {
+    data: clientesData,
+    loading: cargandoClientes,
+    ejecutar: buscarClientes
+  } = useApiGet<ClienteRespuesta[]>('', {}, { ejecutarInmediatamente: false });
+
+  const {
+    data: productosData,
+    loading: cargandoProductos,
+    ejecutar: buscarProductos
+  } = useApiGet<ProductoRespuesta[]>('', {}, { ejecutarInmediatamente: false });
+
+  const {
+    data: documentosData,
+    loading: cargandoDocumentos,
+    ejecutar: buscarDocumentos
+  } = useApiGet<DocumentoRespuesta[]>('', {}, { ejecutarInmediatamente: false });
+
+  // Función de búsqueda principal
+  const buscar = useCallback(async (terminoBusqueda: string) => {
+    if (!terminoBusqueda.trim()) {
+      setResultados([]);
+      setCargando(false);
+      return;
+    }
+
+    setCargando(true);
+    
+    try {
+      const promesasBusqueda: Promise<ResultadoBusqueda[]>[] = [];
+
+      // Buscar clientes
+      if (configuracion.categoriasHabilitadas.includes('cliente')) {
+        const promesaClientes = buscarClientes(`/clientes/buscar/?q=${encodeURIComponent(terminoBusqueda)}&limit=3`)
+          .then(() => {
+            return (clientesData || []).map((cliente): ResultadoBusqueda => ({
+              id: `cliente-${cliente.id}`,
+              tipo: 'cliente',
+              titulo: cliente.razon_social,
+              subtitulo: `${cliente.tipo_documento} ${cliente.numero_documento}`,
+              descripcion: cliente.email || cliente.telefono || '',
+              ruta: `/admin/clientes/${cliente.id}`,
+              relevancia: cliente.relevancia || 75,
+              metadatos: { ...cliente }
+            }));
+          })
+          .catch(() => []);
+        
+        promesasBusqueda.push(promesaClientes);
       }
 
-      setCargando(true);
-      try {
-        // Buscar en diferentes endpoints según las categorías habilitadas
-        const promesasBusqueda = [];
-
-        if (configuracion.categoriasHabilitadas.includes('cliente')) {
-          promesasBusqueda.push(
-            api.get('/clientes/buscar/', { 
-              params: { q: terminoBusqueda, limit: 3 } 
-            }).then(response => 
-              response.data.map((cliente: any) => ({
-                id: `cliente-${cliente.id}`,
-                tipo: 'cliente' as TipoResultado,
-                titulo: cliente.razon_social,
-                subtitulo: `${cliente.tipo_documento} ${cliente.numero_documento}`,
-                descripcion: cliente.email || cliente.telefono,
-                ruta: `/admin/clientes/${cliente.id}`,
-                relevancia: cliente.relevancia || 75,
-                metadatos: { ...cliente }
-              }))
-            ).catch(() => [])
-          );
-        }
-
-        if (configuracion.categoriasHabilitadas.includes('producto')) {
-          promesasBusqueda.push(
-            api.get('/productos/buscar/', { 
-              params: { q: terminoBusqueda, limit: 3 } 
-            }).then(response => 
-              response.data.map((producto: any) => ({
-                id: `producto-${producto.id}`,
-                tipo: 'producto' as TipoResultado,
-                titulo: producto.nombre,
-                subtitulo: `Código: ${producto.codigo}`,
-                descripcion: `Stock: ${producto.stock_actual} | Precio: S/ ${producto.precio_venta}`,
-                ruta: `/admin/productos/${producto.id}`,
-                relevancia: producto.relevancia || 70,
-                metadatos: { ...producto }
-              }))
-            ).catch(() => [])
-          );
-        }
-
-        if (configuracion.categoriasHabilitadas.includes('factura')) {
-          promesasBusqueda.push(
-            api.get('/facturacion/buscar/', { 
-              params: { q: terminoBusqueda, limit: 3 } 
-            }).then(response => 
-              response.data.map((documento: any) => ({
-                id: `documento-${documento.id}`,
-                tipo: 'factura' as TipoResultado,
-                titulo: `${documento.tipo_documento} ${documento.serie}-${documento.numero}`,
-                subtitulo: documento.cliente_nombre,
-                descripcion: `Total: S/ ${documento.total} | ${documento.fecha_emision}`,
-                ruta: `/admin/facturacion/${documento.id}`,
-                relevancia: documento.relevancia || 85,
-                metadatos: { ...documento }
-              }))
-            ).catch(() => [])
-          );
-        }
-
-        const resultadosBusqueda = await Promise.all(promesasBusqueda);
-        const todosResultados = resultadosBusqueda.flat();
-
-        // Agregar acciones rápidas si coinciden
-        const accionesCoincidentes = ACCIONES_RAPIDAS.filter(accion =>
-          accion.titulo.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
-          accion.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase())
-        );
-
-        const resultadosFinales = [
-          ...accionesCoincidentes,
-          ...todosResultados
-        ]
-          .sort((a, b) => b.relevancia - a.relevancia)
-          .slice(0, configuracion.maxResultados);
-
-        setResultados(resultadosFinales);
-      } catch (error) {
-        console.error('Error en búsqueda global:', error);
-        setResultados([]);
-      } finally {
-        setCargando(false);
+      // Buscar productos
+      if (configuracion.categoriasHabilitadas.includes('producto')) {
+        const promesaProductos = buscarProductos(`/productos/buscar/?q=${encodeURIComponent(terminoBusqueda)}&limit=3`)
+          .then(() => {
+            return (productosData || []).map((producto): ResultadoBusqueda => ({
+              id: `producto-${producto.id}`,
+              tipo: 'producto',
+              titulo: producto.nombre,
+              subtitulo: `Código: ${producto.codigo}`,
+              descripcion: `Stock: ${producto.stock_actual} | Precio: S/ ${producto.precio_venta}`,
+              ruta: `/admin/productos/${producto.id}`,
+              relevancia: producto.relevancia || 70,
+              metadatos: { ...producto }
+            }));
+          })
+          .catch(() => []);
+        
+        promesasBusqueda.push(promesaProductos);
       }
-    }, configuracion.retrasoBusqueda),
-    [api, configuracion]
-  );
 
-  // Ejecutar búsqueda cuando cambie el término
+      // Buscar documentos
+      if (configuracion.categoriasHabilitadas.includes('factura')) {
+        const promesaDocumentos = buscarDocumentos(`/facturacion/buscar/?q=${encodeURIComponent(terminoBusqueda)}&limit=3`)
+          .then(() => {
+            return (documentosData || []).map((documento): ResultadoBusqueda => ({
+              id: `documento-${documento.id}`,
+              tipo: 'factura',
+              titulo: `${documento.tipo_documento} ${documento.serie}-${documento.numero}`,
+              subtitulo: documento.cliente_nombre,
+              descripcion: `Total: S/ ${documento.total} | ${documento.fecha_emision}`,
+              ruta: `/admin/facturacion/${documento.id}`,
+              relevancia: documento.relevancia || 85,
+              metadatos: { ...documento }
+            }));
+          })
+          .catch(() => []);
+        
+        promesasBusqueda.push(promesaDocumentos);
+      }
+
+      const resultadosBusqueda = await Promise.all(promesasBusqueda);
+      const todosResultados = resultadosBusqueda.flat();
+
+      // Agregar acciones rápidas si coinciden
+      const accionesCoincidentes = ACCIONES_RAPIDAS.filter(accion =>
+        accion.titulo.toLowerCase().includes(terminoBusqueda.toLowerCase()) ||
+        accion.descripcion?.toLowerCase().includes(terminoBusqueda.toLowerCase())
+      );
+
+      const resultadosFinales = [
+        ...accionesCoincidentes,
+        ...todosResultados
+      ]
+        .sort((a, b) => b.relevancia - a.relevancia)
+        .slice(0, configuracion.maxResultados);
+
+      setResultados(resultadosFinales);
+    } catch (error) {
+      console.error('Error en búsqueda global:', error);
+      setResultados([]);
+    } finally {
+      setCargando(false);
+    }
+  }, [
+    configuracion,
+    buscarClientes,
+    buscarProductos,
+    buscarDocumentos,
+    clientesData,
+    productosData,
+    documentosData
+  ]);
+
+  // Ejecutar búsqueda cuando cambie el término debounced
   useEffect(() => {
-    buscar(termino);
-  }, [termino, buscar]);
+    buscar(terminoDebounced);
+  }, [terminoDebounced, buscar]);
+
+  // Determinar estado de carga
+  const cargandoGlobal = cargando || cargandoClientes || cargandoProductos || cargandoDocumentos;
 
   // Guardar en historial
   const guardarEnHistorial = useCallback((termino: string) => {
     if (termino.trim()) {
       setHistorialBusquedas(prev => {
         const nuevo = [termino, ...prev.filter(t => t !== termino)].slice(0, 10);
-        localStorage.setItem('felicitafac_historial_busquedas', JSON.stringify(nuevo));
+        try {
+          localStorage.setItem('felicitafac_historial_busquedas', JSON.stringify(nuevo));
+        } catch (error) {
+          console.error('Error guardando historial:', error);
+        }
         return nuevo;
       });
     }
@@ -277,7 +362,7 @@ const useBusquedaGlobal = (termino: string, configuracion: ConfiguracionBusqueda
 
   return {
     resultados,
-    cargando,
+    cargando: cargandoGlobal,
     historialBusquedas,
     guardarEnHistorial
   };

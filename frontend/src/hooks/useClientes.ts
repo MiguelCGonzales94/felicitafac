@@ -24,7 +24,7 @@ import {
   TipoCliente
 } from '../types/cliente';
 import { validarRuc, validarDni, validarEmail } from '../utils/validaciones';
-import { formatearDocumento, formatearTelefono } from '../utils/formatters';
+import { formatearDocumento, formatearTelefono } from '../utils/formateo';
 
 // =======================================================
 // INTERFACES Y TIPOS

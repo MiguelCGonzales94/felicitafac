@@ -15,7 +15,7 @@ import { cn } from '../../utils/cn';
 
 export interface ElementoBreadcrumb {
   label: string;
-  href?: string;
+  href?: string | undefined;
   icono?: React.ReactNode;
   activo?: boolean;
 }
@@ -121,7 +121,8 @@ export const Breadcrumb: React.FC<PropiedadesBreadcrumb> = ({
         { 
           label: 'Inicio', 
           href: '/admin', 
-          icono: <Home className="h-4 w-4" /> 
+          icono: <Home className="h-4 w-4" />,
+          activo: false
         },
         ...elementosFinales
       ]
@@ -132,11 +133,18 @@ export const Breadcrumb: React.FC<PropiedadesBreadcrumb> = ({
   if (elementosCompletos.length > maxElementos) {
     const primerElemento = elementosCompletos[0];
     const ultimosElementos = elementosCompletos.slice(-contraerEn);
-    elementosMostrar = [
-      primerElemento,
-      { label: '...', href: undefined },
-      ...ultimosElementos
-    ];
+    if (primerElemento) {
+      elementosMostrar = [
+        primerElemento,
+        { label: '...', href: undefined },
+        ...ultimosElementos
+      ];
+    } else {
+      elementosMostrar = [
+        { label: '...', href: undefined },
+        ...ultimosElementos
+      ];
+    }
   }
   
   if (elementosMostrar.length === 0) return null;

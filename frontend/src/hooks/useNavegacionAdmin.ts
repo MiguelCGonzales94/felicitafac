@@ -6,43 +6,67 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  ModuloMenu, 
-  SubModulo, 
-  AccionRapida, 
-  GrupoAccionesRapidas 
-} from '../types/admin';
 import { useAuth } from './useAuth';
-import {
-  FileText,
-  Users,
-  Package,
-  Warehouse,
-  Calculator,
-  PieChart,
-  Settings,
-  BarChart3,
-  ShoppingCart,
-  CheckCircle,
-  DollarSign,
-  TrendingUp,
-  FileBarChart,
-  Download,
-  AlertTriangle,
-  Plus,
-  Edit,
-  Eye
-} from 'lucide-react';
+
+// =======================================================
+// TIPOS E INTERFACES
+// =======================================================
+
+export interface ModuloMenu {
+  id: string;
+  nombre: string;
+  icono: string; // Nombre del icono como string
+  orden: number;
+  activo: boolean;
+  rolesPermitidos?: string[];
+  descripcion: string;
+  expandido: boolean;
+  notificaciones?: number;
+  submodulos: SubModulo[];
+}
+
+export interface SubModulo {
+  id: string;
+  nombre: string;
+  ruta: string;
+  icono: string; // Nombre del icono como string
+  descripcion: string;
+  notificaciones?: number;
+}
+
+export interface AccionRapida {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  icono: string; // Nombre del icono como string
+  color: string;
+  funcion: () => void;
+  enlace: string;
+  activa: boolean;
+  rolesPermitidos?: string[];
+}
+
+export interface GrupoAccionesRapidas {
+  id: string;
+  titulo: string;
+  expandido: boolean;
+  acciones: AccionRapida[];
+}
+
+export interface BreadcrumbItem {
+  texto: string;
+  enlace: string;
+}
 
 // =======================================================
 // CONFIGURACIÓN DE MÓDULOS
 // =======================================================
 
-const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
+const configuracionModulosBase: Omit<ModuloMenu, 'expandido' | 'notificaciones'>[] = [
   {
     id: 'facturacion',
     nombre: 'Facturación Electrónica',
-    icono: <FileText className="h-5 w-5" />,
+    icono: 'FileText',
     orden: 1,
     activo: true,
     rolesPermitidos: ['administrador', 'contador', 'vendedor'],
@@ -52,35 +76,35 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'dashboard-facturacion',
         nombre: 'Dashboard Facturación',
         ruta: '/admin/facturacion/dashboard',
-        icono: <BarChart3 className="h-4 w-4" />,
+        icono: 'BarChart3',
         descripcion: 'Métricas y estadísticas de facturación'
       },
       {
         id: 'punto-venta',
         nombre: 'Punto de Venta (POS)',
         ruta: '/admin/facturacion/pos',
-        icono: <ShoppingCart className="h-4 w-4" />,
+        icono: 'ShoppingCart',
         descripcion: 'Sistema de punto de venta integrado'
       },
       {
         id: 'gestion-documentos',
         nombre: 'Gestión Documentos',
         ruta: '/admin/facturacion/documentos',
-        icono: <FileText className="h-4 w-4" />,
+        icono: 'FileText',
         descripcion: 'Crear y gestionar facturas, boletas y notas'
       },
       {
         id: 'estados-sunat',
         nombre: 'Estados SUNAT',
         ruta: '/admin/facturacion/estados-sunat',
-        icono: <CheckCircle className="h-4 w-4" />,
+        icono: 'CheckCircle',
         descripcion: 'Seguimiento de documentos enviados a SUNAT'
       },
       {
         id: 'configuracion-facturacion',
         nombre: 'Configuraciones',
         ruta: '/admin/facturacion/configuracion',
-        icono: <Settings className="h-4 w-4" />,
+        icono: 'Settings',
         descripcion: 'Configurar datos empresa y numeración'
       }
     ]
@@ -88,7 +112,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
   {
     id: 'comercial',
     nombre: 'Gestión Comercial',
-    icono: <Users className="h-5 w-5" />,
+    icono: 'Users',
     orden: 2,
     activo: true,
     rolesPermitidos: ['administrador', 'contador', 'vendedor'],
@@ -98,28 +122,28 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'clientes',
         nombre: 'Clientes',
         ruta: '/admin/comercial/clientes',
-        icono: <Users className="h-4 w-4" />,
+        icono: 'Users',
         descripcion: 'Gestión completa de clientes'
       },
       {
         id: 'productos-servicios',
         nombre: 'Productos/Servicios',
         ruta: '/admin/comercial/productos',
-        icono: <Package className="h-4 w-4" />,
+        icono: 'Package',
         descripcion: 'Catálogo de productos y servicios'
       },
       {
         id: 'lista-precios',
         nombre: 'Lista de Precios',
         ruta: '/admin/comercial/precios',
-        icono: <DollarSign className="h-4 w-4" />,
+        icono: 'DollarSign',
         descripcion: 'Gestión de precios y descuentos'
       },
       {
         id: 'configuracion-comercial',
         nombre: 'Configuraciones',
         ruta: '/admin/comercial/configuracion',
-        icono: <Settings className="h-4 w-4" />,
+        icono: 'Settings',
         descripcion: 'Configurar parámetros comerciales'
       }
     ]
@@ -127,7 +151,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
   {
     id: 'inventario',
     nombre: 'Inventario y Almacenes',
-    icono: <Warehouse className="h-5 w-5" />,
+    icono: 'Warehouse',
     orden: 3,
     activo: true,
     rolesPermitidos: ['administrador', 'contador'],
@@ -137,35 +161,35 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'dashboard-inventario',
         nombre: 'Dashboard Stock',
         ruta: '/admin/inventario/dashboard',
-        icono: <BarChart3 className="h-4 w-4" />,
+        icono: 'BarChart3',
         descripcion: 'Resumen de inventario y stock'
       },
       {
         id: 'gestion-almacenes',
         nombre: 'Gestión Almacenes',
         ruta: '/admin/inventario/almacenes',
-        icono: <Warehouse className="h-4 w-4" />,
+        icono: 'Warehouse',
         descripcion: 'Administración de almacenes'
       },
       {
         id: 'movimientos-inventario',
         nombre: 'Movimientos',
         ruta: '/admin/inventario/movimientos',
-        icono: <TrendingUp className="h-4 w-4" />,
+        icono: 'TrendingUp',
         descripcion: 'Entradas, salidas y ajustes'
       },
       {
         id: 'kardex-peps',
         nombre: 'Kardex PEPS',
         ruta: '/admin/inventario/kardex',
-        icono: <FileBarChart className="h-4 w-4" />,
+        icono: 'FileBarChart',
         descripcion: 'Kardex valorizado método PEPS'
       },
       {
         id: 'stock-minimo',
         nombre: 'Stock Mínimo',
         ruta: '/admin/inventario/stock-minimo',
-        icono: <AlertTriangle className="h-4 w-4" />,
+        icono: 'AlertTriangle',
         descripcion: 'Productos con stock bajo'
       }
     ]
@@ -173,7 +197,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
   {
     id: 'contabilidad',
     nombre: 'Contabilidad',
-    icono: <Calculator className="h-5 w-5" />,
+    icono: 'Calculator',
     orden: 4,
     activo: true,
     rolesPermitidos: ['administrador', 'contador'],
@@ -183,35 +207,35 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'dashboard-contable',
         nombre: 'Dashboard Contable',
         ruta: '/admin/contabilidad/dashboard',
-        icono: <BarChart3 className="h-4 w-4" />,
+        icono: 'BarChart3',
         descripcion: 'Resumen contable y financiero'
       },
       {
         id: 'plan-cuentas',
         nombre: 'Plan de Cuentas PCGE',
         ruta: '/admin/contabilidad/plan-cuentas',
-        icono: <FileBarChart className="h-4 w-4" />,
+        icono: 'FileBarChart',
         descripcion: 'Plan de cuentas según PCGE'
       },
       {
         id: 'libro-diario',
         nombre: 'Libro Diario',
         ruta: '/admin/contabilidad/libro-diario',
-        icono: <FileText className="h-4 w-4" />,
+        icono: 'FileText',
         descripcion: 'Asientos contables y libro diario'
       },
       {
         id: 'reportes-contables',
         nombre: 'Reportes Contables',
         ruta: '/admin/contabilidad/reportes',
-        icono: <PieChart className="h-4 w-4" />,
+        icono: 'PieChart',
         descripcion: 'Estados financieros y balances'
       },
       {
         id: 'reportes-ple',
         nombre: 'Reportes PLE SUNAT',
         ruta: '/admin/contabilidad/ple',
-        icono: <Download className="h-4 w-4" />,
+        icono: 'Download',
         descripcion: 'Programas de libros electrónicos'
       }
     ]
@@ -219,7 +243,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
   {
     id: 'reportes',
     nombre: 'Reportes y Analytics',
-    icono: <PieChart className="h-5 w-5" />,
+    icono: 'PieChart',
     orden: 5,
     activo: true,
     rolesPermitidos: ['administrador', 'contador'],
@@ -229,28 +253,28 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'dashboard-ejecutivo',
         nombre: 'Dashboard Ejecutivo',
         ruta: '/admin/reportes/dashboard-ejecutivo',
-        icono: <BarChart3 className="h-4 w-4" />,
+        icono: 'BarChart3',
         descripcion: 'Métricas ejecutivas y KPIs'
       },
       {
         id: 'reportes-financieros',
         nombre: 'Reportes Financieros',
         ruta: '/admin/reportes/financieros',
-        icono: <TrendingUp className="h-4 w-4" />,
+        icono: 'TrendingUp',
         descripcion: 'Análisis financiero y rentabilidad'
       },
       {
         id: 'reportes-sunat',
         nombre: 'Reportes SUNAT',
         ruta: '/admin/reportes/sunat',
-        icono: <FileText className="h-4 w-4" />,
+        icono: 'FileText',
         descripcion: 'Reportes para declaraciones SUNAT'
       },
       {
         id: 'analytics-avanzados',
         nombre: 'Analytics Avanzados',
         ruta: '/admin/reportes/analytics',
-        icono: <PieChart className="h-4 w-4" />,
+        icono: 'PieChart',
         descripcion: 'Análisis predictivo y tendencias'
       }
     ]
@@ -258,7 +282,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
   {
     id: 'administracion',
     nombre: 'Administración Sistema',
-    icono: <Settings className="h-5 w-5" />,
+    icono: 'Settings',
     orden: 6,
     activo: true,
     rolesPermitidos: ['administrador'],
@@ -268,28 +292,28 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido'>[] = [
         id: 'gestion-usuarios',
         nombre: 'Gestión de Usuarios',
         ruta: '/admin/sistema/usuarios',
-        icono: <Users className="h-4 w-4" />,
+        icono: 'Users',
         descripcion: 'Administración de usuarios y roles'
       },
       {
         id: 'configuracion-empresa',
         nombre: 'Configuración Empresa',
         ruta: '/admin/sistema/empresa',
-        icono: <Settings className="h-4 w-4" />,
+        icono: 'Settings',
         descripcion: 'Datos de la empresa y sucursales'
       },
       {
         id: 'configuracion-sistema',
         nombre: 'Configuraciones Sistema',
         ruta: '/admin/sistema/configuracion',
-        icono: <Settings className="h-4 w-4" />,
+        icono: 'Settings',
         descripcion: 'Parámetros generales del sistema'
       },
       {
         id: 'mantenimiento',
         nombre: 'Mantenimiento',
         ruta: '/admin/sistema/mantenimiento',
-        icono: <Settings className="h-4 w-4" />,
+        icono: 'Settings',
         descripcion: 'Respaldos, logs y mantenimiento'
       }
     ]
@@ -310,7 +334,7 @@ const accionesRapidasBase: GrupoAccionesRapidas[] = [
         id: 'nueva-factura',
         titulo: 'Nueva Factura',
         descripcion: 'Crear documento electrónico',
-        icono: <Plus className="h-5 w-5" />,
+        icono: 'Plus',
         color: 'bg-blue-600 hover:bg-blue-700',
         funcion: () => console.log('Nueva factura'),
         enlace: '/admin/facturacion/pos',
@@ -321,7 +345,7 @@ const accionesRapidasBase: GrupoAccionesRapidas[] = [
         id: 'registrar-cliente',
         titulo: 'Registrar Cliente',
         descripcion: 'Agregar nuevo cliente',
-        icono: <Users className="h-5 w-5" />,
+        icono: 'Users',
         color: 'bg-green-600 hover:bg-green-700',
         funcion: () => console.log('Registrar cliente'),
         enlace: '/admin/comercial/clientes/nuevo',
@@ -332,7 +356,7 @@ const accionesRapidasBase: GrupoAccionesRapidas[] = [
         id: 'agregar-producto',
         titulo: 'Agregar Producto',
         descripcion: 'Nuevo producto/servicio',
-        icono: <Package className="h-5 w-5" />,
+        icono: 'Package',
         color: 'bg-purple-600 hover:bg-purple-700',
         funcion: () => console.log('Agregar producto'),
         enlace: '/admin/comercial/productos/nuevo',
@@ -343,7 +367,7 @@ const accionesRapidasBase: GrupoAccionesRapidas[] = [
         id: 'ver-reportes',
         titulo: 'Ver Reportes',
         descripcion: 'Dashboard ejecutivo',
-        icono: <FileBarChart className="h-5 w-5" />,
+        icono: 'FileBarChart',
         color: 'bg-orange-600 hover:bg-orange-700',
         funcion: () => console.log('Ver reportes'),
         enlace: '/admin/reportes/dashboard-ejecutivo',
@@ -389,10 +413,14 @@ export const useNavegacionAdmin = () => {
       .map(modulo => ({
         ...modulo,
         expandido: modulo.id === 'facturacion', // Facturación expandido por defecto
+        notificaciones: 0, // Inicializar en 0
         submodulos: modulo.submodulos.filter(sub => {
           // Filtrar submódulos según permisos específicos si es necesario
           return true; // Por ahora permitir todos los submódulos del módulo permitido
-        })
+        }).map(sub => ({
+          ...sub,
+          notificaciones: undefined // Inicializar sin notificaciones
+        }))
       }))
       .sort((a, b) => a.orden - b.orden);
 
@@ -502,13 +530,13 @@ export const useNavegacionAdmin = () => {
   /**
    * Obtener breadcrumbs de la navegación actual
    */
-  const obtenerBreadcrumbs = useCallback(() => {
+  const obtenerBreadcrumbs = useCallback((): BreadcrumbItem[] => {
     if (!moduloActivo) return [];
 
     const modulo = modulosMenu.find(m => m.id === moduloActivo);
     if (!modulo) return [];
 
-    const breadcrumbs = [
+    const breadcrumbs: BreadcrumbItem[] = [
       { texto: 'Dashboard', enlace: '/admin' },
       { texto: modulo.nombre, enlace: '' }
     ];
@@ -614,6 +642,17 @@ export const useNavegacionAdmin = () => {
   }, [modulosMenu.length]);
 
   // =======================================================
+  // LISTA DE ICONOS DISPONIBLES
+  // =======================================================
+
+  const iconosDisponibles = [
+    'FileText', 'Users', 'Package', 'Warehouse', 'Calculator', 
+    'PieChart', 'Settings', 'BarChart3', 'ShoppingCart', 'CheckCircle',
+    'DollarSign', 'TrendingUp', 'FileBarChart', 'Download', 'AlertTriangle',
+    'Plus', 'Edit', 'Eye'
+  ];
+
+  // =======================================================
   // RETORNO DEL HOOK
   // =======================================================
 
@@ -642,7 +681,10 @@ export const useNavegacionAdmin = () => {
     rutaActual: location.pathname,
     
     // Información del usuario
-    usuarioRol: usuario?.rol_detalle?.codigo || null
+    usuarioRol: usuario?.rol_detalle?.codigo || null,
+    
+    // Lista de iconos disponibles
+    iconosDisponibles
   };
 };
 

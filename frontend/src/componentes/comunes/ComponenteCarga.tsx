@@ -11,7 +11,7 @@ import { cn } from '../../utils/cn';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
-import { Badge } from '../ui/badge';
+import { Badge } from '../ui/bagde';
 
 // =======================================================
 // TIPOS E INTERFACES

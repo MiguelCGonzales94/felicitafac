@@ -225,7 +225,7 @@ const RutaProtegida: React.FC<PropiedadesRutaProtegida> = ({
   }
 
   // Verificar si debe cambiar contraseña
-  if (usuario.debe_cambiar_password && location.pathname !== '/cambiar-password') {
+  if (usuario.requiere_cambio_password && location.pathname !== '/cambiar-password') {
     return <Navigate to="/cambiar-password" state={{ from: location }} replace />;
   }
 

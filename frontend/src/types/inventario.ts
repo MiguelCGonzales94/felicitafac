@@ -559,10 +559,484 @@ export interface ContextoInventario {
 }
 
 // =======================================================
+// INTERFACES FALTANTES PARA MOVIMIENTOS
+// =======================================================
+
+/**
+ * Detalle de movimiento individual
+ */
+export interface DetalleMovimiento {
+  id?: number;
+  movimiento_id?: number;
+  
+  // Producto
+  producto_id: number;
+  producto_codigo?: string;
+  producto_nombre?: string;
+  
+  // Cantidades
+  cantidad: number;
+  cantidad_anterior?: number;
+  
+  // Costos
+  costo_unitario: number;
+  costo_total?: number;
+  precio_venta?: number;
+  
+  // Lotes y ubicación
+  lote?: string;
+  fecha_vencimiento?: string;
+  numero_serie?: string;
+  ubicacion?: string;
+  
+  // Control
+  observaciones?: string;
+  estado?: EstadoMovimiento;
+  
+  // Auditoría
+  fecha_creacion?: string;
+  usuario_id?: number;
+}
+
+/**
+ * Formulario para crear/editar movimientos
+ */
+export interface FormularioMovimiento {
+  // Información básica (requerido)
+  tipo_movimiento_id: number;
+  almacen_id: number;
+  fecha_movimiento: string;
+  
+  // Referencias opcionales
+  numero_documento?: string;
+  referencia?: string;
+  observaciones?: string;
+  
+  // Entidades relacionadas
+  proveedor_id?: number;
+  cliente_id?: number;
+  usuario_id?: number;
+  
+  // Transferencias
+  almacen_destino_id?: number;
+  
+  // Autorización
+  requiere_autorizacion?: boolean;
+  
+  // Detalles del movimiento
+  detalles: DetalleMovimiento[];
+  
+  // Control de estado
+  estado?: EstadoMovimiento;
+  procesar_automaticamente?: boolean;
+}
+
+// =======================================================
+// INTERFACES FALTANTES PARA LOTES
+// =======================================================
+
+/**
+ * Lote de producto (alias de LoteInventario para compatibilidad)
+ */
+export interface LoteProducto {
+  id: number;
+  lote: string;
+  
+  // Referencias
+  producto_id: number;
+  producto_codigo?: string;
+  producto_nombre?: string;
+  almacen_id: number;
+  almacen_nombre?: string;
+  
+  // Fechas
+  fecha_ingreso: string;
+  fecha_vencimiento?: string;
+  fecha_produccion?: string;
+  
+  // Stock
+  stock_inicial: number;
+  stock_actual: number;
+  stock_reservado?: number;
+  stock_disponible?: number;
+  
+  // Costos
+  costo_unitario: number;
+  valor_lote: number;
+  
+  // Información adicional
+  proveedor?: string;
+  proveedor_id?: number;
+  numero_factura?: string;
+  numero_orden?: string;
+  
+  // Estado y control
+  estado: EstadoStock;
+  activo: boolean;
+  
+  // Alertas
+  dias_para_vencer?: number;
+  esta_vencido?: boolean;
+  alerta_vencimiento?: boolean;
+  
+  // Estadísticas
+  movimientos_asociados?: number;
+  total_salidas?: number;
+  ultima_salida?: string;
+  
+  // Auditoría
+  fecha_creacion: string;
+  fecha_actualizacion?: string;
+  usuario_creacion?: number;
+}
+
+// =======================================================
+// INTERFACES FALTANTES PARA ESTADÍSTICAS
+// =======================================================
+
+/**
+ * Estadísticas completas de inventario
+ */
+export interface EstadisticasInventario {
+  // Resumen general
+  total_productos: number;
+  productos_activos: number;
+  productos_inactivos: number;
+  
+  // Stock
+  productos_con_stock: number;
+  productos_sin_stock: number;
+  productos_stock_bajo: number;
+  productos_sobre_stock: number;
+  
+  // Valores monetarios
+  valor_total_inventario: number;
+  valor_inventario_disponible: number;
+  valor_inventario_reservado: number;
+  valor_inventario_bloqueado: number;
+  
+  // Movimientos
+  total_movimientos_mes: number;
+  total_entradas_mes: number;
+  total_salidas_mes: number;
+  total_ajustes_mes: number;
+  
+  // Rotación
+  productos_alta_rotacion: number;
+  productos_baja_rotacion: number;
+  productos_sin_movimiento: number;
+  rotacion_promedio: number;
+  
+  // Lotes y vencimientos
+  total_lotes: number;
+  lotes_disponibles: number;
+  lotes_por_vencer: number;
+  lotes_vencidos: number;
+  dias_promedio_vencimiento: number;
+  
+  // Almacenes
+  total_almacenes: number;
+  almacenes_activos: number;
+  almacen_mayor_valor?: {
+    id: number;
+    nombre: string;
+    valor: number;
+  };
+  
+  // Alertas
+  alertas_stock_minimo: number;
+  alertas_vencimiento: number;
+  alertas_productos_nuevos: number;
+  alertas_sin_movimiento: number;
+  
+  // Categorías top
+  categorias_mayor_valor?: Array<{
+    id: number;
+    nombre: string;
+    valor: number;
+    porcentaje: number;
+  }>;
+  
+  // Productos top
+  productos_mayor_valor?: Array<{
+    id: number;
+    codigo: string;
+    nombre: string;
+    valor: number;
+    stock: number;
+  }>;
+  
+  // Tendencias
+  tendencia_valor_mensual?: Array<{
+    mes: string;
+    valor: number;
+    movimientos: number;
+  }>;
+  
+  // Fechas de cálculo
+  fecha_calculo: string;
+  periodo_analisis: string;
+  incluye_inactivos: boolean;
+}
+
+// =======================================================
+// INTERFACES FALTANTES PARA VALIDACIÓN
+// =======================================================
+
+/**
+ * Resultado de validación de movimiento
+ */
+export interface ValidacionMovimiento {
+  // Estado general
+  es_valido: boolean;
+  puede_procesar: boolean;
+  requiere_autorizacion: boolean;
+  
+  // Mensajes
+  mensaje: string;
+  advertencias: string[];
+  errores: string[];
+  
+  // Validaciones específicas
+  validaciones: {
+    // Stock
+    stock_suficiente: boolean;
+    stock_disponible: boolean;
+    permite_stock_negativo: boolean;
+    
+    // Productos
+    productos_activos: boolean;
+    productos_existentes: boolean;
+    
+    // Almacén
+    almacen_activo: boolean;
+    almacen_permite_operacion: boolean;
+    
+    // Lotes
+    lotes_validos: boolean;
+    lotes_no_vencidos: boolean;
+    control_lotes_requerido: boolean;
+    
+    // Fechas
+    fecha_valida: boolean;
+    fecha_no_futura: boolean;
+    fecha_no_muy_antigua: boolean;
+    
+    // Permisos
+    usuario_autorizado: boolean;
+    limite_autorizado: boolean;
+    
+    // Configuración
+    cumple_configuracion: boolean;
+    tipo_movimiento_permitido: boolean;
+  };
+  
+  // Detalles por producto
+  detalles_productos: Array<{
+    producto_id: number;
+    producto_codigo: string;
+    es_valido: boolean;
+    stock_actual: number;
+    stock_necesario: number;
+    stock_disponible: number;
+    puede_procesar: boolean;
+    errores: string[];
+    advertencias: string[];
+    lotes_sugeridos?: LoteProducto[];
+  }>;
+  
+  // Sugerencias
+  sugerencias: string[];
+  acciones_recomendadas: Array<{
+    accion: string;
+    descripcion: string;
+    critica: boolean;
+  }>;
+  
+  // Impacto del movimiento
+  impacto: {
+    afecta_stock_minimo: boolean;
+    genera_stock_negativo: boolean;
+    productos_afectados: number;
+    valor_total_movimiento: number;
+    cambio_valor_inventario: number;
+  };
+  
+  // Información adicional
+  tiempo_validacion_ms: number;
+  fecha_validacion: string;
+  configuracion_aplicada: string;
+}
+
+// =======================================================
+// INTERFACES DE CONFIGURACIÓN EXTENDIDA
+// =======================================================
+
+/**
+ * Configuración específica de tipos de movimiento
+ */
+export interface ConfiguracionTipoMovimiento {
+  id: number;
+  tipo: TipoMovimiento;
+  nombre: string;
+  codigo: string;
+  
+  // Comportamiento
+  afecta_stock: boolean;
+  incrementa_stock: boolean;
+  requiere_autorizacion: boolean;
+  permite_lotes_vencidos: boolean;
+  requiere_documento: boolean;
+  requiere_proveedor: boolean;
+  requiere_cliente: boolean;
+  
+  // Validaciones
+  valida_stock_disponible: boolean;
+  permite_stock_negativo: boolean;
+  requiere_ubicacion: boolean;
+  requiere_lote: boolean;
+  requiere_fecha_vencimiento: boolean;
+  
+  // Límites
+  limite_valor_sin_autorizacion?: number;
+  limite_cantidad_sin_autorizacion?: number;
+  
+  // Configuración adicional
+  genera_alerta: boolean;
+  actualiza_costo_promedio: boolean;
+  visible_pos: boolean;
+  activo: boolean;
+  
+  // Auditoría
+  fecha_creacion: string;
+  usuario_creacion: number;
+}
+
+// =======================================================
+// INTERFACE CORREGIDA PARA VALORACIÓN
+// =======================================================
+
+/**
+ * Valoración de inventario (nombre corregido para compatibilidad)
+ */
+export interface ValoracionInventario {
+  id?: number;
+  producto_id: number;
+  producto_codigo: string;
+  producto_nombre: string;
+  almacen_id: number;
+  almacen_nombre?: string;
+  
+  // Stock
+  stock_actual: number;
+  stock_disponible: number;
+  stock_reservado: number;
+  
+  // Método PEPS
+  costo_peps: number;
+  valor_peps: number;
+  
+  // Promedio ponderado
+  costo_promedio: number;
+  valor_promedio: number;
+  
+  // Última compra
+  costo_ultima_compra: number;
+  valor_ultima_compra: number;
+  fecha_ultima_compra?: string;
+  
+  // Precio de venta
+  precio_venta_actual: number;
+  margen_utilidad: number;
+  margen_porcentaje: number;
+  
+  // Rotación
+  movimientos_ultimos_30_dias: number;
+  salidas_ultimos_30_dias: number;
+  rotacion_mensual: number;
+  
+  // Fechas y control
+  fecha_calculo: string;
+  metodo_valuacion: 'PEPS' | 'PROMEDIO' | 'UEPS' | 'ESTANDAR';
+  incluye_gastos_adicionales: boolean;
+  
+  // Lotes (si aplica)
+  total_lotes?: number;
+  lotes_detalle?: Array<{
+    lote: string;
+    stock: number;
+    costo_unitario: number;
+    valor_lote: number;
+    fecha_vencimiento?: string;
+  }>;
+}
+
+// =======================================================
+// TYPES AUXILIARES EXTENDIDOS
+// =======================================================
+
+/**
+ * Parámetros para consultas de inventario
+ */
+export interface ParametrosConsultaInventario {
+  almacen_id?: number;
+  categoria_id?: number;
+  producto_id?: number;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  incluir_inactivos?: boolean;
+  incluir_sin_stock?: boolean;
+  solo_con_lotes?: boolean;
+  solo_vencidos?: boolean;
+  metodo_valuacion?: 'PEPS' | 'PROMEDIO' | 'UEPS' | 'ESTANDAR';
+}
+
+/**
+ * Resultado de operación de inventario
+ */
+export interface ResultadoOperacionInventario {
+  exito: boolean;
+  mensaje: string;
+  codigo_operacion?: string;
+  
+  // IDs generados
+  movimiento_id?: number;
+  transferencia_id?: number;
+  ajuste_id?: number;
+  
+  // Resumen de cambios
+  productos_afectados: number;
+  valor_total_cambio: number;
+  stock_anterior: Record<number, number>; // producto_id -> stock
+  stock_nuevo: Record<number, number>;    // producto_id -> stock
+  
+  // Alertas generadas
+  alertas_generadas: string[];
+  
+  // Datos adicionales
+  tiempo_procesamiento_ms: number;
+  usuario_procesamiento: number;
+  fecha_procesamiento: string;
+  
+  // Errores y advertencias
+  errores: string[];
+  advertencias: string[];
+}
+
+// =======================================================
 // EXPORT DEFAULT
 // =======================================================
 
 export default {
+   DetalleMovimiento,
+  FormularioMovimiento,
+  LoteProducto,
+  EstadisticasInventario,
+  ValidacionMovimiento,
+  ConfiguracionTipoMovimiento,
+  ValoracionInventario,
+  ParametrosConsultaInventario,
+  ResultadoOperacionInventario,
   MovimientoInventario,
   StockProducto,
   Almacen,

@@ -283,7 +283,7 @@ export const useAuth = () => {
      * Verificar si puede gestionar usuarios
      */
     const puedeGestionarUsuarios = (): boolean => {
-      return contextAuth && usuario?.rol_detalle?.codigo === 'administrador';
+      return !!(contextAuth && usuario?.rol_detalle?.codigo === 'administrador');
     };
 
     /**
@@ -298,7 +298,7 @@ export const useAuth = () => {
      * Verificar si puede configurar el sistema
      */
     const puedeConfigurarSistema = (): boolean => {
-      return contextAuth && usuario?.rol_detalle?.codigo === 'administrador';
+      return !!(contextAuth && usuario?.rol_detalle?.codigo === 'administrador');
     };
 
     return {
@@ -390,13 +390,13 @@ export const useAuth = () => {
       if (usuario.nombre_completo) {
         const nombres = usuario.nombre_completo.split(' ');
         if (nombres.length >= 2) {
-          return `${nombres[0][0]}${nombres[1][0]}`.toUpperCase();
+          return `${nombres[0]?.[0] ?? ''}${nombres[1]?.[0] ?? ''}`.toUpperCase();
         }
-        return nombres[0][0].toUpperCase();
+        return (nombres[0]?.[0] ?? '').toUpperCase();
       }
       
-      if (usuario.email) {
-        return usuario.email[0].toUpperCase();
+      if (usuario.email && usuario.email.length > 0) {
+        return usuario.email?.[0]?.toUpperCase() ?? 'U';
       }
       
       return 'U';

@@ -1,5 +1,5 @@
 /**
- * useApi Hook - FELICITAFAC
+ * useApi Hook - FELICITAFAC (CORREGIDO)
  * Sistema de Facturación Electrónica para Perú
  * Hook genérico para manejo de APIs con estados y cache
  */
@@ -398,7 +398,16 @@ export function useApiParalelo<T = any[]>(
 ) {
   const requestFunction = useCallback(async () => {
     const responses = await Promise.all(requests.map(req => req()));
-    return { data: responses.map(res => res.data) };
+    const firstResponse = responses[0];
+    
+    return {
+      data: responses.map(res => res.data) as unknown as T,
+      status: firstResponse?.status ?? 200,
+      statusText: firstResponse?.statusText ?? 'OK',
+      headers: firstResponse?.headers ?? {},
+      config: firstResponse?.config ?? {},
+      request: firstResponse?.request,
+    } as AxiosResponse<T>;
   }, [requests]);
 
   return useApi<T>(requestFunction, opciones);
@@ -414,14 +423,35 @@ export function useApiSecuencial<T = any[]>(
   const requestFunction = useCallback(async () => {
     const results = [];
     let prevResult = null;
+    let firstResponse: AxiosResponse<any> | null = null;
 
     for (const request of requests) {
       const response = await request(prevResult);
+      if (!firstResponse) firstResponse = response;
       results.push(response.data);
       prevResult = response.data;
     }
 
-    return { data: results };
+    if (firstResponse) {
+      return {
+        data: results as unknown as T,
+        status: firstResponse.status,
+        statusText: firstResponse.statusText,
+        headers: firstResponse.headers,
+        config: firstResponse.config,
+        request: firstResponse.request,
+      } as AxiosResponse<T>;
+    } else {
+      // Return a fake AxiosResponse if no requests were made
+      return {
+        data: results as unknown as T,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {},
+        request: undefined,
+      } as AxiosResponse<T>;
+    }
   }, [requests]);
 
   return useApi<T>(requestFunction, opciones);
@@ -489,7 +519,14 @@ export function useApiBusqueda<T = any>(
 
   const requestFunction = useCallback(async () => {
     if (!terminoBusqueda.trim()) {
-      return { data: null };
+      // Return a valid AxiosResponse-like object
+      return {
+        data: null as T,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {},
+      } as AxiosResponse<T>;
     }
 
     const params = new URLSearchParams({
@@ -514,6 +551,7 @@ export function useApiBusqueda<T = any>(
     } else {
       result.limpiar();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terminoBusqueda]);
 
   return {

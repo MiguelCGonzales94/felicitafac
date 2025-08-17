@@ -25,8 +25,8 @@ import {
   SerieDocumento,
   FormaPago
 } from '../types/factura';
-import { formatearMoneda } from '../utils/formatters';
-import { calcularIgv, calcularTotal } from '../utils/moneyUtils';
+import { formatearMoneda } from '../utils/formateo';
+import { calcularIgv, calcularTotal } from '../utils/dinero';
 
 // =======================================================
 // INTERFACES Y TIPOS

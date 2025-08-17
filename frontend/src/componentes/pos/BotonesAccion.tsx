@@ -20,7 +20,7 @@ import {
   CheckCircle,
   Loader2
 } from 'lucide-react';
-import { cn } from '../../utils/cn.ts';
+import { cn } from '../../utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button, ButtonPrimario, ButtonSecundario } from '../ui/button';
 import { Input, InputMonto } from '../ui/input';

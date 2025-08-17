@@ -18,9 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Badge } from '../ui/badge';
+import { Badge } from '../ui/bagde';
 import { Separator } from '../ui/separator';
-import { formatearFecha, formatearMoneda } from '../../utils/formatters';
+import { formatearFecha, formatearMoneda } from '../../utils/formateo';
 import { debounce } from '../../utils/helpers';
 
 // =======================================================

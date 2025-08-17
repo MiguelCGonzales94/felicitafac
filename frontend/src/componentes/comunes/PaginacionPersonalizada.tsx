@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Input } from '../ui/input';
 import { Badge } from '../ui/bagde';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { formatearNumero } from '../../utils/formatters';
+import { formatearNumero } from '../../utils/formateo';
 import { MetadatasPaginacion, TamañoPagina } from '../../types/common';
 
 // =======================================================

@@ -28,7 +28,7 @@ import {
 import LayoutAdmin from '../../componentes/layouts/LayoutAdmin';
 import { Card, CardContent, CardHeader, CardTitle } from '../../componentes/ui/card';
 import { Button } from '../../componentes/ui/button';
-import { Badge } from '../../componentes/ui/badge';
+import { Badge } from '../../componentes/ui/bagde';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../componentes/ui/tabs';
 import { useAuth } from '../../hooks/useAuth';
 import { useFacturacion } from '../../hooks/useFacturacion';
@@ -36,7 +36,7 @@ import { useClientes } from '../../hooks/useClientes';
 import { useProductos } from '../../hooks/useProductos';
 import { useInventario } from '../../hooks/useInventario';
 import { useNotificaciones } from '../../hooks/useNotificaciones';
-import { formatearMoneda, formatearNumero } from '../../utils/formatters';
+import { formatearMoneda, formatearNumero } from '../../utils/formateo';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 
 interface MetricaDashboard {
