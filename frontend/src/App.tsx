@@ -4,7 +4,7 @@
  * Componente raíz de la aplicación React
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,6 +12,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
 import { router } from './router';
 import { AuthProvider } from './context/AuthContext';
+import NotificacionesProvider from './componentes/comunes/Notificaciones';
+import { CargaProvider } from './componentes/comunes/ComponenteCarga';
 import ErrorBoundary from './componentes/comunes/ErrorBoundary';
 import './index.css';
 
@@ -47,56 +49,38 @@ const queryClient = new QueryClient({
 });
 
 // =======================================================
-// CONFIGURACIÓN DE TOAST NOTIFICATIONS
+// CONFIGURACIÓN GLOBAL
 // =======================================================
 
+/**
+ * Configuración de toast con configuración específica para FELICITAFAC
+ */
 const toasterConfig = {
-  duration: 4000,
   position: 'top-right' as const,
+  duration: 4000,
+  reverseOrder: false,
+  gutter: 8,
   toastOptions: {
-    // Estilos por defecto
+    className: '',
     style: {
-      border: '1px solid #e5e7eb',
-      padding: '12px 16px',
+      background: '#ffffff',
       color: '#374151',
       fontSize: '14px',
       borderRadius: '8px',
       boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      border: '1px solid #e5e7eb',
+      maxWidth: '400px',
     },
-    // Estilos para éxito
     success: {
-      style: {
-        border: '1px solid #10b981',
-        backgroundColor: '#f0fdf4',
-        color: '#065f46',
-      },
       iconTheme: {
-        primary: '#10b981',
-        secondary: '#f0fdf4',
+        primary: '#22c55e',
+        secondary: '#ffffff',
       },
     },
-    // Estilos para error
     error: {
-      style: {
-        border: '1px solid #ef4444',
-        backgroundColor: '#fef2f2',
-        color: '#991b1b',
-      },
       iconTheme: {
         primary: '#ef4444',
-        secondary: '#fef2f2',
-      },
-    },
-    // Estilos para loading
-    loading: {
-      style: {
-        border: '1px solid #3b82f6',
-        backgroundColor: '#eff6ff',
-        color: '#1e40af',
-      },
-      iconTheme: {
-        primary: '#3b82f6',
-        secondary: '#eff6ff',
+        secondary: '#ffffff',
       },
     },
   },
@@ -106,60 +90,41 @@ const toasterConfig = {
 // COMPONENTE DE CONFIGURACIÓN GLOBAL
 // =======================================================
 
-const ConfiguracionGlobal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  React.useEffect(() => {
-    // Configuración global de la aplicación
+interface PropiedadesConfiguracionGlobal {
+  children: React.ReactNode;
+}
+
+const ConfiguracionGlobal: React.FC<PropiedadesConfiguracionGlobal> = ({ children }) => {
+  useEffect(() => {
+    // Configuración de la aplicación al cargar
+    console.log('🚀 FELICITAFAC - Sistema de Facturación Electrónica');
+    console.log('===================================================');
+    console.log('🔧 Modo:', import.meta.env.MODE);
+    console.log('🌐 API URL:', import.meta.env.VITE_API_URL || 'http://localhost:8000');
+    console.log('📦 Versión:', import.meta.env.VITE_APP_VERSION || '1.0.0');
+    console.log('🕒 Build:', new Date().toISOString());
+    console.log('===================================================');
+
+    // Configurar interceptores globales aquí si es necesario
     
-    // Configurar título por defecto
-    document.title = 'FELICITAFAC - Sistema de Facturación Electrónica';
-    
-    // Configurar meta tags básicos
-    const metaCharset = document.querySelector('meta[charset]');
-    if (!metaCharset) {
-      const meta = document.createElement('meta');
-      meta.setAttribute('charset', 'UTF-8');
-      document.head.appendChild(meta);
-    }
-    
-    const metaViewport = document.querySelector('meta[name="viewport"]');
-    if (!metaViewport) {
-      const meta = document.createElement('meta');
-      meta.setAttribute('name', 'viewport');
-      meta.setAttribute('content', 'width=device-width, initial-scale=1.0');
-      document.head.appendChild(meta);
-    }
-    
-    // Configurar favicon
-    const favicon = document.querySelector('link[rel="icon"]');
-    if (!favicon) {
-      const link = document.createElement('link');
-      link.setAttribute('rel', 'icon');
-      link.setAttribute('type', 'image/svg+xml');
-      link.setAttribute('href', '/favicon.svg');
-      document.head.appendChild(link);
-    }
-    
-    // Manejar errores globales no capturados
-    const handleUnhandledError = (event: ErrorEvent) => {
-      console.error('Error no manejado:', event.error);
-      // TODO: Enviar error a servicio de logging
+    // Configurar manejadores de error global
+    const manejarErrorGlobal = (event: ErrorEvent) => {
+      console.error('Error global capturado:', event.error);
     };
-    
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Promise rechazada no manejada:', event.reason);
-      // TODO: Enviar error a servicio de logging
+
+    const manejarErrorPromesa = (event: PromiseRejectionEvent) => {
+      console.error('Error no manejado:', event.reason);
     };
-    
-    window.addEventListener('error', handleUnhandledError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    
-    // Cleanup
+
+    window.addEventListener('error', manejarErrorGlobal);
+    window.addEventListener('unhandledrejection', manejarErrorPromesa);
+
     return () => {
-      window.removeEventListener('error', handleUnhandledError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', manejarErrorGlobal);
+      window.removeEventListener('unhandledrejection', manejarErrorPromesa);
     };
   }, []);
-  
+
   return <>{children}</>;
 };
 
@@ -167,30 +132,31 @@ const ConfiguracionGlobal: React.FC<{ children: React.ReactNode }> = ({ children
 // COMPONENTE DE INICIALIZACIÓN
 // =======================================================
 
-const InicializacionApp: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [inicializado, setInicializado] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  
-  React.useEffect(() => {
+interface PropiedadesInicializacionApp {
+  children: React.ReactNode;
+}
+
+const InicializacionApp: React.FC<PropiedadesInicializacionApp> = ({ children }) => {
+  const [inicializado, setInicializado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
     const inicializar = async () => {
       try {
-        // Verificar configuración del entorno
-        const apiUrl = import.meta.env.VITE_API_URL;
-        if (!apiUrl) {
-          console.warn('VITE_API_URL no está configurado, usando valor por defecto');
+        // Simular inicialización de servicios
+        // Aquí podrías cargar configuraciones globales, verificar conectividad, etc.
+        
+        console.log('✅ FELICITAFAC iniciado correctamente');
+        
+        // Verificar si el hot reload está disponible
+        if (import.meta.hot) {
+          console.log('🔥 Hot Module Replacement habilitado');
         }
-        
-        // Verificar conectividad con el backend (opcional)
-        // const respuesta = await fetch(`${apiUrl || 'http://localhost:8000'}/api/health/`, {
-        //   method: 'GET',
-        //   headers: { 'Content-Type': 'application/json' }
-        // });
-        
-        // Si llegamos aquí, todo está bien
+
         setInicializado(true);
-      } catch (error) {
-        console.error('Error durante la inicialización:', error);
-        setError('Error conectando con el servidor. Verificando...');
+      } catch (error: any) {
+        console.error('Error inicializando FELICITAFAC:', error);
+        setError('Error al inicializar la aplicación. Verificando...');
         
         // Permitir continuar incluso si hay error de conectividad
         setTimeout(() => {
@@ -232,8 +198,12 @@ const App: React.FC = () => {
           <ConfiguracionGlobal>
             <InicializacionApp>
               <AuthProvider>
-                <RouterProvider router={router} />
-                <Toaster {...toasterConfig} />
+                <CargaProvider>
+                  <NotificacionesProvider>
+                    <RouterProvider router={router} />
+                    <Toaster {...toasterConfig} />
+                  </NotificacionesProvider>
+                </CargaProvider>
               </AuthProvider>
             </InicializacionApp>
           </ConfiguracionGlobal>

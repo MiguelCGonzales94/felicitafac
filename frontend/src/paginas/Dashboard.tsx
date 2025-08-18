@@ -1,3 +1,9 @@
+/**
+ * Dashboard Administrativo - FELICITAFAC
+ * ✅ CONECTADO CON APIs REALES
+ * Sistema de Facturación Electrónica para Perú
+ */
+
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
@@ -30,6 +36,11 @@ import {
   ArrowDownRight,
   Minus
 } from 'lucide-react';
+
+// ✅ IMPORTAR HOOKS REALES
+import { useDashboardAdmin } from '../hooks/useDashboardAdmin';
+import { useAuth } from '../context/AuthContext';
+import { useNotificaciones } from '../hooks/useNotificaciones';
 
 // =======================================================
 // TIPOS E INTERFACES
@@ -74,87 +85,9 @@ interface DocumentoReciente {
   estadoPago: 'pagado' | 'pendiente' | 'vencido';
 }
 
-interface NotificacionAdmin {
-  id: string;
-  titulo: string;
-  mensaje: string;
-  tipo: 'info' | 'warning' | 'error' | 'success';
-  fecha: string;
-  leida: boolean;
-  enlace?: string;
-}
-
-interface UsuarioActual {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: {
-    codigo: 'administrador' | 'contador' | 'vendedor' | 'cliente';
-    nombre: string;
-    nivelAcceso: number;
-  };
-  avatar?: string;
-}
-
 // =======================================================
-// DATOS MOCK (En producción vendrían de APIs)
+// CONFIGURACIÓN DE MÓDULOS (ESTÁTICA)
 // =======================================================
-
-const usuarioMock: UsuarioActual = {
-  id: '1',
-  nombre: 'Juan Carlos Admin',
-  email: 'admin@felicitafac.com',
-  rol: {
-    codigo: 'administrador',
-    nombre: 'Administrador',
-    nivelAcceso: 4
-  }
-};
-
-const metricasMock: MetricaWidget[] = [
-  {
-    id: 'ventas-hoy',
-    titulo: 'Ventas Hoy',
-    valor: 'S/ 15,420.50',
-    cambio: '+12.5%',
-    porcentajeCambio: 12.5,
-    tipo: 'positivo',
-    icono: <DollarSign className="w-6 h-6" />,
-    color: 'bg-green-500',
-    enlace: '/admin/facturacion'
-  },
-  {
-    id: 'documentos-pendientes',
-    titulo: 'Documentos Pendientes',
-    valor: 8,
-    cambio: '2 críticos',
-    tipo: 'negativo',
-    icono: <FileText className="w-6 h-6" />,
-    color: 'bg-red-500',
-    enlace: '/admin/documentos-pendientes'
-  },
-  {
-    id: 'productos-stock-bajo',
-    titulo: 'Stock Bajo',
-    valor: 15,
-    cambio: '5 críticos',
-    tipo: 'negativo',
-    icono: <AlertCircle className="w-6 h-6" />,
-    color: 'bg-orange-500',
-    enlace: '/admin/inventario'
-  },
-  {
-    id: 'clientes-nuevos',
-    titulo: 'Clientes Nuevos',
-    valor: 24,
-    cambio: '+6 esta semana',
-    porcentajeCambio: 8.3,
-    tipo: 'positivo',
-    icono: <Users className="w-6 h-6" />,
-    color: 'bg-blue-500',
-    enlace: '/admin/clientes'
-  }
-];
 
 const modulosSistema: ModuloSistema[] = [
   {
@@ -166,7 +99,6 @@ const modulosSistema: ModuloSistema[] = [
     enlace: '/admin/facturacion',
     rolesPermitidos: ['administrador', 'contador', 'vendedor'],
     activo: true,
-    badge: { texto: '8 pendientes', color: 'bg-red-500' },
     submodulos: [
       {
         id: 'nueva-factura',
@@ -199,7 +131,6 @@ const modulosSistema: ModuloSistema[] = [
     enlace: '/admin/inventario',
     rolesPermitidos: ['administrador', 'contador', 'vendedor'],
     activo: true,
-    badge: { texto: '15 stock bajo', color: 'bg-orange-500' }
   },
   {
     id: 'contabilidad',
@@ -220,7 +151,6 @@ const modulosSistema: ModuloSistema[] = [
     enlace: '/admin/clientes',
     rolesPermitidos: ['administrador', 'contador', 'vendedor'],
     activo: true,
-    badge: { texto: '24 nuevos', color: 'bg-blue-500' }
   },
   {
     id: 'productos',
@@ -264,68 +194,6 @@ const modulosSistema: ModuloSistema[] = [
   }
 ];
 
-const documentosRecientes: DocumentoReciente[] = [
-  {
-    id: '1',
-    tipo: 'factura',
-    numero: 'F001-00001234',
-    cliente: 'Empresa ABC SAC',
-    fecha: '2025-08-10',
-    monto: 1250.00,
-    estado: 'aceptado',
-    estadoPago: 'pagado'
-  },
-  {
-    id: '2',
-    tipo: 'boleta',
-    numero: 'B001-00005678',
-    cliente: 'Juan Pérez',
-    fecha: '2025-08-10',
-    monto: 85.50,
-    estado: 'emitido',
-    estadoPago: 'pendiente'
-  },
-  {
-    id: '3',
-    tipo: 'factura',
-    numero: 'F001-00001235',
-    cliente: 'Distribuidora XYZ EIRL',
-    fecha: '2025-08-09',
-    monto: 3250.00,
-    estado: 'enviado',
-    estadoPago: 'vencido'
-  }
-];
-
-const notificaciones: NotificacionAdmin[] = [
-  {
-    id: '1',
-    titulo: 'Stock crítico',
-    mensaje: '5 productos tienen stock crítico',
-    tipo: 'warning',
-    fecha: '2025-08-10 14:30',
-    leida: false,
-    enlace: '/admin/inventario'
-  },
-  {
-    id: '2',
-    titulo: 'Facturas vencidas',
-    mensaje: '3 facturas están vencidas sin pagar',
-    tipo: 'error',
-    fecha: '2025-08-10 10:15',
-    leida: false,
-    enlace: '/admin/facturacion/vencidas'
-  },
-  {
-    id: '3',
-    titulo: 'Backup completado',
-    mensaje: 'Backup automático completado exitosamente',
-    tipo: 'success',
-    fecha: '2025-08-10 03:00',
-    leida: true
-  }
-];
-
 // =======================================================
 // COMPONENTES
 // =======================================================
@@ -364,12 +232,15 @@ const WidgetMetrica: React.FC<{ metrica: MetricaWidget }> = ({ metrica }) => {
 
 const TarjetaModulo: React.FC<{ 
   modulo: ModuloSistema; 
-  usuario: UsuarioActual;
   onClickModulo: (modulo: ModuloSistema) => void;
-}> = ({ modulo, usuario, onClickModulo }) => {
-  const [expandido, setExpandido] = useState(false);
+  badges?: { [key: string]: { texto: string; color: string } };
+}> = ({ modulo, onClickModulo, badges }) => {
+  const { usuario } = useAuth();
   
-  const puedeAcceder = modulo.rolesPermitidos.includes(usuario.rol.codigo);
+  if (!usuario) return null;
+  
+  const puedeAcceder = modulo.rolesPermitidos.includes(usuario.rol?.codigo || '');
+  const badge = badges?.[modulo.id];
   
   if (!puedeAcceder) return null;
 
@@ -391,9 +262,9 @@ const TarjetaModulo: React.FC<{
           </div>
           
           <div className="flex items-center space-x-2">
-            {modulo.badge && (
-              <span className={`${modulo.badge.color} text-white px-2 py-1 rounded-full text-xs font-medium`}>
-                {modulo.badge.texto}
+            {badge && (
+              <span className={`${badge.color} text-white px-2 py-1 rounded-full text-xs font-medium`}>
+                {badge.texto}
               </span>
             )}
             <ChevronRight className="w-5 h-5 text-gray-400" />
@@ -430,7 +301,8 @@ const TarjetaModulo: React.FC<{
 const TablaDocumentosRecientes: React.FC<{
   documentos: DocumentoReciente[];
   onVerDocumento: (documento: DocumentoReciente) => void;
-}> = ({ documentos, onVerDocumento }) => {
+  cargando?: boolean;
+}> = ({ documentos, onVerDocumento, cargando = false }) => {
   const getEstadoColor = (estado: string) => {
     switch (estado) {
       case 'aceptado': return 'bg-green-100 text-green-800';
@@ -460,6 +332,21 @@ const TablaDocumentosRecientes: React.FC<{
     }
   };
 
+  if (cargando) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-4 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -471,90 +358,97 @@ const TablaDocumentosRecientes: React.FC<{
         </div>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Documento
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Monto
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Pago
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {documentos.map((documento) => (
-              <tr key={documento.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {getTipoDocumento(documento.tipo)}
-                    </div>
-                    <div className="text-sm text-gray-500">{documento.numero}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{documento.cliente}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(documento.fecha).toLocaleDateString('es-PE')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  S/ {documento.monto.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoColor(documento.estado)}`}>
-                    {documento.estado}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoPagoColor(documento.estadoPago)}`}>
-                    {documento.estadoPago}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button 
-                    onClick={() => onVerDocumento(documento)}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button className="text-gray-600 hover:text-gray-900 mr-3">
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button className="text-gray-600 hover:text-gray-900">
-                    <Download className="w-4 h-4" />
-                  </button>
-                </td>
+      {documentos.length === 0 ? (
+        <div className="p-8 text-center">
+          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">No hay documentos recientes</p>
+          <p className="text-sm text-gray-400 mt-1">Los documentos aparecerán aquí cuando sean creados</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Documento
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Monto
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pago
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {documentos.map((documento) => (
+                <tr key={documento.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {getTipoDocumento(documento.tipo)}
+                      </div>
+                      <div className="text-sm text-gray-500">{documento.numero}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{documento.cliente}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(documento.fecha).toLocaleDateString('es-PE')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    S/ {documento.monto.toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoColor(documento.estado)}`}>
+                      {documento.estado}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getEstadoPagoColor(documento.estadoPago)}`}>
+                      {documento.estadoPago}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      onClick={() => onVerDocumento(documento)}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button className="text-gray-600 hover:text-gray-900 mr-3">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button className="text-gray-600 hover:text-gray-900">
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
 
-const PanelNotificaciones: React.FC<{
-  notificaciones: NotificacionAdmin[];
-  onMarcarLeida: (id: string) => void;
-}> = ({ notificaciones, onMarcarLeida }) => {
+const PanelNotificaciones: React.FC = () => {
+  const { notificaciones, noLeidas, marcarComoLeida } = useNotificaciones();
+
   const getIconoTipo = (tipo: string) => {
     switch (tipo) {
       case 'warning': return <AlertCircle className="w-5 h-5 text-orange-500" />;
@@ -565,17 +459,15 @@ const PanelNotificaciones: React.FC<{
     }
   };
 
-  const noLeidas = notificaciones.filter(n => !n.leida);
-
   return (
     <div className="bg-white rounded-lg border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">
             Notificaciones
-            {noLeidas.length > 0 && (
+            {noLeidas > 0 && (
               <span className="ml-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs">
-                {noLeidas.length}
+                {noLeidas}
               </span>
             )}
           </h3>
@@ -586,31 +478,41 @@ const PanelNotificaciones: React.FC<{
       </div>
       
       <div className="max-h-96 overflow-y-auto">
-        {notificaciones.slice(0, 5).map((notificacion) => (
-          <div 
-            key={notificacion.id}
-            className={`px-6 py-4 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-gray-50 ${
-              !notificacion.leida ? 'bg-blue-50' : ''
-            }`}
-            onClick={() => onMarcarLeida(notificacion.id)}
-          >
-            <div className="flex items-start space-x-3">
-              {getIconoTipo(notificacion.tipo)}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm font-medium ${!notificacion.leida ? 'text-gray-900' : 'text-gray-600'}`}>
-                    {notificacion.titulo}
+        {notificaciones.length === 0 ? (
+          <div className="p-8 text-center">
+            <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">No hay notificaciones</p>
+            <p className="text-sm text-gray-400 mt-1">Las notificaciones aparecerán aquí</p>
+          </div>
+        ) : (
+          notificaciones.slice(0, 5).map((notificacion) => (
+            <div 
+              key={notificacion.id}
+              className={`px-6 py-4 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-gray-50 ${
+                !notificacion.leida ? 'bg-blue-50' : ''
+              }`}
+              onClick={() => marcarComoLeida(notificacion.id)}
+            >
+              <div className="flex items-start space-x-3">
+                {getIconoTipo(notificacion.tipo)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className={`text-sm font-medium ${!notificacion.leida ? 'text-gray-900' : 'text-gray-600'}`}>
+                      {notificacion.titulo}
+                    </p>
+                    {!notificacion.leida && (
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{notificacion.mensaje}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(notificacion.fecha_creacion).toLocaleString('es-PE')}
                   </p>
-                  {!notificacion.leida && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  )}
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{notificacion.mensaje}</p>
-                <p className="text-xs text-gray-400 mt-1">{notificacion.fecha}</p>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
@@ -621,14 +523,135 @@ const PanelNotificaciones: React.FC<{
 // =======================================================
 
 const DashboardAdminFelicitafac: React.FC = () => {
-  const [usuario] = useState<UsuarioActual>(usuarioMock);
+  // ✅ HOOKS REALES
+  const { usuario } = useAuth();
+  const { 
+    estado, 
+    acciones, 
+    cargandoMetricas, 
+    metricas, 
+    documentosRecientes 
+  } = useDashboardAdmin();
+  
   const [busqueda, setBusqueda] = useState('');
   const [filtroModulo, setFiltroModulo] = useState('todos');
-  const [actualizando, setActualizando] = useState(false);
+
+  // ✅ CARGAR DATOS AL INICIALIZAR
+  useEffect(() => {
+    acciones.actualizarMetricas();
+  }, []);
+
+  // ✅ GENERAR MÉTRICAS WIDGETS CON DATOS REALES
+  const metricasWidgets: MetricaWidget[] = React.useMemo(() => {
+    if (!metricas) {
+      // Datos por defecto mientras cargan
+      return [
+        {
+          id: 'ventas-hoy',
+          titulo: 'Ventas Hoy',
+          valor: 'Cargando...',
+          tipo: 'neutro',
+          icono: <DollarSign className="w-6 h-6" />,
+          color: 'bg-green-500',
+        },
+        {
+          id: 'documentos-pendientes',
+          titulo: 'Documentos Pendientes',
+          valor: 'Cargando...',
+          tipo: 'neutro',
+          icono: <FileText className="w-6 h-6" />,
+          color: 'bg-red-500',
+        },
+        {
+          id: 'productos-stock-bajo',
+          titulo: 'Stock Bajo',
+          valor: 'Cargando...',
+          tipo: 'neutro',
+          icono: <AlertCircle className="w-6 h-6" />,
+          color: 'bg-orange-500',
+        },
+        {
+          id: 'clientes-nuevos',
+          titulo: 'Clientes Nuevos',
+          valor: 'Cargando...',
+          tipo: 'neutro',
+          icono: <Users className="w-6 h-6" />,
+          color: 'bg-blue-500',
+        }
+      ];
+    }
+
+    return [
+      {
+        id: 'ventas-hoy',
+        titulo: 'Ventas Hoy',
+        valor: `S/ ${metricas.ventas.ventasHoy.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`,
+        cambio: `${metricas.ventas.cambioConRespectoDiaAnterior > 0 ? '+' : ''}${metricas.ventas.cambioConRespectoDiaAnterior.toFixed(1)}%`,
+        porcentajeCambio: metricas.ventas.cambioConRespectoDiaAnterior,
+        tipo: metricas.ventas.cambioConRespectoDiaAnterior >= 0 ? 'positivo' : 'negativo',
+        icono: <DollarSign className="w-6 h-6" />,
+        color: 'bg-green-500',
+        enlace: '/admin/facturacion'
+      },
+      {
+        id: 'documentos-pendientes',
+        titulo: 'Documentos Pendientes',
+        valor: metricas.documentos.documentosPendientes,
+        cambio: `${metricas.documentos.documentosConError} con errores`,
+        tipo: metricas.documentos.documentosPendientes > 0 ? 'negativo' : 'positivo',
+        icono: <FileText className="w-6 h-6" />,
+        color: metricas.documentos.documentosPendientes > 0 ? 'bg-red-500' : 'bg-green-500',
+        enlace: '/admin/documentos-pendientes'
+      },
+      {
+        id: 'productos-stock-bajo',
+        titulo: 'Stock Bajo',
+        valor: metricas.inventario.productosStockBajo,
+        cambio: `${metricas.inventario.productosStockCritico} críticos`,
+        tipo: metricas.inventario.productosStockBajo > 0 ? 'negativo' : 'positivo',
+        icono: <AlertCircle className="w-6 h-6" />,
+        color: metricas.inventario.productosStockBajo > 0 ? 'bg-orange-500' : 'bg-green-500',
+        enlace: '/admin/inventario'
+      },
+      {
+        id: 'clientes-nuevos',
+        titulo: 'Clientes Nuevos',
+        valor: metricas.clientes.clientesNuevosMes,
+        cambio: `+${metricas.clientes.clientesNuevosHoy} hoy`,
+        porcentajeCambio: 8.3,
+        tipo: 'positivo',
+        icono: <Users className="w-6 h-6" />,
+        color: 'bg-blue-500',
+        enlace: '/admin/clientes'
+      }
+    ];
+  }, [metricas]);
+
+  // ✅ GENERAR BADGES DINÁMICOS PARA MÓDULOS
+  const badgesModulos = React.useMemo(() => {
+    if (!metricas) return {};
+
+    return {
+      'facturacion': {
+        texto: `${metricas.documentos.documentosPendientes} pendientes`,
+        color: metricas.documentos.documentosPendientes > 0 ? 'bg-red-500' : 'bg-green-500'
+      },
+      'inventario': {
+        texto: `${metricas.inventario.productosStockBajo} stock bajo`,
+        color: metricas.inventario.productosStockBajo > 0 ? 'bg-orange-500' : 'bg-green-500'
+      },
+      'clientes': {
+        texto: `${metricas.clientes.clientesNuevosMes} nuevos`,
+        color: 'bg-blue-500'
+      }
+    };
+  }, [metricas]);
 
   // Filtrar módulos según rol y búsqueda
   const modulosFiltrados = modulosSistema.filter(modulo => {
-    const puedeAcceder = modulo.rolesPermitidos.includes(usuario.rol.codigo);
+    if (!usuario) return false;
+    
+    const puedeAcceder = modulo.rolesPermitidos.includes(usuario.rol?.codigo || '');
     const coincideBusqueda = modulo.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
                            modulo.descripcion.toLowerCase().includes(busqueda.toLowerCase());
     
@@ -637,14 +660,12 @@ const DashboardAdminFelicitafac: React.FC = () => {
 
   const handleClickModulo = (modulo: ModuloSistema) => {
     console.log(`Navegando a: ${modulo.enlace}`);
-    // Aquí implementarías la navegación real
+    acciones.navegarAModulo(modulo.id);
+    // Aquí implementarías la navegación real con React Router
   };
 
   const handleActualizar = async () => {
-    setActualizando(true);
-    // Simular actualización de datos
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setActualizando(false);
+    await acciones.actualizarMetricas();
   };
 
   const handleVerDocumento = (documento: DocumentoReciente) => {
@@ -652,10 +673,17 @@ const DashboardAdminFelicitafac: React.FC = () => {
     // Implementar navegación al documento
   };
 
-  const handleMarcarNotificacionLeida = (id: string) => {
-    console.log(`Marcar notificación leída: ${id}`);
-    // Implementar marcado de notificación
-  };
+  if (!usuario) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Cargando Dashboard</h2>
+          <p className="text-gray-600">Verificando permisos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -668,28 +696,28 @@ const DashboardAdminFelicitafac: React.FC = () => {
                 Dashboard Administrativo
               </h1>
               <p className="text-gray-600 mt-1">
-                Panel de control FELICITAFAC - Bienvenido, {usuario.nombre}
+                Panel de control FELICITAFAC - Bienvenido, {usuario.nombre || usuario.email}
               </p>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                  usuario.rol.codigo === 'administrador' ? 'bg-purple-100 text-purple-800' :
-                  usuario.rol.codigo === 'contador' ? 'bg-green-100 text-green-800' :
-                  usuario.rol.codigo === 'vendedor' ? 'bg-blue-100 text-blue-800' :
+                  usuario.rol?.codigo === 'administrador' ? 'bg-purple-100 text-purple-800' :
+                  usuario.rol?.codigo === 'contador' ? 'bg-green-100 text-green-800' :
+                  usuario.rol?.codigo === 'vendedor' ? 'bg-blue-100 text-blue-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>
-                  {usuario.rol.nombre}
+                  {usuario.rol?.nombre || 'Usuario'}
                 </span>
               </div>
               
               <button
                 onClick={handleActualizar}
-                disabled={actualizando}
+                disabled={cargandoMetricas}
                 className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${actualizando ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${cargandoMetricas ? 'animate-spin' : ''}`} />
                 <span>Actualizar</span>
               </button>
             </div>
@@ -700,7 +728,7 @@ const DashboardAdminFelicitafac: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Widgets de Métricas */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {metricasMock.map((metrica) => (
+          {metricasWidgets.map((metrica) => (
             <WidgetMetrica key={metrica.id} metrica={metrica} />
           ))}
         </div>
@@ -754,8 +782,8 @@ const DashboardAdminFelicitafac: React.FC = () => {
               <TarjetaModulo
                 key={modulo.id}
                 modulo={modulo}
-                usuario={usuario}
                 onClickModulo={handleClickModulo}
+                badges={badgesModulos}
               />
             ))}
           </div>
@@ -780,15 +808,13 @@ const DashboardAdminFelicitafac: React.FC = () => {
             <TablaDocumentosRecientes
               documentos={documentosRecientes}
               onVerDocumento={handleVerDocumento}
+              cargando={cargandoMetricas}
             />
           </div>
           
           {/* Columna Lateral - Notificaciones */}
           <div className="lg:col-span-1">
-            <PanelNotificaciones
-              notificaciones={notificaciones}
-              onMarcarLeida={handleMarcarNotificacionLeida}
-            />
+            <PanelNotificaciones />
           </div>
         </div>
 
@@ -798,7 +824,7 @@ const DashboardAdminFelicitafac: React.FC = () => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Accesos rápidos basados en el rol */}
-            {usuario.rol.codigo === 'administrador' && (
+            {usuario.rol?.codigo === 'administrador' && (
               <>
                 <button className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all">
                   <Plus className="w-6 h-6 mx-auto mb-2" />
@@ -822,7 +848,7 @@ const DashboardAdminFelicitafac: React.FC = () => {
               </>
             )}
             
-            {usuario.rol.codigo === 'contador' && (
+            {usuario.rol?.codigo === 'contador' && (
               <>
                 <button className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all">
                   <Plus className="w-6 h-6 mx-auto mb-2" />
@@ -846,7 +872,7 @@ const DashboardAdminFelicitafac: React.FC = () => {
               </>
             )}
             
-            {usuario.rol.codigo === 'vendedor' && (
+            {usuario.rol?.codigo === 'vendedor' && (
               <>
                 <button className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all">
                   <Plus className="w-6 h-6 mx-auto mb-2" />
@@ -885,15 +911,17 @@ const DashboardAdminFelicitafac: React.FC = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Documentos Procesados Hoy</span>
-                  <span className="text-sm font-medium text-gray-900">47</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {metricas?.documentos?.totalDocumentosHoy || '0'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Usuarios Conectados</span>
-                  <span className="text-sm font-medium text-gray-900">8</span>
+                  <span className="text-sm font-medium text-gray-900">1</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Último Backup</span>
-                  <span className="text-sm font-medium text-gray-900">Hace 6 horas</span>
+                  <span className="text-sm font-medium text-gray-900">Automático</span>
                 </div>
               </div>
             </div>
@@ -914,7 +942,7 @@ const DashboardAdminFelicitafac: React.FC = () => {
                 <a href="#" className="block text-sm text-blue-600 hover:text-blue-800">
                   🔧 Configuración API
                 </a>
-                <a href="#" className="block text-sm text-blue-600 hover:text-blue-800">
+                <a href="/admin" className="block text-sm text-blue-600 hover:text-blue-800">
                   📊 Estado de Servicios
                 </a>
               </div>
@@ -930,8 +958,8 @@ const DashboardAdminFelicitafac: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Ambiente</p>
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
-                    Producción
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">
+                    Desarrollo
                   </span>
                 </div>
                 <div>
@@ -940,7 +968,12 @@ const DashboardAdminFelicitafac: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Última Actualización</p>
-                  <p className="text-sm font-medium text-gray-900">10 Ago 2025</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {metricas?.ultimaActualizacion 
+                      ? new Date(metricas.ultimaActualizacion).toLocaleDateString('es-PE')
+                      : 'Hoy'
+                    }
+                  </p>
                 </div>
               </div>
             </div>
@@ -951,4 +984,4 @@ const DashboardAdminFelicitafac: React.FC = () => {
   );
 };
 
-export default DashboardAdminFelicitafac
+export default DashboardAdminFelicitafac;

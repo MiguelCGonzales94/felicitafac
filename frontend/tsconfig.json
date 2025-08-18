@@ -38,7 +38,7 @@
     
     // Configuración de tipos - CORREGIDA
     "types": [
-      //"vite/client",
+      "vite/client",
       "node"
     ],
     "typeRoots": [

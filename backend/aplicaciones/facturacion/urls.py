@@ -17,6 +17,7 @@ router = DefaultRouter()
 router.register('tipos-documento', TipoDocumentoElectronicoViewSet, basename='tipodocumento')
 router.register('series', SerieDocumentoViewSet, basename='serie')
 router.register('documentos', DocumentoElectronicoViewSet, basename='documento')
+router.register('facturas', DocumentoElectronicoViewSet, basename='factura')
 router.register('formas-pago', FormaPagoViewSet, basename='formapago')
 
 # URLs principales

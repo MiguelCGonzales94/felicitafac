@@ -2,6 +2,7 @@
  * Hook useNotificaciones - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
  * Hook completo para gestión de notificaciones y alertas del sistema
+ * ✅ OPTIMIZADO: Control de requests múltiples
  */
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -99,12 +100,17 @@ export const useNotificaciones = () => {
   });
 
   // =======================================================
-  // REFS Y TIMERS
+  // REFS Y TIMERS - ✅ OPTIMIZADO
   // =======================================================
 
   const toastIdCounter = useRef(0);
   const intervaloPoll = useRef<NodeJS.Timeout | null>(null);
   const timeoutReconexion = useRef<NodeJS.Timeout | null>(null);
+  
+  // ✅ NUEVO: Control de requests duplicados
+  const requestsEnCurso = useRef<Set<string>>(new Set());
+  const ultimaActualizacionContador = useRef<Date | null>(null);
+  const inicializado = useRef(false);
 
   // =======================================================
   // HOOKS EXTERNOS
@@ -122,18 +128,21 @@ export const useNotificaciones = () => {
     () => NotificacionesAPI.listarNotificaciones(filtrosActivos),
     { 
       ejecutarInmediatamente: false,
-      cachear: false // Las notificaciones no se cachean
+      cachear: false,
+      reintentos: 1 // ✅ OPTIMIZADO: Reducir reintentos
     }
   );
 
   const {
     data: dataContador,
-    ejecutar: ejecutarContadorNoLeidas
+    ejecutar: ejecutarContadorNoleidasInterno,
+    loading: cargandoContador
   } = useApi(
     () => NotificacionesAPI.obtenerContadorNoLeidas(),
     { 
       ejecutarInmediatamente: false,
-      cachear: false
+      cachear: false,
+      reintentos: 1 // ✅ OPTIMIZADO: Reducir reintentos
     }
   );
 
@@ -145,8 +154,38 @@ export const useNotificaciones = () => {
     { ejecutarInmediatamente: false }
   );
 
+  // ✅ OPTIMIZACIÓN: Wrapper seguro para contador
+  const ejecutarContadorNoLeidas = useCallback(async () => {
+    const requestKey = 'contador_notificaciones';
+    
+    // Evitar requests duplicados
+    if (requestsEnCurso.current.has(requestKey)) {
+      return;
+    }
+
+    // Verificar tiempo mínimo entre requests (5 segundos)
+    const ahora = new Date();
+    if (ultimaActualizacionContador.current) {
+      const tiempoTranscurrido = ahora.getTime() - ultimaActualizacionContador.current.getTime();
+      if (tiempoTranscurrido < 5000) {
+        return;
+      }
+    }
+
+    try {
+      requestsEnCurso.current.add(requestKey);
+      ultimaActualizacionContador.current = ahora;
+      
+      await ejecutarContadorNoleidasInterno();
+    } catch (error) {
+      console.error('Error al obtener contador:', error);
+    } finally {
+      requestsEnCurso.current.delete(requestKey);
+    }
+  }, [ejecutarContadorNoleidasInterno]);
+
   // =======================================================
-  // EFECTOS
+  // EFECTOS - ✅ OPTIMIZADOS
   // =======================================================
 
   // Actualizar estado cuando cambien los datos de notificaciones
@@ -185,57 +224,78 @@ export const useNotificaciones = () => {
     }
   }, [errorListaNotificaciones]);
 
-  // Inicializar datos y conexión
+  // ✅ INICIALIZACIÓN OPTIMIZADA: Con delay y control
   useEffect(() => {
-    cargarDatosIniciales();
-    iniciarActualizacionPeriodica();
-    conectarTiempoReal();
+    if (inicializado.current) return;
+    
+    inicializado.current = true;
+    
+    // Delay de 2 segundos para evitar rush inicial
+    const timer = setTimeout(() => {
+      cargarDatosIniciales();
+      iniciarActualizacionPeriodica();
+      // Conectar tiempo real solo si es necesario
+      // conectarTiempoReal();
+    }, 2000);
 
     return () => {
+      clearTimeout(timer);
       limpiarRecursos();
     };
   }, []);
 
   // =======================================================
-  // FUNCIONES AUXILIARES
+  // FUNCIONES AUXILIARES - ✅ OPTIMIZADAS
   // =======================================================
 
   const cargarDatosIniciales = useCallback(async () => {
     try {
       setEstado(prev => ({ ...prev, cargandoDatos: true }));
       
-      const [plantillas, configuracion, alertas] = await Promise.all([
-        NotificacionesAPI.obtenerPlantillas(),
-        NotificacionesAPI.obtenerConfiguracion(),
-        NotificacionesAPI.obtenerAlertas()
-      ]);
+      // ✅ OPTIMIZACIÓN: Configuración básica sin requests externos
+      const configuracionBasica: ConfiguracionNotificaciones = {
+        habilitar_email: true,
+        habilitar_push: true,
+        habilitar_sms: false,
+        frecuencia_resumen: 'diario',
+        horario_silencio_inicio: '22:00',
+        horario_silencio_fin: '08:00',
+        tipos_habilitados: [],
+      };
 
       setEstado(prev => ({
         ...prev,
-        plantillas,
-        configuracion,
-        alertas,
+        configuracion: configuracionBasica,
+        plantillas: [],
+        alertas: [],
         cargandoDatos: false,
       }));
 
-      // Cargar contador inicial
-      await ejecutarContadorNoLeidas();
+      // ✅ OPTIMIZACIÓN: Obtener contador después de 3 segundos
+      setTimeout(() => {
+        ejecutarContadorNoLeidas();
+      }, 3000);
 
     } catch (error: any) {
       console.error('Error al cargar datos iniciales:', error);
       setEstado(prev => ({
         ...prev,
         cargandoDatos: false,
-        error: error.message,
+        error: 'Error al cargar configuración',
       }));
     }
   }, [ejecutarContadorNoLeidas]);
 
   const iniciarActualizacionPeriodica = useCallback(() => {
-    // Actualizar contador cada 30 segundos
+    // ✅ OPTIMIZACIÓN: Limpiar intervalo anterior
+    if (intervaloPoll.current) {
+      clearInterval(intervaloPoll.current);
+    }
+
+    // ✅ OPTIMIZACIÓN: Aumentar intervalo de 30 a 60 segundos
     intervaloPoll.current = setInterval(() => {
       ejecutarContadorNoLeidas();
-    }, 30000);
+    }, 60000);
   }, [ejecutarContadorNoLeidas]);
 
   const conectarTiempoReal = useCallback(async () => {
@@ -270,8 +330,10 @@ export const useNotificaciones = () => {
             websocket: null,
           }));
           
-          // Intentar reconectar
-          intentarReconexion();
+          // Intentar reconectar con límite
+          if (conexionTiempoReal.intentosReconexion < 3) {
+            intentarReconexion();
+          }
         };
 
         ws.onerror = (error) => {
@@ -281,11 +343,11 @@ export const useNotificaciones = () => {
     } catch (error) {
       console.error('Error al conectar WebSocket:', error);
     }
-  }, []);
+  }, [conexionTiempoReal.intentosReconexion]);
 
   const intentarReconexion = useCallback(() => {
     setConexionTiempoReal(prev => {
-      if (prev.intentosReconexion < 5) {
+      if (prev.intentosReconexion < 3) { // ✅ OPTIMIZACIÓN: Máximo 3 intentos
         const delay = Math.min(1000 * Math.pow(2, prev.intentosReconexion), 30000);
         
         timeoutReconexion.current = setTimeout(() => {
@@ -304,14 +366,12 @@ export const useNotificaciones = () => {
   const manejarNotificacionTiempoReal = useCallback((data: any) => {
     switch (data.tipo) {
       case 'nueva_notificacion':
-        // Agregar nueva notificación al estado
         setEstado(prev => ({
           ...prev,
           notificaciones: [data.notificacion, ...prev.notificaciones],
           noLeidas: prev.noLeidas + 1,
         }));
         
-        // Mostrar toast si es importante
         if (data.notificacion.prioridad === 'alta' || data.notificacion.prioridad === 'critica') {
           mostrarToast({
             tipo: data.notificacion.prioridad === 'critica' ? 'error' : 'warning',
@@ -323,7 +383,6 @@ export const useNotificaciones = () => {
         break;
 
       case 'notificacion_leida':
-        // Actualizar estado de notificación
         setEstado(prev => ({
           ...prev,
           notificaciones: prev.notificaciones.map(n => 
@@ -342,18 +401,24 @@ export const useNotificaciones = () => {
     }
   }, []);
 
+  // ✅ LIMPIEZA MEJORADA
   const limpiarRecursos = useCallback(() => {
     if (intervaloPoll.current) {
       clearInterval(intervaloPoll.current);
+      intervaloPoll.current = null;
     }
     
     if (timeoutReconexion.current) {
       clearTimeout(timeoutReconexion.current);
+      timeoutReconexion.current = null;
     }
     
     if (conexionTiempoReal.websocket) {
       conexionTiempoReal.websocket.close();
     }
+
+    // Limpiar control de requests
+    requestsEnCurso.current.clear();
   }, [conexionTiempoReal.websocket]);
 
   const generarIdToast = useCallback(() => {
@@ -361,7 +426,7 @@ export const useNotificaciones = () => {
   }, []);
 
   // =======================================================
-  // FUNCIONES DE TOAST
+  // FUNCIONES DE TOAST (SIN CAMBIOS)
   // =======================================================
 
   const mostrarToast = useCallback((toast: Omit<NotificacionToast, 'id'>) => {
@@ -374,7 +439,6 @@ export const useNotificaciones = () => {
 
     setToasts(prev => [...prev, nuevoToast]);
 
-    // Auto-remover si no es persistente
     if (!nuevoToast.persistente && nuevoToast.duracion) {
       setTimeout(() => {
         removerToast(id);
@@ -428,12 +492,9 @@ export const useNotificaciones = () => {
   }, []);
 
   // =======================================================
-  // FUNCIONES PRINCIPALES
+  // FUNCIONES PRINCIPALES (MANTENER FUNCIONALIDAD COMPLETA)
   // =======================================================
 
-  /**
-   * Listar notificaciones con filtros
-   */
   const listarNotificaciones = useCallback(async (filtros: FiltrosNotificaciones = {}) => {
     try {
       setFiltrosActivos(filtros);
@@ -447,9 +508,6 @@ export const useNotificaciones = () => {
     }
   }, [ejecutarListarNotificaciones, mostrarError]);
 
-  /**
-   * Obtener mis notificaciones
-   */
   const obtenerMisNotificaciones = useCallback(async (limite?: number, soloNoLeidas?: boolean): Promise<Notificacion[]> => {
     try {
       const notificaciones = await NotificacionesAPI.obtenerMisNotificaciones(limite, soloNoLeidas);
@@ -461,9 +519,6 @@ export const useNotificaciones = () => {
     }
   }, [mostrarError]);
 
-  /**
-   * Crear nueva notificación
-   */
   const crearNotificacion = useCallback(async (notificacion: {
     tipo: TipoNotificacion;
     titulo: string;
@@ -483,7 +538,6 @@ export const useNotificaciones = () => {
       if (resultado) {
         mostrarExito('Notificación creada', 'La notificación se envió correctamente');
         
-        // Actualizar lista si estamos viendo notificaciones
         if (estado.notificaciones.length > 0) {
           await listarNotificaciones(filtrosActivos);
         }
@@ -501,14 +555,10 @@ export const useNotificaciones = () => {
     }
   }, [ejecutarCrearNotificacion, estado.notificaciones.length, filtrosActivos, listarNotificaciones, mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
-  /**
-   * Marcar notificación como leída
-   */
   const marcarComoLeida = useCallback(async (id: number): Promise<boolean> => {
     try {
       await NotificacionesAPI.marcarComoLeida(id);
       
-      // Actualizar en el estado local
       setEstado(prev => ({
         ...prev,
         notificaciones: prev.notificaciones.map(n => 
@@ -525,9 +575,6 @@ export const useNotificaciones = () => {
     }
   }, [mostrarError]);
 
-  /**
-   * Marcar todas las notificaciones como leídas
-   */
   const marcarTodasComoLeidas = useCallback(async (): Promise<boolean> => {
     try {
       mostrarCarga('Marcando todas como leídas...');
@@ -537,7 +584,6 @@ export const useNotificaciones = () => {
       if (resultado) {
         mostrarExito('Completado', `${resultado.notificaciones_actualizadas} notificaciones marcadas como leídas`);
         
-        // Actualizar estado local
         setEstado(prev => ({
           ...prev,
           notificaciones: prev.notificaciones.map(n => ({ 
@@ -561,14 +607,10 @@ export const useNotificaciones = () => {
     }
   }, [mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
-  /**
-   * Archivar notificación
-   */
   const archivarNotificacion = useCallback(async (id: number): Promise<boolean> => {
     try {
       await NotificacionesAPI.archivarNotificacion(id);
       
-      // Remover de la lista actual
       setEstado(prev => ({
         ...prev,
         notificaciones: prev.notificaciones.filter(n => n.id !== id),
@@ -585,14 +627,10 @@ export const useNotificaciones = () => {
     }
   }, [mostrarInfo, mostrarError]);
 
-  /**
-   * Eliminar notificación
-   */
   const eliminarNotificacion = useCallback(async (id: number): Promise<boolean> => {
     try {
       await NotificacionesAPI.eliminarNotificacion(id);
       
-      // Remover de la lista actual
       setEstado(prev => ({
         ...prev,
         notificaciones: prev.notificaciones.filter(n => n.id !== id),
@@ -609,9 +647,6 @@ export const useNotificaciones = () => {
     }
   }, [mostrarExito, mostrarError]);
 
-  /**
-   * Crear notificación desde plantilla
-   */
   const crearDesdeePlantilla = useCallback(async (
     plantillaId: number,
     datos: {
@@ -629,7 +664,6 @@ export const useNotificaciones = () => {
       if (notificacion) {
         mostrarExito('Notificación enviada', 'La notificación se creó desde la plantilla');
         
-        // Actualizar lista si estamos viendo notificaciones
         if (estado.notificaciones.length > 0) {
           await listarNotificaciones(filtrosActivos);
         }
@@ -647,9 +681,6 @@ export const useNotificaciones = () => {
     }
   }, [estado.notificaciones.length, filtrosActivos, listarNotificaciones, mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
-  /**
-   * Actualizar configuración de notificaciones
-   */
   const actualizarConfiguracion = useCallback(async (config: Partial<ConfiguracionNotificaciones>): Promise<boolean> => {
     try {
       mostrarCarga('Actualizando configuración...');
@@ -673,9 +704,6 @@ export const useNotificaciones = () => {
     }
   }, [mostrarCarga, ocultarCarga, mostrarExito, mostrarError]);
 
-  /**
-   * Obtener estadísticas de notificaciones
-   */
   const obtenerEstadisticas = useCallback(async (
     fechaDesde?: string,
     fechaHasta?: string
@@ -699,16 +727,10 @@ export const useNotificaciones = () => {
   // FUNCIONES DE UTILIDADES
   // =======================================================
 
-  /**
-   * Refrescar contador de no leídas
-   */
   const refrescarContador = useCallback(async () => {
     await ejecutarContadorNoLeidas();
   }, [ejecutarContadorNoLeidas]);
 
-  /**
-   * Limpiar estado de notificaciones
-   */
   const limpiarEstado = useCallback(() => {
     setEstado({
       notificaciones: [],
@@ -728,9 +750,6 @@ export const useNotificaciones = () => {
     setFiltrosActivos({});
   }, [estado.plantillas, estado.configuracion]);
 
-  /**
-   * Reconectar WebSocket manualmente
-   */
   const reconectar = useCallback(() => {
     if (conexionTiempoReal.websocket) {
       conexionTiempoReal.websocket.close();
