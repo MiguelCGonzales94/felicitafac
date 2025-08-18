@@ -36,13 +36,10 @@
       "@/styles/*": ["src/estilos/*"]
     },
     
-    // Configuración de tipos
+    // Configuración de tipos - CORREGIDA
     "types": [
-      "vite/client",
-      "node",
-      "@testing-library/jest-dom",
-      "@types/react",
-      "@types/react-dom"
+      //"vite/client",
+      "node"
     ],
     "typeRoots": [
       "node_modules/@types",

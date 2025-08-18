@@ -152,31 +152,24 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
   const { mostrarExito, mostrarError, mostrarAdvertencia, mostrarInfo } = useNotificaciones();
 
   // =======================================================
-  // EFECTOS
-  // =======================================================
-
-  // Cargar desde localStorage al inicializar
-  useEffect(() => {
-    if (config.persistirEnLocalStorage) {
-      cargarDesdeLocalStorage();
-    }
-  }, [config.persistirEnLocalStorage]);
-
-  // Guardar en localStorage cuando cambie el estado
-  useEffect(() => {
-    if (config.persistirEnLocalStorage && estado.modificado) {
-      guardarEnLocalStorage();
-    }
-  }, [estado, config.persistirEnLocalStorage]);
-
-  // Recalcular totales cuando cambien los items o descuentos
-  useEffect(() => {
-    recalcularTotales();
-  }, [estado.items, estado.descuentoGlobal, estado.descuentoPorcentaje]);
-
-  // =======================================================
   // FUNCIONES AUXILIARES
   // =======================================================
+
+  const agregarAccion = useCallback((accion: Omit<AccionCarrito, 'timestamp'>) => {
+    const nuevaAccion: AccionCarrito = {
+      ...accion,
+      timestamp: Date.now(),
+    };
+
+    setHistorialAcciones(prev => [nuevaAccion, ...prev.slice(0, 49)]); // Mantener últimas 50 acciones
+  }, []);
+
+  const redondearMonto = useCallback((monto: number): number => {
+    if (!config.redondearTotales) return monto;
+    
+    const factor = Math.pow(10, config.decimalesMoneda);
+    return Math.round(monto * factor) / factor;
+  }, [config.redondearTotales, config.decimalesMoneda]);
 
   const cargarDesdeLocalStorage = useCallback(() => {
     try {
@@ -235,44 +228,30 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
     }, 500); // Debounce de 500ms
   }, [estado, config.claveLocalStorage, config.mostrarAlertas, mostrarError]);
 
-  const agregarAccion = useCallback((accion: Omit<AccionCarrito, 'timestamp'>) => {
-    const nuevaAccion: AccionCarrito = {
-      ...accion,
-      timestamp: Date.now(),
-    };
-
-    setHistorialAcciones(prev => [nuevaAccion, ...prev.slice(0, 49)]); // Mantener últimas 50 acciones
-  }, []);
-
-  const redondearMonto = useCallback((monto: number): number => {
-    if (!config.redondearTotales) return monto;
-    
-    const factor = Math.pow(10, config.decimalesMoneda);
-    return Math.round(monto * factor) / factor;
-  }, [config.redondearTotales, config.decimalesMoneda]);
-
   const recalcularTotales = useCallback(() => {
-    const subtotal = estado.items.reduce((total, item) => {
-      const subtotalItem = item.cantidad * item.precio_unitario;
-      const descuentoItem = subtotalItem * (item.descuento / 100);
-      return total + subtotalItem - descuentoItem;
-    }, 0);
+    setEstado(prev => {
+      const subtotal = prev.items.reduce((total, item) => {
+        const subtotalItem = item.cantidad * item.precio_unitario;
+        const descuentoItem = subtotalItem * (item.descuento / 100);
+        return total + subtotalItem - descuentoItem;
+      }, 0);
 
-    const totalDescuentos = subtotal * (estado.descuentoPorcentaje / 100) + estado.descuentoGlobal;
-    const baseImponible = subtotal - totalDescuentos;
-    const totalIgv = config.calcularIgvAutomatico ? calcularIgv(baseImponible) : 0;
-    const totalGeneral = baseImponible + totalIgv;
+      const totalDescuentos = subtotal * (prev.descuentoPorcentaje / 100) + prev.descuentoGlobal;
+      const baseImponible = subtotal - totalDescuentos;
+      const totalIgv = config.calcularIgvAutomatico ? calcularIgv(baseImponible) : 0;
+      const totalGeneral = baseImponible + totalIgv;
 
-    setEstado(prev => ({
-      ...prev,
-      cantidadItems: prev.items.reduce((total, item) => total + item.cantidad, 0),
-      subtotal: redondearMonto(subtotal),
-      totalDescuentos: redondearMonto(totalDescuentos),
-      totalIgv: redondearMonto(totalIgv),
-      totalGeneral: redondearMonto(totalGeneral),
-      vuelto: Math.max(0, redondearMonto(prev.montoPagado - totalGeneral)),
-    }));
-  }, [estado.items, estado.descuentoPorcentaje, estado.descuentoGlobal, config.calcularIgvAutomatico, redondearMonto]);
+      return {
+        ...prev,
+        cantidadItems: prev.items.reduce((total, item) => total + item.cantidad, 0),
+        subtotal: redondearMonto(subtotal),
+        totalDescuentos: redondearMonto(totalDescuentos),
+        totalIgv: redondearMonto(totalIgv),
+        totalGeneral: redondearMonto(totalGeneral),
+        vuelto: Math.max(0, redondearMonto(prev.montoPagado - totalGeneral)),
+      };
+    });
+  }, [config.calcularIgvAutomatico, redondearMonto]);
 
   // =======================================================
   // FUNCIONES DE VALIDACIÓN
@@ -313,7 +292,7 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
     };
   }, [config.validarStockAutomatico, config.permitirStockNegativo]);
 
-  const validarCarrito = useCallback(): ResultadoValidacion => {
+  const validarCarrito = useCallback((): ResultadoValidacion => {
     const errores: string[] = [];
     const warnings: string[] = [];
 
@@ -447,51 +426,53 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
 
   const actualizarItem = useCallback((itemId: number, cambios: Partial<ItemVentaPOS>): boolean => {
     try {
-      const itemIndex = estado.items.findIndex(item => item.id === itemId);
-      if (itemIndex === -1) {
-        if (config.mostrarAlertas) {
-          mostrarError('Error', 'Item no encontrado en el carrito');
+      setEstado(prev => {
+        const itemIndex = prev.items.findIndex(item => item.id === itemId);
+        if (itemIndex === -1) {
+          if (config.mostrarAlertas) {
+            mostrarError('Error', 'Item no encontrado en el carrito');
+          }
+          return prev;
         }
-        return false;
-      }
 
-      const itemActualizado = {
-        ...estado.items[itemIndex],
-        ...cambios,
-      };
+        const itemActualizado = {
+          ...prev.items[itemIndex],
+          ...cambios,
+        };
 
-      // Recalcular totales del item
-      const subtotalItem = itemActualizado.cantidad * itemActualizado.precio_unitario;
-      const descuentoItem = subtotalItem * (itemActualizado.descuento / 100);
-      const baseImponibleItem = subtotalItem - descuentoItem;
-      
-      itemActualizado.subtotal = redondearMonto(baseImponibleItem);
-      itemActualizado.igv = config.calcularIgvAutomatico ? redondearMonto(calcularIgv(baseImponibleItem)) : 0;
-      itemActualizado.total = redondearMonto(baseImponibleItem + itemActualizado.igv);
+        // Recalcular totales del item
+        const subtotalItem = itemActualizado.cantidad * itemActualizado.precio_unitario;
+        const descuentoItem = subtotalItem * (itemActualizado.descuento / 100);
+        const baseImponibleItem = subtotalItem - descuentoItem;
+        
+        itemActualizado.subtotal = redondearMonto(baseImponibleItem);
+        itemActualizado.igv = config.calcularIgvAutomatico ? redondearMonto(calcularIgv(baseImponibleItem)) : 0;
+        itemActualizado.total = redondearMonto(baseImponibleItem + itemActualizado.igv);
 
-      // Validar el item actualizado
-      const validacion = validarItem(itemActualizado);
-      if (!validacion.valido) {
-        if (config.mostrarAlertas) {
-          mostrarError('Error al actualizar', validacion.errores.join(', '));
+        // Validar el item actualizado
+        const validacion = validarItem(itemActualizado);
+        if (!validacion.valido) {
+          if (config.mostrarAlertas) {
+            mostrarError('Error al actualizar', validacion.errores.join(', '));
+          }
+          return prev;
         }
-        return false;
-      }
 
-      const nuevosItems = [...estado.items];
-      nuevosItems[itemIndex] = itemActualizado;
+        const nuevosItems = [...prev.items];
+        nuevosItems[itemIndex] = itemActualizado;
 
-      setEstado(prev => ({
-        ...prev,
-        items: nuevosItems,
-        modificado: true,
-        guardado: false,
-      }));
+        agregarAccion({
+          tipo: 'actualizar',
+          descripcion: `Actualizado: ${itemActualizado.producto_nombre}`,
+          datos: { item_id: itemId, cambios },
+        });
 
-      agregarAccion({
-        tipo: 'actualizar',
-        descripcion: `Actualizado: ${itemActualizado.producto_nombre}`,
-        datos: { item_id: itemId, cambios },
+        return {
+          ...prev,
+          items: nuevosItems,
+          modificado: true,
+          guardado: false,
+        };
       });
 
       return true;
@@ -502,33 +483,39 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
       }
       return false;
     }
-  }, [estado.items, config.calcularIgvAutomatico, config.mostrarAlertas, validarItem, redondearMonto, agregarAccion, mostrarError]);
+  }, [config.calcularIgvAutomatico, config.mostrarAlertas, validarItem, redondearMonto, agregarAccion, mostrarError]);
 
   const eliminarItem = useCallback((itemId: number): boolean => {
     try {
-      const itemAEliminar = estado.items.find(item => item.id === itemId);
-      if (!itemAEliminar) {
-        if (config.mostrarAlertas) {
-          mostrarError('Error', 'Item no encontrado en el carrito');
+      let itemEliminado: ItemVentaPOS | undefined;
+
+      setEstado(prev => {
+        itemEliminado = prev.items.find(item => item.id === itemId);
+        if (!itemEliminado) {
+          if (config.mostrarAlertas) {
+            mostrarError('Error', 'Item no encontrado en el carrito');
+          }
+          return prev;
         }
-        return false;
-      }
 
-      setEstado(prev => ({
-        ...prev,
-        items: prev.items.filter(item => item.id !== itemId),
-        modificado: true,
-        guardado: false,
-      }));
-
-      agregarAccion({
-        tipo: 'eliminar',
-        descripcion: `Eliminado: ${itemAEliminar.producto_nombre}`,
-        datos: { item_id: itemId },
+        return {
+          ...prev,
+          items: prev.items.filter(item => item.id !== itemId),
+          modificado: true,
+          guardado: false,
+        };
       });
 
-      if (config.mostrarAlertas) {
-        mostrarInfo('Item eliminado', `${itemAEliminar.producto_nombre} eliminado del carrito`);
+      if (itemEliminado) {
+        agregarAccion({
+          tipo: 'eliminar',
+          descripcion: `Eliminado: ${itemEliminado.producto_nombre}`,
+          datos: { item_id: itemId },
+        });
+
+        if (config.mostrarAlertas) {
+          mostrarInfo('Item eliminado', `${itemEliminado.producto_nombre} eliminado del carrito`);
+        }
       }
 
       return true;
@@ -539,7 +526,7 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
       }
       return false;
     }
-  }, [estado.items, config.mostrarAlertas, agregarAccion, mostrarInfo, mostrarError]);
+  }, [config.mostrarAlertas, agregarAccion, mostrarInfo, mostrarError]);
 
   const limpiarCarrito = useCallback(() => {
     setEstado(prev => ({
@@ -714,6 +701,29 @@ export const useCarrito = (configuracion?: Partial<ConfiguracionCarrito>) => {
       }
     }
   }, [config.mostrarAlertas, mostrarExito, mostrarError]);
+
+  // =======================================================
+  // EFECTOS
+  // =======================================================
+
+  // Cargar desde localStorage al inicializar
+  useEffect(() => {
+    if (config.persistirEnLocalStorage) {
+      cargarDesdeLocalStorage();
+    }
+  }, [config.persistirEnLocalStorage, cargarDesdeLocalStorage]);
+
+  // Guardar en localStorage cuando cambie el estado
+  useEffect(() => {
+    if (config.persistirEnLocalStorage && estado.modificado) {
+      guardarEnLocalStorage();
+    }
+  }, [estado, config.persistirEnLocalStorage, guardarEnLocalStorage]);
+
+  // Recalcular totales cuando cambien los items o descuentos
+  useEffect(() => {
+    recalcularTotales();
+  }, [estado.items, estado.descuentoGlobal, estado.descuentoPorcentaje, recalcularTotales]);
 
   // =======================================================
   // VALORES COMPUTADOS
