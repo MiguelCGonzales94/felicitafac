@@ -377,3 +377,95 @@ class DocumentoElectronicoViewSet(viewsets.ModelViewSet):
             'total': pendientes.count(),
             'documentos': serializer.data
         })
+
+# 2. AGREGAR en backend/aplicaciones/facturacion/views.py
+class SerieDocumentoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para series de documentos
+    Solo lectura - datos configurados
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
+        """Lista de series disponibles"""
+        series = [
+            {
+                'id': 1,
+                'codigo': 'F001',
+                'tipo_documento': '01',  # Factura
+                'descripcion': 'Serie de Facturas',
+                'correlativo_actual': 1,
+                'activo': True
+            },
+            {
+                'id': 2,
+                'codigo': 'B001',
+                'tipo_documento': '03',  # Boleta
+                'descripcion': 'Serie de Boletas',
+                'correlativo_actual': 1,
+                'activo': True
+            },
+            {
+                'id': 3,
+                'codigo': 'NC01',
+                'tipo_documento': '07',  # Nota Crédito
+                'descripcion': 'Serie Notas de Crédito',
+                'correlativo_actual': 1,
+                'activo': True
+            },
+            {
+                'id': 4,
+                'codigo': 'ND01',
+                'tipo_documento': '08',  # Nota Débito
+                'descripcion': 'Serie Notas de Débito',
+                'correlativo_actual': 1,
+                'activo': True
+            }
+        ]
+        return Response(series)
+
+class FormaPagoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para formas de pago
+    Solo lectura - datos maestros SUNAT
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
+        """Lista de formas de pago según SUNAT"""
+        formas_pago = [
+            {
+                'codigo': 'Contado',
+                'descripcion': 'Contado',
+                'tipo': 'inmediato'
+            },
+            {
+                'codigo': 'Credito',
+                'descripcion': 'Crédito',
+                'tipo': 'diferido'
+            },
+            {
+                'codigo': 'Efectivo',
+                'descripcion': 'Efectivo',
+                'tipo': 'inmediato'
+            },
+            {
+                'codigo': 'Tarjeta',
+                'descripcion': 'Tarjeta de Crédito/Débito',
+                'tipo': 'inmediato'
+            },
+            {
+                'codigo': 'Transferencia',
+                'descripcion': 'Transferencia Bancaria',
+                'tipo': 'inmediato'
+            },
+            {
+                'codigo': 'Deposito',
+                'descripcion': 'Depósito en Cuenta',
+                'tipo': 'inmediato'
+            }
+        ]
+        return Response(formas_pago)
+

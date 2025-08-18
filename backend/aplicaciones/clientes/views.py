@@ -41,6 +41,47 @@ class TipoDocumentoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TipoDocumentoSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None  # Sin paginación para datos maestros
+
+    def list(self, request):
+        """Lista completa de tipos de documento SUNAT"""
+        tipos_documento = [
+            {
+                'codigo': '0',
+                'descripcion': 'DOC.TRIB.NO.DOM.SIN.RUC',
+                'abreviado': 'OTROS',
+                'longitud': 15,
+                'tipo_persona': 'natural'
+            },
+            {
+                'codigo': '1',
+                'descripcion': 'DOCUMENTO NACIONAL DE IDENTIDAD',
+                'abreviado': 'DNI',
+                'longitud': 8,
+                'tipo_persona': 'natural'
+            },
+            {
+                'codigo': '4',
+                'descripcion': 'CARNET DE EXTRANJERIA',
+                'abreviado': 'CEX',
+                'longitud': 12,
+                'tipo_persona': 'natural'
+            },
+            {
+                'codigo': '6',
+                'descripcion': 'REGISTRO UNICO DE CONTRIBUYENTES',
+                'abreviado': 'RUC',
+                'longitud': 11,
+                'tipo_persona': 'juridica'
+            },
+            {
+                'codigo': '7',
+                'descripcion': 'PASAPORTE',
+                'abreviado': 'PAS',
+                'longitud': 12,
+                'tipo_persona': 'natural'
+            }
+        ]
+        return Response(tipos_documento)
     
     def get_queryset(self):
         """Filtrar tipos de documento activos"""

@@ -10,7 +10,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'react-hot-toast';
-import { router } from './router';
+import { router } from './router/index';
 import { AuthProvider } from './context/AuthContext';
 import NotificacionesProvider from './componentes/comunes/Notificaciones';
 import { CargaProvider } from './componentes/comunes/ComponenteCarga';

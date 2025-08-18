@@ -6,7 +6,7 @@
 
 import React, { Suspense } from 'react';
 import { Navigate, RouteObject } from 'react-router-dom';
-import { RutaProtegida } from '../componentes/comunes/RutaProtegida';
+import RutaProtegida from '../componentes/comunes/RutaProtegida';
 import LayoutAdmin from '../componentes/layouts/LayoutAdmin';
 import ComponenteCarga from '../componentes/comunes/ComponenteCarga';
 
@@ -17,7 +17,7 @@ import ComponenteCarga from '../componentes/comunes/ComponenteCarga';
 // Dashboard Principal
 const Dashboard = React.lazy(() => import('../paginas/admin/Dashboard'));
 const PerfilUsuario = React.lazy(() => import('../paginas/admin/PerfilUsuario'));
-const Configuraciones = React.lazy(() => import('../paginas/admin/Configuraciones'));
+const Configuraciones = React.lazy(() => import('../paginas/admin/Configuracion'));
 const NotificacionesCompletas = React.lazy(() => import('../paginas/admin/NotificacionesCompletas'));
 
 // Módulo Facturación

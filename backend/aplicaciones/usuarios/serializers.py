@@ -293,7 +293,7 @@ class TokenPersonalizadoSerializer(TokenObtainPairSerializer):
                 'nombres': usuario.nombres,
                 'apellidos': usuario.apellidos,
                 'nombre_completo': usuario.get_nombre_completo(),
-                'rol': {
+                'rol_detalle': {
                     'id': usuario.rol.id,
                     'nombre': usuario.rol.nombre,
                     'codigo': usuario.rol.codigo,

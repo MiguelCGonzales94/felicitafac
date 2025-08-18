@@ -407,3 +407,117 @@ class MovimientoInventarioViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error generando reporte: {str(e)}")
             return Response({'error': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+# 3. AGREGAR en backend/aplicaciones/inventario/views.py
+class TipoMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para tipos de movimiento de inventario
+    Solo lectura - datos maestros
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
+        """Lista de tipos de movimiento"""
+        tipos = [
+            {
+                'id': 1,
+                'codigo': 'INGRESO_COMPRA',
+                'nombre': 'Ingreso por Compra',
+                'tipo': 'ingreso',
+                'afecta_costo': True,
+                'activo': True
+            },
+            {
+                'id': 2,
+                'codigo': 'SALIDA_VENTA',
+                'nombre': 'Salida por Venta',
+                'tipo': 'salida',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 3,
+                'codigo': 'AJUSTE_POSITIVO',
+                'nombre': 'Ajuste Positivo',
+                'tipo': 'ingreso',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 4,
+                'codigo': 'AJUSTE_NEGATIVO',
+                'nombre': 'Ajuste Negativo',
+                'tipo': 'salida',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 5,
+                'codigo': 'TRASLADO_ENTRADA',
+                'nombre': 'Traslado - Entrada',
+                'tipo': 'ingreso',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 6,
+                'codigo': 'TRASLADO_SALIDA',
+                'nombre': 'Traslado - Salida',
+                'tipo': 'salida',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 7,
+                'codigo': 'DEVOLUCION_CLIENTE',
+                'nombre': 'Devolución de Cliente',
+                'tipo': 'ingreso',
+                'afecta_costo': False,
+                'activo': True
+            },
+            {
+                'id': 8,
+                'codigo': 'DEVOLUCION_PROVEEDOR',
+                'nombre': 'Devolución a Proveedor',
+                'tipo': 'salida',
+                'afecta_costo': True,
+                'activo': True
+            }
+        ]
+        return Response(tipos)
+
+class AlmacenViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para almacenes
+    Solo lectura - datos configurados
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
+        """Lista de almacenes disponibles"""
+        almacenes = [
+            {
+                'id': 1,
+                'codigo': 'ALM001',
+                'nombre': 'Almacén Principal',
+                'descripcion': 'Almacén principal de la empresa',
+                'direccion': 'Av. Principal 123',
+                'responsable': 'Almacenero Principal',
+                'activo': True,
+                'es_principal': True
+            },
+            {
+                'id': 2,
+                'codigo': 'ALM002',
+                'nombre': 'Almacén Sucursal',
+                'descripcion': 'Almacén de la sucursal',
+                'direccion': 'Jr. Secundario 456',
+                'responsable': 'Responsable Sucursal',
+                'activo': True,
+                'es_principal': False
+            }
+        ]
+        return Response(almacenes)
+

@@ -778,3 +778,30 @@ class ProductoProveedorViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error(f"Error eliminando relación producto-proveedor: {str(e)}")
             raise
+
+
+class UnidadMedidaViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para unidades de medida
+    Solo lectura - datos maestros
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
+        """Lista de unidades de medida estándar"""
+        unidades = [
+            {'codigo': 'NIU', 'nombre': 'Unidad'},
+            {'codigo': 'KGM', 'nombre': 'Kilogramo'},
+            {'codigo': 'GRM', 'nombre': 'Gramo'},
+            {'codigo': 'LTR', 'nombre': 'Litro'},
+            {'codigo': 'MTR', 'nombre': 'Metro'},
+            {'codigo': 'M2', 'nombre': 'Metro cuadrado'},
+            {'codigo': 'M3', 'nombre': 'Metro cúbico'},
+            {'codigo': 'CJA', 'nombre': 'Caja'},
+            {'codigo': 'PAQ', 'nombre': 'Paquete'},
+            {'codigo': 'DOC', 'nombre': 'Docena'},
+            {'codigo': 'CEN', 'nombre': 'Ciento'},
+            {'codigo': 'MIL', 'nombre': 'Millar'}
+        ]
+        return Response(unidades)
