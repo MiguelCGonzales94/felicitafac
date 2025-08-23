@@ -17,7 +17,7 @@ import ComponenteCarga from '../componentes/comunes/ComponenteCarga';
 // Dashboard Principal
 const Dashboard = React.lazy(() => import('../paginas/admin/Dashboard'));
 const PerfilUsuario = React.lazy(() => import('../paginas/admin/PerfilUsuario'));
-const Configuraciones = React.lazy(() => import('../paginas/admin/Configuracion'));
+const Configuraciones = React.lazy(() => import('../paginas/admin/Configuraciones'));
 const NotificacionesCompletas = React.lazy(() => import('../paginas/admin/NotificacionesCompletas'));
 
 // Módulo Facturación
@@ -66,7 +66,7 @@ const ReportesInventario = React.lazy(() => import('../paginas/admin/reportes/Re
 const ComponenteSuspense: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={
     <div className="flex items-center justify-center min-h-[400px]">
-      <ComponenteCarga mensaje="Cargando..." />
+      <ComponenteCarga>{null}</ComponenteCarga>
     </div>
   }>
     {children}

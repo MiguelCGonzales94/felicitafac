@@ -153,7 +153,7 @@ export const useProductos = () => {
     if (dataProductos) {
       setEstado(prev => ({
         ...prev,
-        productos: dataProductos.resultados || [],
+        productos: Array.isArray(dataProductos.resultados) ? dataProductos.resultados : [],
         totalProductos: dataProductos.total || 0,
         paginaActual: dataProductos.pagina || 1,
         totalPaginas: dataProductos.total_paginas || 1,
@@ -162,8 +162,8 @@ export const useProductos = () => {
       }));
 
       // Verificar alertas de stock si está habilitado
-      if (configuracion.mostrarAlertasStock) {
-        verificarAlertasStock(dataProductos.resultados || []);
+      if (configuracion.mostrarAlertasStock && Array.isArray(dataProductos.resultados)) {
+        verificarAlertasStock(dataProductos.resultados);
       }
     }
   }, [dataProductos, configuracion.mostrarAlertasStock]);
@@ -194,16 +194,16 @@ export const useProductos = () => {
       setEstado(prev => ({ ...prev, cargandoDatos: true }));
       
       const [categorias, tiposProducto, unidadesMedida] = await Promise.all([
-        ProductosAPI.obtenerCategorias(),
-        ProductosAPI.obtenerTiposProducto(),
-        ProductosAPI.obtenerUnidadesMedida()
+        ProductosAPI.obtenerCategorias().catch(() => []),
+        ProductosAPI.obtenerTiposProducto().catch(() => []),
+        ProductosAPI.obtenerUnidadesMedida().catch(() => [])
       ]);
 
       setEstado(prev => ({
         ...prev,
-        categorias,
-        tiposProducto,
-        unidadesMedida,
+        categorias: Array.isArray(categorias) ? categorias : [],
+        tiposProducto: Array.isArray(tiposProducto) ? tiposProducto : [],
+        unidadesMedida: Array.isArray(unidadesMedida) ? unidadesMedida : [],
         cargandoDatos: false,
       }));
 
@@ -211,6 +211,9 @@ export const useProductos = () => {
       console.error('Error al cargar datos iniciales:', error);
       setEstado(prev => ({
         ...prev,
+        categorias: [],
+        tiposProducto: [],
+        unidadesMedida: [],
         cargandoDatos: false,
         error: error.message,
       }));
@@ -219,10 +222,15 @@ export const useProductos = () => {
   }, [mostrarError]);
 
   const verificarAlertasStock = useCallback((productos: ResumenProducto[]) => {
+    if (!Array.isArray(productos)) {
+      console.warn('verificarAlertasStock: productos no es un array:', productos);
+      return;
+    }
+
     const alertas: AlertaStock[] = [];
 
     productos.forEach(producto => {
-      if (producto.maneja_inventario) {
+      if (producto?.maneja_inventario) {
         // Stock agotado
         if (producto.stock_actual <= 0) {
           alertas.push({
@@ -270,8 +278,11 @@ export const useProductos = () => {
     }
 
     try {
+      // Verificar que categorias sea un array
+      const categorias = Array.isArray(estado.categorias) ? estado.categorias : [];
+      
       // Lógica simple para generar código
-      const categoria = estado.categorias.find(c => c.id === categoriaId);
+      const categoria = categorias.find(c => c.id === categoriaId);
       const prefijo = categoria?.codigo || 'PROD';
       const timestamp = Date.now().toString().slice(-6);
       const codigo = `${prefijo}${timestamp}`;
@@ -618,14 +629,14 @@ export const useProductos = () => {
     try {
       const productos = await ProductosAPI.obtenerProductosStockMinimo();
       
-      if (productos.length > 0) {
+      if (Array.isArray(productos) && productos.length > 0) {
         mostrarAdvertencia(
           'Productos con stock mínimo',
           `Se encontraron ${productos.length} productos con stock bajo el mínimo`
         );
       }
       
-      return productos;
+      return Array.isArray(productos) ? productos : [];
     } catch (error: any) {
       console.error('Error al obtener productos con stock mínimo:', error);
       mostrarError('Error', error.message);
@@ -640,14 +651,14 @@ export const useProductos = () => {
     try {
       const productos = await ProductosAPI.obtenerProductosSinStock();
       
-      if (productos.length > 0) {
+      if (Array.isArray(productos) && productos.length > 0) {
         mostrarAdvertencia(
           'Productos sin stock',
           `Se encontraron ${productos.length} productos sin stock disponible`
         );
       }
       
-      return productos;
+      return Array.isArray(productos) ? productos : [];
     } catch (error: any) {
       console.error('Error al obtener productos sin stock:', error);
       mostrarError('Error', error.message);
@@ -698,9 +709,9 @@ export const useProductos = () => {
       productos: [],
       productoActual: null,
       detalleProducto: null,
-      categorias: estado.categorias,
-      tiposProducto: estado.tiposProducto,
-      unidadesMedida: estado.unidadesMedida,
+      categorias: Array.isArray(estado.categorias) ? estado.categorias : [],
+      tiposProducto: Array.isArray(estado.tiposProducto) ? estado.tiposProducto : [],
+      unidadesMedida: Array.isArray(estado.unidadesMedida) ? estado.unidadesMedida : [],
       totalProductos: 0,
       paginaActual: 1,
       totalPaginas: 1,
@@ -765,32 +776,40 @@ export const useProductos = () => {
   }, []);
 
   // =======================================================
-  // VALORES COMPUTADOS
+  // VALORES COMPUTADOS - CON VALIDACIONES DE ARRAYS
   // =======================================================
 
   const estadisticas = useMemo(() => {
-    const productos = estado.productos;
+    const productos = Array.isArray(estado.productos) ? estado.productos : [];
     
     return {
       totalProductos: productos.length,
-      productosActivos: productos.filter(p => p.estado === 'activo').length,
-      productosInactivos: productos.filter(p => p.estado === 'inactivo').length,
-      productosDestacados: productos.filter(p => p.destacado).length,
-      productosConStock: productos.filter(p => p.stock_actual > 0).length,
-      productosSinStock: productos.filter(p => p.maneja_inventario && p.stock_actual <= 0).length,
-      valorInventario: productos.reduce((acc, p) => acc + (p.stock_actual * p.precio_compra), 0),
+      productosActivos: productos.filter(p => p?.estado === 'activo').length,
+      productosInactivos: productos.filter(p => p?.estado === 'inactivo').length,
+      productosDestacados: productos.filter(p => p?.destacado).length,
+      productosConStock: productos.filter(p => p?.stock_actual > 0).length,
+      productosSinStock: productos.filter(p => p?.maneja_inventario && p?.stock_actual <= 0).length,
+      valorInventario: productos.reduce((acc, p) => acc + ((p?.stock_actual || 0) * (p?.precio_compra || 0)), 0),
       precioPromedio: productos.length > 0 
-        ? productos.reduce((acc, p) => acc + p.precio_venta, 0) / productos.length 
+        ? productos.reduce((acc, p) => acc + (p?.precio_venta || 0), 0) / productos.length 
         : 0,
     };
   }, [estado.productos]);
 
   const productosDestacados = useMemo(() => {
-    return estado.productos.filter(producto => producto.destacado);
+    if (!Array.isArray(estado.productos)) {
+      console.warn('estado.productos no es array en productosDestacados:', estado.productos);
+      return [];
+    }
+    return estado.productos.filter(producto => producto?.destacado);
   }, [estado.productos]);
 
   const categoriasFiltradas = useMemo(() => {
-    return estado.categorias.filter(categoria => categoria.activo);
+    if (!Array.isArray(estado.categorias)) {
+      console.warn('estado.categorias no es array en categoriasFiltradas:', estado.categorias);
+      return [];
+    }
+    return estado.categorias.filter(categoria => categoria?.activo);
   }, [estado.categorias]);
 
   const cargando = useMemo(() => ({
@@ -813,12 +832,12 @@ export const useProductos = () => {
 
   return {
     // Estado
-    productos: estado.productos,
+    productos: Array.isArray(estado.productos) ? estado.productos : [],
     productoActual: estado.productoActual,
     detalleProducto: estado.detalleProducto,
-    categorias: estado.categorias,
-    tiposProducto: estado.tiposProducto,
-    unidadesMedida: estado.unidadesMedida,
+    categorias: Array.isArray(estado.categorias) ? estado.categorias : [],
+    tiposProducto: Array.isArray(estado.tiposProducto) ? estado.tiposProducto : [],
+    unidadesMedida: Array.isArray(estado.unidadesMedida) ? estado.unidadesMedida : [],
     totalProductos: estado.totalProductos,
     paginaActual: estado.paginaActual,
     totalPaginas: estado.totalPaginas,
@@ -827,7 +846,7 @@ export const useProductos = () => {
     estadisticas,
     productosDestacados,
     categoriasFiltradas,
-    alertasStock,
+    alertasStock: Array.isArray(alertasStock) ? alertasStock : [],
     error: estado.error,
     cargando,
 

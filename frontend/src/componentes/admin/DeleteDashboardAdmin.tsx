@@ -18,11 +18,11 @@ import {
 import { useDashboardAdmin } from '../../hooks/useDashboardAdmin';
 import { useNavegacionAdmin } from '../../hooks/useNavegacionAdmin';
 import { useAuth } from '../../hooks/useAuth';
-import SidebarAdmin from '../../componentes/admin/SidebarAdmin';
-import HeaderAdmin from '../../componentes/admin/HeaderAdmin';
-import WidgetMetrica, { GridWidgets } from '../../componentes/admin/WidgetMetrica';
-import TablaDocumentosRecientes from '../../componentes/admin/TablaDocumentosRecientes';
-import { AccesosRapidosDashboard } from '../../componentes/admin/AccesosRapidos';
+import SidebarAdmin from './SidebarAdmin';
+import HeaderAdmin from './HeaderAdmin';
+import WidgetMetrica, { GridWidgets } from './WidgetMetrica';
+import TablaDocumentosRecientes from './TablaDocumentosRecientes';
+import { AccesosRapidosDashboard } from './AccesosRapidos';
 import { Notificacion } from '../../types/admin';
 import { cn } from '../../utils/cn';
 

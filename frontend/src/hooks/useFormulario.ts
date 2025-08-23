@@ -2,6 +2,7 @@
  * Hook useFormulario - FELICITAFAC
  * Sistema de Facturación Electrónica para Perú
  * Hook genérico para manejo de formularios con validaciones
+ * VERSIÓN CORREGIDA: Incluye manejarCambio
  */
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -120,96 +121,46 @@ export const useFormulario = <T extends Record<string, any>>(
   const { mostrarError, mostrarAdvertencia } = useNotificaciones();
 
   // =======================================================
-  // EFECTOS
-  // =======================================================
-
-  // Detectar cambios y marcar como sucio
-  useEffect(() => {
-    const esSucio = Object.keys(estado.valores).some(
-      key => estado.valores[key] !== valoresInicialesRef.current[key]
-    );
-
-    if (esSucio !== estado.sucio) {
-      setEstado(prev => ({ ...prev, sucio: esSucio }));
-    }
-  }, [estado.valores, estado.sucio]);
-
-  // Validar en tiempo real si está habilitado
-  useEffect(() => {
-    if (configuracionRef.current.validarEnTiempoReal && estado.sucio) {
-      const errores = validarTodosLosCampos(estado.valores);
-      const valido = Object.keys(errores).length === 0;
-
-      if (JSON.stringify(errores) !== JSON.stringify(estado.errores) || valido !== estado.valido) {
-        setEstado(prev => ({
-          ...prev,
-          errores,
-          valido,
-        }));
-      }
-    }
-  }, [estado.valores, estado.sucio, estado.errores, estado.valido]);
-
-  // Confirmar salida sin guardar
-  useEffect(() => {
-    if (!configuracionRef.current.confirmarSalidaSinGuardar) return;
-
-    const manejarAntesDeSalir = (event: BeforeUnloadEvent) => {
-      if (estado.sucio && !estado.enviando) {
-        event.preventDefault();
-        event.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
-      }
-    };
-
-    window.addEventListener('beforeunload', manejarAntesDeSalir);
-
-    return () => {
-      window.removeEventListener('beforeunload', manejarAntesDeSalir);
-    };
-  }, [estado.sucio, estado.enviando]);
-
-  // =======================================================
   // FUNCIONES DE VALIDACIÓN
   // =======================================================
 
   const validarCampo = useCallback((campo: string, valor: any): string | null => {
-    if (!reglasValidacionRef.current?.[campo]) return null;
+    const reglas = reglasValidacionRef.current?.[campo];
+    if (!reglas) return null;
 
-    const reglas = reglasValidacionRef.current[campo];
-
-    // Validación de requerido
+    // Validar requerido
     if (reglas.requerido && (valor === null || valor === undefined || valor === '')) {
       return reglas.mensaje || `${campo} es requerido`;
     }
 
-    // Si el campo está vacío y no es requerido, no validar el resto
+    // Si el campo está vacío y no es requerido, no validar más
     if (valor === null || valor === undefined || valor === '') {
       return null;
     }
 
-    // Validación de longitud mínima
-    if (reglas.minLength && typeof valor === 'string' && valor.length < reglas.minLength) {
-      return reglas.mensaje || `${campo} debe tener al menos ${reglas.minLength} caracteres`;
+    // Validar longitud mínima
+    if (reglas.minLength && valor.toString().length < reglas.minLength) {
+      return `${campo} debe tener al menos ${reglas.minLength} caracteres`;
     }
 
-    // Validación de longitud máxima
-    if (reglas.maxLength && typeof valor === 'string' && valor.length > reglas.maxLength) {
-      return reglas.mensaje || `${campo} no puede exceder ${reglas.maxLength} caracteres`;
+    // Validar longitud máxima
+    if (reglas.maxLength && valor.toString().length > reglas.maxLength) {
+      return `${campo} no puede tener más de ${reglas.maxLength} caracteres`;
     }
 
-    // Validación de valor mínimo
-    if (reglas.min !== undefined && typeof valor === 'number' && valor < reglas.min) {
-      return reglas.mensaje || `${campo} debe ser mayor o igual a ${reglas.min}`;
+    // Validar patrón
+    if (reglas.patron && !reglas.patron.test(valor.toString())) {
+      return reglas.mensaje || `${campo} no tiene un formato válido`;
     }
 
-    // Validación de valor máximo
-    if (reglas.max !== undefined && typeof valor === 'number' && valor > reglas.max) {
-      return reglas.mensaje || `${campo} debe ser menor o igual a ${reglas.max}`;
+    // Validar valor mínimo
+    if (reglas.min !== undefined && Number(valor) < reglas.min) {
+      return `${campo} debe ser mayor o igual a ${reglas.min}`;
     }
 
-    // Validación de patrón
-    if (reglas.patron && typeof valor === 'string' && !reglas.patron.test(valor)) {
-      return reglas.mensaje || `${campo} no tiene el formato correcto`;
+    // Validar valor máximo
+    if (reglas.max !== undefined && Number(valor) > reglas.max) {
+      return `${campo} debe ser menor o igual a ${reglas.max}`;
     }
 
     // Validación personalizada
@@ -240,29 +191,20 @@ export const useFormulario = <T extends Record<string, any>>(
   const formatearValor = useCallback((campo: string, valor: any): any => {
     if (!configuracionRef.current.formatearCamposAutomatico) return valor;
 
-    // Formateo específico según el tipo de campo
-    switch (campo.toLowerCase()) {
-      case 'email':
-        return typeof valor === 'string' ? valor.toLowerCase().trim() : valor;
-        
-      case 'telefono':
-      case 'celular':
-        // Remover caracteres no numéricos excepto + al inicio
-        if (typeof valor === 'string') {
-          return valor.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
-        }
-        return valor;
-        
-      case 'ruc':
-      case 'dni':
-      case 'numero_documento':
-        // Solo números
-        return typeof valor === 'string' ? valor.replace(/\D/g, '') : valor;
-        
-      default:
-        // Trim para strings por defecto
-        return typeof valor === 'string' ? valor.trim() : valor;
+    // Formatear números si es necesario
+    if (typeof valor === 'string' && !isNaN(Number(valor)) && valor.trim() !== '') {
+      const reglas = reglasValidacionRef.current?.[campo];
+      if (reglas?.min !== undefined || reglas?.max !== undefined) {
+        return Number(valor);
+      }
     }
+
+    // Formatear emails a minúsculas
+    if (campo.includes('email') || campo.includes('correo')) {
+      return valor.toString().toLowerCase().trim();
+    }
+
+    return valor;
   }, []);
 
   // =======================================================
@@ -270,9 +212,8 @@ export const useFormulario = <T extends Record<string, any>>(
   // =======================================================
 
   const establecerValor = useCallback((campo: string, valor: any) => {
-    const valorFormateado = formatearValor(campo, valor);
-
     setEstado(prev => {
+      const valorFormateado = formatearValor(campo, valor);
       const nuevosValores = {
         ...prev.valores,
         [campo]: valorFormateado,
@@ -281,18 +222,17 @@ export const useFormulario = <T extends Record<string, any>>(
       let nuevosErrores = prev.errores;
       let nuevoValido = prev.valido;
 
-      // Validar el campo si está habilitado en tiempo real o si ya está tocado
-      if (configuracionRef.current.validarEnTiempoReal || prev.tocados[campo]) {
+      // Validar en tiempo real si está habilitado
+      if (configuracionRef.current.validarEnTiempoReal) {
         const error = validarCampo(campo, valorFormateado);
-        
         if (error) {
           nuevosErrores = { ...prev.errores, [campo]: error };
+          nuevoValido = false;
         } else {
           const { [campo]: _, ...restoErrores } = prev.errores;
           nuevosErrores = restoErrores;
+          nuevoValido = Object.keys(restoErrores).length === 0;
         }
-
-        nuevoValido = Object.keys(nuevosErrores).length === 0;
       }
 
       return {
@@ -411,34 +351,55 @@ export const useFormulario = <T extends Record<string, any>>(
     }
   }, []);
 
-  const manejarEnvio = useCallback(async (
-    onSubmit: (valores: T) => Promise<void> | void,
-    validarAntes: boolean = true
+  const manejarEnvio = useCallback((
+    onSubmit: (valores: T) => Promise<void> | void
   ) => {
-    if (validarAntes && !validarFormulario()) {
-      return false;
-    }
-
-    setEstado(prev => ({ ...prev, enviando: true }));
-
-    try {
-      await onSubmit(estado.valores);
-      
-      if (configuracionRef.current.resetearDespuesDeEnvio) {
-        resetearFormulario();
-      } else {
-        setEstado(prev => ({ ...prev, sucio: false }));
+    return async (event?: React.FormEvent) => {
+      if (event) {
+        event.preventDefault();
       }
-      
-      return true;
-    } catch (error: any) {
-      console.error('Error al enviar formulario:', error);
-      mostrarError('Error al enviar', error.message || 'Ocurrió un error inesperado');
-      return false;
-    } finally {
-      setEstado(prev => ({ ...prev, enviando: false }));
-    }
+
+      if (!validarFormulario()) {
+        return false;
+      }
+
+      setEstado(prev => ({ ...prev, enviando: true }));
+
+      try {
+        await onSubmit(estado.valores);
+        
+        if (configuracionRef.current.resetearDespuesDeEnvio) {
+          resetearFormulario();
+        } else {
+          setEstado(prev => ({ ...prev, sucio: false }));
+        }
+        
+        return true;
+      } catch (error: any) {
+        console.error('Error al enviar formulario:', error);
+        mostrarError('Error al enviar', error.message || 'Ocurrió un error inesperado');
+        return false;
+      } finally {
+        setEstado(prev => ({ ...prev, enviando: false }));
+      }
+    };
   }, [estado.valores, validarFormulario, resetearFormulario, mostrarError]);
+
+  // =======================================================
+  // 🔧 FUNCIÓN CLAVE: manejarCambio
+  // =======================================================
+
+  const manejarCambio = useCallback((campo: string) => {
+    return (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const valor = event.target.value;
+      establecerValor(campo, valor);
+      
+      // Marcar como tocado
+      if (!estado.tocados[campo]) {
+        marcarCampoComoTocado(campo);
+      }
+    };
+  }, [establecerValor, estado.tocados, marcarCampoComoTocado]);
 
   // =======================================================
   // FUNCIONES DE EVENTOS
@@ -498,30 +459,77 @@ export const useFormulario = <T extends Record<string, any>>(
   }), [estado.valores, estado.errores, estado.tocados, establecerValor, limpiarError, establecerError]);
 
   // =======================================================
-  // FUNCIONES DE UTILIDAD
+  // UTILIDADES
   // =======================================================
 
-  const obtenerCamposConErrores = useCallback((): string[] => {
-    return Object.keys(estado.errores);
+  const obtenerCamposConErrores = useCallback(() => {
+    return Object.keys(estado.errores).filter(campo => estado.errores[campo]);
   }, [estado.errores]);
 
-  const obtenerCamposTocados = useCallback((): string[] => {
+  const obtenerCamposTocados = useCallback(() => {
     return Object.keys(estado.tocados).filter(campo => estado.tocados[campo]);
   }, [estado.tocados]);
 
-  const hayErroresVisibles = useCallback((): boolean => {
-    return Object.keys(estado.errores).some(campo => estado.tocados[campo] || configuracionRef.current.mostrarErroresInmediatamente);
+  const hayErroresVisibles = useMemo(() => {
+    return Object.keys(estado.errores).some(campo => 
+      estado.errores[campo] && estado.tocados[campo]
+    );
   }, [estado.errores, estado.tocados]);
 
-  const puedeEnviar = useCallback((): boolean => {
+  const puedeEnviar = useMemo(() => {
     return estado.valido && !estado.enviando && estado.sucio;
   }, [estado.valido, estado.enviando, estado.sucio]);
 
-  const confirmarSalida = useCallback((): boolean => {
+  const confirmarSalida = useCallback(() => {
     if (!estado.sucio) return true;
-    
     return window.confirm('Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?');
   }, [estado.sucio]);
+
+  // =======================================================
+  // EFECTOS
+  // =======================================================
+
+  // Detectar cambios y marcar como sucio
+  useEffect(() => {
+    const esSucio = Object.keys(estado.valores).some(
+      key => estado.valores[key] !== valoresInicialesRef.current[key]
+    );
+
+    if (esSucio !== estado.sucio) {
+      setEstado(prev => ({ ...prev, sucio: esSucio }));
+    }
+  }, [estado.valores, estado.sucio]);
+
+  // Validar en tiempo real si está habilitado
+  useEffect(() => {
+    if (configuracionRef.current.validarEnTiempoReal && estado.sucio) {
+      const errores = validarTodosLosCampos(estado.valores);
+      const valido = Object.keys(errores).length === 0;
+
+      if (JSON.stringify(errores) !== JSON.stringify(estado.errores) || valido !== estado.valido) {
+        setEstado(prev => ({
+          ...prev,
+          errores,
+          valido,
+        }));
+      }
+    }
+  }, [estado.valores, estado.sucio, estado.errores, estado.valido, validarTodosLosCampos]);
+
+  // Confirmar salida sin guardar
+  useEffect(() => {
+    if (!configuracionRef.current.confirmarSalidaSinGuardar) return;
+
+    const manejarAntesDeSalir = (event: BeforeUnloadEvent) => {
+      if (estado.sucio && !estado.enviando) {
+        event.preventDefault();
+        event.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
+      }
+    };
+
+    window.addEventListener('beforeunload', manejarAntesDeSalir);
+    return () => window.removeEventListener('beforeunload', manejarAntesDeSalir);
+  }, [estado.sucio, estado.enviando]);
 
   // =======================================================
   // VALORES COMPUTADOS
@@ -540,7 +548,7 @@ export const useFormulario = <T extends Record<string, any>>(
   }), [estado.valores, estado.errores, estado.tocados]);
 
   // =======================================================
-  // RETURN DEL HOOK
+  // RETURN DEL HOOK - CON manejarCambio
   // =======================================================
 
   return {
@@ -562,6 +570,7 @@ export const useFormulario = <T extends Record<string, any>>(
     validarFormulario,
     resetearFormulario,
     manejarEnvio,
+    manejarCambio, // ✅ FUNCIÓN AGREGADA
 
     // Eventos de campo
     crearEventosCampo,
@@ -578,6 +587,10 @@ export const useFormulario = <T extends Record<string, any>>(
 
     // Información de resumen
     resumen,
+
+    // Alias para compatibilidad
+    resetear: resetearFormulario,
+    validarCampo,
   };
 };
 

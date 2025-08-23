@@ -1,10 +1,10 @@
 // ================================================================
-// 3. CONFIGURACIONES GENERALES
+// 3. Configuracion GENERALES
 // ================================================================
 
 /**
- * frontend/src/paginas/admin/Configuraciones.tsx
- * Página de configuraciones generales del sistema
+ * frontend/src/paginas/admin/Configuracion.tsx
+ * Página de Configuracion generales del sistema
  */
 import React, { useState, useEffect } from 'react';
 import { Settings, Building2, Globe, Database, Mail, Bell } from 'lucide-react';
@@ -38,7 +38,7 @@ interface ConfiguracionSistema {
   max_intentos_login: number;
 }
 
-export const Configuraciones: React.FC = () => {
+export const Configuracion: React.FC = () => {
   const { mostrarExito, mostrarError } = useNotificaciones();
   const [cargando, setCargando] = useState(false);
   const [configEmpresa, setConfigEmpresa] = useState<ConfiguracionEmpresa>({
@@ -61,10 +61,10 @@ export const Configuraciones: React.FC = () => {
   });
 
   useEffect(() => {
-    cargarConfiguraciones();
+    cargarConfiguracion();
   }, []);
 
-  const cargarConfiguraciones = async () => {
+  const cargarConfiguracion = async () => {
     setCargando(true);
     try {
       const [empresa, sistema] = await Promise.all([
@@ -74,7 +74,7 @@ export const Configuraciones: React.FC = () => {
       setConfigEmpresa(empresa);
       setConfigSistema(sistema);
     } catch (error) {
-      mostrarError('Error al cargar las configuraciones');
+      mostrarError('Error al cargar las Configuracion');
     } finally {
       setCargando(false);
     }
@@ -106,7 +106,7 @@ export const Configuraciones: React.FC = () => {
 
   return (
     <LayoutAdmin
-      title="Configuraciones"
+      title="Configuracion"
       description="Configuración general del sistema y empresa"
     >
       <div className="max-w-6xl mx-auto space-y-6">
@@ -311,7 +311,7 @@ export const Configuraciones: React.FC = () => {
                 <CardTitle>Configuración de Facturación</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Configuraciones específicas de facturación electrónica.</p>
+                <p className="text-gray-500">Configuracion específicas de facturación electrónica.</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -349,5 +349,5 @@ export const Configuraciones: React.FC = () => {
   );
 };
 
-export default Configuraciones;
+export default Configuracion;
 

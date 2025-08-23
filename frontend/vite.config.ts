@@ -21,19 +21,19 @@ export default defineConfig({
     proxy: {
       // Proxy para el backend Django
       '/api': {
-        target: 'http://localhost:8000',
         changeOrigin: true,
+        target: 'http://127.0.0.1:8000',
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api')
       },
       // Proxy para archivos estáticos del backend si es necesario
       '/media': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false
       },
       '/static': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false
       }
