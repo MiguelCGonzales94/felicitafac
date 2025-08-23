@@ -782,26 +782,63 @@ class ProductoProveedorViewSet(viewsets.ModelViewSet):
 
 class UnidadMedidaViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet para unidades de medida
-    Solo lectura - datos maestros
+    ViewSet para unidades de medida SUNAT
+    Datos maestros según catálogo SUNAT Nº 03
     """
     permission_classes = [IsAuthenticated]
     pagination_class = None
     
     def list(self, request):
-        """Lista de unidades de medida estándar"""
+        """
+        Lista completa de unidades de medida según SUNAT
+        Basado en catálogo oficial SUNAT
+        """
+        unidades = [
+            {'codigo': 'NIU', 'nombre': 'Unidad (bienes)', 'descripcion': 'Unidad de bienes'},
+            {'codigo': 'ZZ', 'nombre': 'Unidad (servicios)', 'descripcion': 'Unidad de servicios'},
+            {'codigo': 'KGM', 'nombre': 'Kilogramo', 'descripcion': 'Kilogramo'},
+            {'codigo': 'GRM', 'nombre': 'Gramo', 'descripcion': 'Gramo'},
+            {'codigo': 'LTR', 'nombre': 'Litro', 'descripcion': 'Litro'},
+            {'codigo': 'MTR', 'nombre': 'Metro', 'descripcion': 'Metro'},
+            {'codigo': 'M2', 'nombre': 'Metro cuadrado', 'descripcion': 'Metro cuadrado'},
+            {'codigo': 'M3', 'nombre': 'Metro cúbico', 'descripcion': 'Metro cúbico'},
+            {'codigo': 'CJA', 'nombre': 'Caja', 'descripcion': 'Caja'},
+            {'codigo': 'PAQ', 'nombre': 'Paquete', 'descripcion': 'Paquete'},
+            {'codigo': 'DOC', 'nombre': 'Docena', 'descripcion': 'Docena (12 unidades)'},
+            {'codigo': 'CEN', 'nombre': 'Ciento', 'descripcion': 'Ciento (100 unidades)'},
+            {'codigo': 'MIL', 'nombre': 'Millar', 'descripcion': 'Millar (1000 unidades)'},
+            {'codigo': 'MLT', 'nombre': 'Mililitro', 'descripcion': 'Mililitro'},
+            {'codigo': 'CMT', 'nombre': 'Centímetro', 'descripcion': 'Centímetro'},
+            {'codigo': 'TMB', 'nombre': 'Tambor', 'descripcion': 'Tambor'},
+            {'codigo': 'BOL', 'nombre': 'Bolsa', 'descripcion': 'Bolsa'},
+            {'codigo': 'BOT', 'nombre': 'Botella', 'descripcion': 'Botella'},
+            {'codigo': 'LAT', 'nombre': 'Lata', 'descripcion': 'Lata'},
+            {'codigo': 'ROL', 'nombre': 'Rollo', 'descripcion': 'Rollo'},
+        ]
+        
+        # Filtrar por query parameter si se proporciona
+        filtro = request.query_params.get('filtro', '').lower()
+        if filtro:
+            unidades = [u for u in unidades if filtro in u['nombre'].lower() or filtro in u['codigo'].lower()]
+        
+        return Response({
+            'count': len(unidades),
+            'results': unidades
+        })
+
+
+class UnidadMedidaViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet para unidades de medida SUNAT"""
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+    
+    def list(self, request):
         unidades = [
             {'codigo': 'NIU', 'nombre': 'Unidad'},
             {'codigo': 'KGM', 'nombre': 'Kilogramo'},
-            {'codigo': 'GRM', 'nombre': 'Gramo'},
             {'codigo': 'LTR', 'nombre': 'Litro'},
             {'codigo': 'MTR', 'nombre': 'Metro'},
-            {'codigo': 'M2', 'nombre': 'Metro cuadrado'},
-            {'codigo': 'M3', 'nombre': 'Metro cúbico'},
             {'codigo': 'CJA', 'nombre': 'Caja'},
-            {'codigo': 'PAQ', 'nombre': 'Paquete'},
-            {'codigo': 'DOC', 'nombre': 'Docena'},
-            {'codigo': 'CEN', 'nombre': 'Ciento'},
-            {'codigo': 'MIL', 'nombre': 'Millar'}
+            {'codigo': 'DOC', 'nombre': 'Docena'}
         ]
         return Response(unidades)

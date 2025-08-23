@@ -7,7 +7,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     TipoProductoViewSet, CategoriaViewSet, ProductoViewSet, 
-    ProductoProveedorViewSet
+    ProductoProveedorViewSet, UnidadMedidaViewSet
 )
 
 app_name = 'productos'
@@ -18,6 +18,7 @@ router.register('tipos-producto', TipoProductoViewSet, basename='tipoproducto')
 router.register('categorias', CategoriaViewSet, basename='categoria')
 router.register('productos', ProductoViewSet, basename='producto')
 router.register('producto-proveedores', ProductoProveedorViewSet, basename='productoproveedor')
+router.register('unidades-medida', UnidadMedidaViewSet, basename='unidadmedida')
 
 # URLs principales
 urlpatterns = [

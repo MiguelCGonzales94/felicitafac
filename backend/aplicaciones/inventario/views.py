@@ -1,5 +1,6 @@
 """
 Views de Inventario - FELICITAFAC
+Sistema de Facturación Electrónica para Perú
 API REST para movimientos PEPS y control de stock
 """
 
@@ -8,516 +9,387 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Sum, Count, F
+from django.db.models import Q, Sum, Count, F, Avg
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from decimal import Decimal
 import logging
 
-from .models import (
-    TipoMovimiento, Almacen, StockProducto, LoteProducto,
-    MovimientoInventario, DetalleMovimiento
+# from .models import (
+#     TipoMovimiento, Almacen, StockProducto, LoteProducto, 
+#     MovimientoInventario
+# )
+# from .serializers import (
+#     TipoMovimientoSerializer, AlmacenSerializer, StockProductoSerializer,
+#     LoteProductoSerializer, MovimientoInventarioSerializer
+# )
+from aplicaciones.core.permissions import (
+    EsContadorOAdministrador, PuedeGestionarInventario
 )
-from .serializers import (
-    TipoMovimientoSerializer, AlmacenSerializer, StockProductoSerializer,
-    LoteProductoSerializer, MovimientoInventarioSerializer,
-    MovimientoCreateSerializer, ReporteInventarioSerializer
-)
-from aplicaciones.core.permissions import PuedeGestionarInventario
 from aplicaciones.core.pagination import PaginacionEstandar
 
 logger = logging.getLogger(__name__)
 
 
 class TipoMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = TipoMovimiento.objects.filter(activo=True).order_by('orden', 'nombre')
-    serializer_class = TipoMovimientoSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = None
-    
-    @action(detail=False, methods=['get'])
-    def entradas(self, request):
-        tipos = self.get_queryset().filter(tipo='entrada')
-        serializer = self.get_serializer(tipos, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def salidas(self, request):
-        tipos = self.get_queryset().filter(tipo='salida')
-        serializer = self.get_serializer(tipos, many=True)
-        return Response(serializer.data)
-
-
-class AlmacenViewSet(viewsets.ModelViewSet):
-    queryset = Almacen.objects.select_related('sucursal', 'responsable').filter(activo=True)
-    serializer_class = AlmacenSerializer
-    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-    
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-        else:
-            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-        return [permission() for permission in permission_classes]
-    
-    @action(detail=True, methods=['get'])
-    def stocks(self, request, pk=None):
-        almacen = self.get_object()
-        stocks = StockProducto.objects.filter(
-            almacen=almacen, activo=True, cantidad_actual__gt=0
-        ).select_related('producto')
-        
-        serializer = StockProductoSerializer(stocks, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'])
-    def resumen(self, request, pk=None):
-        almacen = self.get_object()
-        
-        total_productos = StockProducto.objects.filter(almacen=almacen, activo=True).count()
-        valor_total = StockProducto.objects.filter(almacen=almacen, activo=True).aggregate(
-            total=Sum('valor_inventario')
-        )['total'] or 0
-        
-        productos_agotados = StockProducto.objects.filter(
-            almacen=almacen, activo=True, cantidad_actual=0
-        ).count()
-        
-        return Response({
-            'total_productos': total_productos,
-            'valor_total_inventario': valor_total,
-            'productos_agotados': productos_agotados,
-            'productos_disponibles': total_productos - productos_agotados
-        })
-
-
-class StockProductoViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = StockProducto.objects.select_related('producto', 'almacen').filter(activo=True)
-    serializer_class = StockProductoSerializer
-    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-    pagination_class = PaginacionEstandar
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    
-    filterset_fields = {
-        'almacen': ['exact'],
-        'producto': ['exact'],
-        'cantidad_actual': ['gte', 'lte', 'exact'],
-        'cantidad_disponible': ['gte', 'lte'],
-    }
-    
-    search_fields = ['producto__codigo', 'producto__nombre', 'almacen__nombre']
-    ordering_fields = ['cantidad_actual', 'valor_inventario', 'fecha_ultimo_movimiento']
-    ordering = ['-fecha_ultimo_movimiento']
-    
-    def get_queryset(self):
-        queryset = self.queryset
-        
-        # Filtrar solo con stock
-        con_stock = self.request.query_params.get('con_stock', '').lower() == 'true'
-        if con_stock:
-            queryset = queryset.filter(cantidad_actual__gt=0)
-        
-        # Filtrar productos críticos
-        criticos = self.request.query_params.get('criticos', '').lower() == 'true'
-        if criticos:
-            queryset = queryset.filter(cantidad_actual__lte=F('producto__stock_minimo'))
-        
-        return queryset
-    
-    @action(detail=False, methods=['get'])
-    def alertas(self, request):
-        """Productos con alertas de stock"""
-        agotados = self.get_queryset().filter(cantidad_actual=0)
-        criticos = self.get_queryset().filter(
-            cantidad_actual__gt=0,
-            cantidad_actual__lte=F('producto__stock_minimo')
-        )
-        
-        return Response({
-            'productos_agotados': StockProductoSerializer(agotados, many=True).data,
-            'productos_criticos': StockProductoSerializer(criticos, many=True).data,
-            'total_alertas': agotados.count() + criticos.count()
-        })
-    
-    @action(detail=False, methods=['get'])
-    def valorizado(self, request):
-        """Reporte valorizado de inventario"""
-        queryset = self.get_queryset().filter(cantidad_actual__gt=0)
-        
-        # Por almacén
-        por_almacen = queryset.values('almacen__nombre').annotate(
-            total_productos=Count('id'),
-            valor_total=Sum('valor_inventario')
-        ).order_by('-valor_total')
-        
-        # Por categoría
-        por_categoria = queryset.values('producto__categoria__nombre').annotate(
-            total_productos=Count('id'),
-            valor_total=Sum('valor_inventario')
-        ).order_by('-valor_total')
-        
-        # Totales
-        totales = queryset.aggregate(
-            total_productos=Count('id'),
-            valor_total=Sum('valor_inventario'),
-            costo_promedio=Sum('valor_inventario') / Sum('cantidad_actual') if queryset.exists() else 0
-        )
-        
-        return Response({
-            'por_almacen': list(por_almacen),
-            'por_categoria': list(por_categoria),
-            'totales': totales
-        })
-
-
-class LoteProductoViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = LoteProducto.objects.select_related('producto', 'almacen').filter(activo=True)
-    serializer_class = LoteProductoSerializer
-    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-    pagination_class = PaginacionEstandar
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    
-    filterset_fields = {
-        'producto': ['exact'],
-        'almacen': ['exact'],
-        'estado_calidad': ['exact'],
-        'fecha_vencimiento': ['gte', 'lte'],
-    }
-    
-    search_fields = ['numero_lote', 'producto__codigo', 'producto__nombre']
-    ordering_fields = ['fecha_ingreso', 'fecha_vencimiento', 'cantidad_actual']
-    ordering = ['fecha_ingreso']  # PEPS: Primero en entrar
-    
-    def get_queryset(self):
-        queryset = self.queryset
-        
-        # Solo lotes con stock
-        con_stock = self.request.query_params.get('con_stock', '').lower() == 'true'
-        if con_stock:
-            queryset = queryset.filter(cantidad_actual__gt=0)
-        
-        return queryset
-    
-    @action(detail=False, methods=['get'])
-    def proximos_vencer(self, request):
-        """Lotes próximos a vencer"""
-        dias = int(request.query_params.get('dias', 30))
-        fecha_limite = timezone.now().date() + timezone.timedelta(days=dias)
-        
-        lotes = self.get_queryset().filter(
-            fecha_vencimiento__lte=fecha_limite,
-            fecha_vencimiento__gte=timezone.now().date(),
-            cantidad_actual__gt=0
-        ).order_by('fecha_vencimiento')
-        
-        serializer = self.get_serializer(lotes, many=True)
-        return Response({
-            'lotes': serializer.data,
-            'total': lotes.count(),
-            'valor_total': sum(float(lote.valor_total) for lote in lotes)
-        })
-    
-    @action(detail=False, methods=['get'])
-    def vencidos(self, request):
-        """Lotes vencidos"""
-        lotes = self.get_queryset().filter(
-            fecha_vencimiento__lt=timezone.now().date(),
-            cantidad_actual__gt=0
-        ).order_by('fecha_vencimiento')
-        
-        serializer = self.get_serializer(lotes, many=True)
-        return Response({
-            'lotes': serializer.data,
-            'total': lotes.count(),
-            'valor_total': sum(float(lote.valor_total) for lote in lotes)
-        })
-
-
-class MovimientoInventarioViewSet(viewsets.ModelViewSet):
-    queryset = MovimientoInventario.objects.select_related(
-        'tipo_movimiento', 'almacen', 'usuario_creacion'
-    ).prefetch_related('detalles').filter(activo=True)
-    
-    permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-    pagination_class = PaginacionEstandar
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    
-    filterset_fields = {
-        'tipo_movimiento': ['exact'],
-        'almacen': ['exact'],
-        'estado': ['exact'],
-        'fecha_movimiento': ['gte', 'lte', 'exact'],
-        'usuario_creacion': ['exact'],
-    }
-    
-    search_fields = ['numero', 'observaciones', 'documento_origen']
-    ordering_fields = ['fecha_movimiento', 'numero', 'total_valor']
-    ordering = ['-fecha_movimiento', '-numero']
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return MovimientoCreateSerializer
-        return MovimientoInventarioSerializer
-    
-    def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-        else:
-            permission_classes = [IsAuthenticated, PuedeGestionarInventario]
-        return [permission() for permission in permission_classes]
-    
-    def get_queryset(self):
-        user = self.request.user
-        queryset = self.queryset
-        
-        # Filtrar por usuario si no es admin
-        if hasattr(user, 'rol') and user.rol.codigo not in ['admin', 'contador']:
-            queryset = queryset.filter(usuario_creacion=user)
-        
-        return queryset
-    
-    def perform_create(self, serializer):
-        try:
-            movimiento = serializer.save()
-            
-            # Autorizar automáticamente si no requiere autorización
-            if not movimiento.tipo_movimiento.requiere_autorizacion:
-                movimiento.autorizar(self.request.user)
-                movimiento.ejecutar()
-            
-            logger.info(f"Movimiento creado: {movimiento.numero} por {self.request.user.username}")
-        except Exception as e:
-            logger.error(f"Error creando movimiento: {str(e)}")
-            raise
-    
-    @action(detail=True, methods=['post'])
-    def autorizar(self, request, pk=None):
-        """Autorizar movimiento"""
-        movimiento = self.get_object()
-        
-        if not request.user.has_perm('inventario.change_movimientoinventario'):
-            return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            movimiento.autorizar(request.user)
-            return Response({'message': 'Movimiento autorizado'})
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'])
-    def ejecutar(self, request, pk=None):
-        """Ejecutar movimiento"""
-        movimiento = self.get_object()
-        
-        if not request.user.has_perm('inventario.change_movimientoinventario'):
-            return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
-        
-        try:
-            with transaction.atomic():
-                movimiento.ejecutar()
-                
-            logger.info(f"Movimiento ejecutado: {movimiento.numero}")
-            return Response({'message': 'Movimiento ejecutado exitosamente'})
-        
-        except Exception as e:
-            logger.error(f"Error ejecutando movimiento: {str(e)}")
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'])
-    def anular(self, request, pk=None):
-        """Anular movimiento"""
-        movimiento = self.get_object()
-        
-        if not request.user.has_perm('inventario.change_movimientoinventario'):
-            return Response({'error': 'Sin permisos'}, status=status.HTTP_403_FORBIDDEN)
-        
-        motivo = request.data.get('motivo', '')
-        if not motivo:
-            return Response({'error': 'Motivo requerido'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            with transaction.atomic():
-                movimiento.anular(motivo)
-                
-            logger.info(f"Movimiento anulado: {movimiento.numero} - Motivo: {motivo}")
-            return Response({'message': 'Movimiento anulado exitosamente'})
-        
-        except Exception as e:
-            logger.error(f"Error anulando movimiento: {str(e)}")
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=False, methods=['get'])
-    def pendientes(self, request):
-        """Movimientos pendientes de autorización"""
-        pendientes = self.get_queryset().filter(estado='pendiente')
-        serializer = self.get_serializer(pendientes, many=True)
-        return Response({
-            'total': pendientes.count(),
-            'movimientos': serializer.data
-        })
-    
-    @action(detail=False, methods=['get'])
-    def reporte_periodo(self, request):
-        """Reporte de movimientos por período"""
-        fecha_desde = request.query_params.get('fecha_desde')
-        fecha_hasta = request.query_params.get('fecha_hasta')
-        
-        if not fecha_desde or not fecha_hasta:
-            return Response({'error': 'Fechas requeridas'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            from datetime import datetime
-            fecha_desde = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            fecha_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            
-            queryset = self.get_queryset().filter(
-                fecha_movimiento__date__gte=fecha_desde,
-                fecha_movimiento__date__lte=fecha_hasta,
-                estado='ejecutado'
-            )
-            
-            # Resumen por tipo
-            por_tipo = queryset.values('tipo_movimiento__nombre').annotate(
-                cantidad=Count('id'),
-                valor_total=Sum('total_valor')
-            ).order_by('-valor_total')
-            
-            # Entradas vs Salidas
-            entradas = queryset.filter(tipo_movimiento__tipo='entrada').aggregate(
-                cantidad=Count('id'),
-                valor=Sum('total_valor')
-            )
-            
-            salidas = queryset.filter(tipo_movimiento__tipo='salida').aggregate(
-                cantidad=Count('id'),
-                valor=Sum('total_valor')
-            )
-            
-            return Response({
-                'periodo': {'desde': fecha_desde, 'hasta': fecha_hasta},
-                'total_movimientos': queryset.count(),
-                'por_tipo': list(por_tipo),
-                'entradas': entradas,
-                'salidas': salidas,
-                'saldo': (entradas['valor'] or 0) - (salidas['valor'] or 0)
-            })
-        
-        except ValueError:
-            return Response({'error': 'Formato de fecha inválido'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error generando reporte: {str(e)}")
-            return Response({'error': 'Error interno'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-# 3. AGREGAR en backend/aplicaciones/inventario/views.py
-class TipoMovimientoViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet para tipos de movimiento de inventario
-    Solo lectura - datos maestros
+    Catálogo de tipos de movimientos PEPS
     """
     permission_classes = [IsAuthenticated]
     pagination_class = None
     
     def list(self, request):
-        """Lista de tipos de movimiento"""
+        """
+        Lista de tipos de movimiento de inventario
+        Basado en metodología PEPS (FIFO)
+        """
         tipos = [
             {
                 'id': 1,
                 'codigo': 'INGRESO_COMPRA',
                 'nombre': 'Ingreso por Compra',
+                'descripcion': 'Ingreso de mercadería por compra a proveedores',
                 'tipo': 'ingreso',
                 'afecta_costo': True,
+                'requiere_documento': True,
                 'activo': True
             },
             {
                 'id': 2,
                 'codigo': 'SALIDA_VENTA',
                 'nombre': 'Salida por Venta',
+                'descripcion': 'Salida de mercadería por venta a clientes',
                 'tipo': 'salida',
                 'afecta_costo': False,
+                'requiere_documento': True,
                 'activo': True
             },
             {
                 'id': 3,
                 'codigo': 'AJUSTE_POSITIVO',
                 'nombre': 'Ajuste Positivo',
+                'descripcion': 'Ajuste positivo de inventario por diferencias',
                 'tipo': 'ingreso',
                 'afecta_costo': False,
+                'requiere_documento': False,
                 'activo': True
             },
             {
                 'id': 4,
                 'codigo': 'AJUSTE_NEGATIVO',
                 'nombre': 'Ajuste Negativo',
+                'descripcion': 'Ajuste negativo de inventario por diferencias',
                 'tipo': 'salida',
                 'afecta_costo': False,
+                'requiere_documento': False,
                 'activo': True
             },
             {
                 'id': 5,
                 'codigo': 'TRASLADO_ENTRADA',
                 'nombre': 'Traslado - Entrada',
+                'descripcion': 'Entrada por traslado entre almacenes',
                 'tipo': 'ingreso',
                 'afecta_costo': False,
+                'requiere_documento': True,
                 'activo': True
             },
             {
                 'id': 6,
                 'codigo': 'TRASLADO_SALIDA',
                 'nombre': 'Traslado - Salida',
+                'descripcion': 'Salida por traslado entre almacenes',
                 'tipo': 'salida',
                 'afecta_costo': False,
+                'requiere_documento': True,
                 'activo': True
             },
             {
                 'id': 7,
                 'codigo': 'DEVOLUCION_CLIENTE',
                 'nombre': 'Devolución de Cliente',
+                'descripcion': 'Ingreso por devolución de mercadería de clientes',
                 'tipo': 'ingreso',
                 'afecta_costo': False,
+                'requiere_documento': True,
                 'activo': True
             },
             {
                 'id': 8,
                 'codigo': 'DEVOLUCION_PROVEEDOR',
                 'nombre': 'Devolución a Proveedor',
+                'descripcion': 'Salida por devolución de mercadería a proveedores',
                 'tipo': 'salida',
                 'afecta_costo': True,
+                'requiere_documento': True,
+                'activo': True
+            },
+            {
+                'id': 9,
+                'codigo': 'INVENTARIO_INICIAL',
+                'nombre': 'Inventario Inicial',
+                'descripcion': 'Ingreso por inventario inicial del sistema',
+                'tipo': 'ingreso',
+                'afecta_costo': True,
+                'requiere_documento': False,
+                'activo': True
+            },
+            {
+                'id': 10,
+                'codigo': 'MERMA',
+                'nombre': 'Merma',
+                'descripcion': 'Salida por merma o pérdida de producto',
+                'tipo': 'salida',
+                'afecta_costo': False,
+                'requiere_documento': False,
                 'activo': True
             }
         ]
-        return Response(tipos)
+        
+        # Filtros
+        tipo_filtro = request.query_params.get('tipo')
+        if tipo_filtro:
+            tipos = [t for t in tipos if t['tipo'] == tipo_filtro]
+        
+        return Response({
+            'count': len(tipos),
+            'results': tipos
+        })
+
 
 class AlmacenViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet para almacenes
-    Solo lectura - datos configurados
+    Gestión de ubicaciones de inventario
     """
     permission_classes = [IsAuthenticated]
     pagination_class = None
     
     def list(self, request):
-        """Lista de almacenes disponibles"""
+        """
+        Lista de almacenes configurados
+        """
         almacenes = [
             {
                 'id': 1,
                 'codigo': 'ALM001',
                 'nombre': 'Almacén Principal',
                 'descripcion': 'Almacén principal de la empresa',
-                'direccion': 'Av. Principal 123',
+                'direccion': 'Av. Principal 123, Lima',
                 'responsable': 'Almacenero Principal',
+                'telefono': '01-234-5678',
+                'email': 'almacen@empresa.com',
+                'capacidad_maxima': 1000.00,
+                'area_m2': 500.00,
                 'activo': True,
-                'es_principal': True
+                'es_principal': True,
+                'permite_ventas': True,
+                'fecha_creacion': '2024-01-01T00:00:00Z'
             },
             {
                 'id': 2,
                 'codigo': 'ALM002',
-                'nombre': 'Almacén Sucursal',
-                'descripcion': 'Almacén de la sucursal',
-                'direccion': 'Jr. Secundario 456',
-                'responsable': 'Responsable Sucursal',
+                'nombre': 'Almacén Sucursal Norte',
+                'descripcion': 'Almacén de la sucursal norte',
+                'direccion': 'Jr. Secundario 456, Lima Norte',
+                'responsable': 'Responsable Sucursal Norte',
+                'telefono': '01-345-6789',
+                'email': 'almacen.norte@empresa.com',
+                'capacidad_maxima': 500.00,
+                'area_m2': 250.00,
                 'activo': True,
-                'es_principal': False
+                'es_principal': False,
+                'permite_ventas': True,
+                'fecha_creacion': '2024-02-01T00:00:00Z'
+            },
+            {
+                'id': 3,
+                'codigo': 'ALM003',
+                'nombre': 'Almacén Temporal',
+                'descripcion': 'Almacén para mercadería en tránsito',
+                'direccion': 'Av. Temporal 789, Lima',
+                'responsable': 'Supervisor Temporal',
+                'telefono': '01-456-7890',
+                'email': 'temporal@empresa.com',
+                'capacidad_maxima': 200.00,
+                'area_m2': 100.00,
+                'activo': True,
+                'es_principal': False,
+                'permite_ventas': False,
+                'fecha_creacion': '2024-03-01T00:00:00Z'
             }
         ]
-        return Response(almacenes)
+        
+        # Filtros
+        activo = request.query_params.get('activo')
+        if activo is not None:
+            activo_bool = activo.lower() == 'true'
+            almacenes = [a for a in almacenes if a['activo'] == activo_bool]
+        
+        principal = request.query_params.get('principal')
+        if principal is not None:
+            principal_bool = principal.lower() == 'true'
+            almacenes = [a for a in almacenes if a['es_principal'] == principal_bool]
+        
+        return Response({
+            'count': len(almacenes),
+            'results': almacenes
+        })
 
+
+class StockProductoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para stock de productos
+    Consulta de stock actual por producto y almacén
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionEstandar
+    
+    def list(self, request):
+        """
+        Lista de stock de productos
+        """
+        # Datos de ejemplo para testing
+        stock_productos = [
+            {
+                'id': 1,
+                'producto': {
+                    'id': 1,
+                    'codigo': 'PROD001',
+                    'nombre': 'Producto Ejemplo 1',
+                    'unidad_medida': 'NIU'
+                },
+                'almacen': {
+                    'id': 1,
+                    'codigo': 'ALM001',
+                    'nombre': 'Almacén Principal'
+                },
+                'cantidad_actual': 150.00,
+                'cantidad_reservada': 10.00,
+                'cantidad_disponible': 140.00,
+                'stock_minimo': 20.00,
+                'stock_maximo': 200.00,
+                'costo_promedio': 25.50,
+                'valor_inventario': 3825.00,
+                'fecha_ultimo_movimiento': '2024-12-20T10:30:00Z',
+                'necesita_reposicion': False
+            },
+            {
+                'id': 2,
+                'producto': {
+                    'id': 2,
+                    'codigo': 'PROD002',
+                    'nombre': 'Producto Ejemplo 2',
+                    'unidad_medida': 'KGM'
+                },
+                'almacen': {
+                    'id': 1,
+                    'codigo': 'ALM001',
+                    'nombre': 'Almacén Principal'
+                },
+                'cantidad_actual': 5.00,
+                'cantidad_reservada': 0.00,
+                'cantidad_disponible': 5.00,
+                'stock_minimo': 10.00,
+                'stock_maximo': 50.00,
+                'costo_promedio': 45.00,
+                'valor_inventario': 225.00,
+                'fecha_ultimo_movimiento': '2024-12-18T14:20:00Z',
+                'necesita_reposicion': True
+            }
+        ]
+        
+        return Response({
+            'count': len(stock_productos),
+            'results': stock_productos
+        })
+
+
+class LoteProductoViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para lotes de productos
+    Trazabilidad PEPS de lotes
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionEstandar
+    
+    def list(self, request):
+        """
+        Lista de lotes de productos
+        """
+        lotes = [
+            {
+                'id': 1,
+                'numero_lote': 'LOTE-2024-001',
+                'producto': {
+                    'id': 1,
+                    'codigo': 'PROD001',
+                    'nombre': 'Producto Ejemplo 1'
+                },
+                'almacen': {
+                    'id': 1,
+                    'codigo': 'ALM001',
+                    'nombre': 'Almacén Principal'
+                },
+                'cantidad_inicial': 100.00,
+                'cantidad_actual': 80.00,
+                'costo_unitario': 25.00,
+                'fecha_vencimiento': '2025-12-31',
+                'fecha_ingreso': '2024-01-15T09:00:00Z',
+                'activo': True
+            }
+        ]
+        
+        return Response({
+            'count': len(lotes),
+            'results': lotes
+        })
+
+
+class MovimientoInventarioViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para movimientos de inventario
+    Historial de movimientos PEPS
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = PaginacionEstandar
+    
+    def list(self, request):
+        """
+        Lista de movimientos de inventario
+        """
+        movimientos = [
+            {
+                'id': 1,
+                'numero': 'MOV-2024-001',
+                'tipo_movimiento': {
+                    'id': 1,
+                    'codigo': 'INGRESO_COMPRA',
+                    'nombre': 'Ingreso por Compra'
+                },
+                'producto': {
+                    'id': 1,
+                    'codigo': 'PROD001',
+                    'nombre': 'Producto Ejemplo 1'
+                },
+                'almacen': {
+                    'id': 1,
+                    'codigo': 'ALM001',
+                    'nombre': 'Almacén Principal'
+                },
+                'cantidad': 100.00,
+                'costo_unitario': 25.00,
+                'costo_total': 2500.00,
+                'fecha_movimiento': '2024-01-15T09:00:00Z',
+                'documento_referencia': 'FACTURA-001',
+                'observaciones': 'Compra inicial de inventario',
+                'usuario': 'admin@empresa.com'
+            }
+        ]
+        
+        return Response({
+            'count': len(movimientos),
+            'results': movimientos
+        })
