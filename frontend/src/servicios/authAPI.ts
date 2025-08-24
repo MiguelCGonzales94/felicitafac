@@ -263,7 +263,7 @@ const obtenerPerfil = async () => {
       success: boolean;
       data?: Usuario;
       message?: string;
-    }>(`${API_AUTH_PREFIX}/perfil/`);
+    }>(`/api/usuarios/perfil/`); 
 
     return respuesta;
   } catch (error) {
@@ -281,7 +281,7 @@ const actualizarPerfil = async (datos: Partial<Usuario>) => {
       success: boolean;
       data?: Usuario;
       message?: string;
-    }>(`${API_AUTH_PREFIX}/perfil/`, {
+    }>(`/api/usuarios/perfil/`, {
       method: 'PATCH',
       body: JSON.stringify(datos)
     });

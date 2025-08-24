@@ -305,7 +305,7 @@ const configuracionModulosBase: Omit<ModuloMenu, 'expandido' | 'notificaciones'>
       {
         id: 'configuracion-sistema',
         nombre: 'Configuraciones Sistema',
-        ruta: '/admin/sistema/configuracion',
+        ruta: '/admin/configuraciones',
         icono: 'Settings',
         descripcion: 'Parámetros generales del sistema'
       },

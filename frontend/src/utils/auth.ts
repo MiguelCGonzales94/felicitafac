@@ -144,10 +144,10 @@ export const esTokenValido = (token: string): boolean => {
     const datosToken = decodificarToken(token);
     if (!datosToken || !datosToken.exp) return false;
     
-    // Verificar si el token expira en los próximos 5 minutos
+    // Verificar si el token expira en los próximos 1 minutos
     const tiempoExpiracion = datosToken.exp * 1000;
     const tiempoActual = Date.now();
-    const margenSeguridad = 5 * 60 * 1000; // 5 minutos
+    const margenSeguridad = 1 * 60 * 1000; // 1 minutos
     
     return tiempoExpiracion > (tiempoActual + margenSeguridad);
   } catch (error) {

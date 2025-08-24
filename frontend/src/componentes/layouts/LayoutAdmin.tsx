@@ -248,7 +248,7 @@ const LayoutAdmin: React.FC<PropiedadesLayoutAdmin> = ({
       '/admin/contabilidad': 'Contabilidad',
       '/admin/reportes': 'Reportes',
       '/admin/usuarios': 'Usuarios',
-      '/admin/configuracion': 'Configuración',
+      '/admin/configuraciones': 'Configuración',
     };
     
     const currentTitle = pathTitles[location.pathname] || 'Administración';

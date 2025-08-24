@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { Usuario, DatosLogin, DatosRegistro, EstadoAuth, AccionAuth, ContextoAuth, TokensAuth, Permiso } from '../types/auth';
 import { serviciosAuth } from '../servicios/authAPI';
+import { esTokenValido } from '../utils/auth';
 import toast from 'react-hot-toast';
 
 // =======================================================
@@ -36,7 +37,7 @@ const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
         estaCargando: true,
         error: null
       };
-      
+
     case 'LOGIN_EXITO':
       return {
         ...estado,
@@ -46,13 +47,13 @@ const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
         estaCargando: false,
         error: null
       };
-      
+
     case 'LOGOUT':
       return {
         ...estadoInicial,
         estaCargando: false
       };
-      
+
     case 'ACTUALIZAR_USUARIO':
       return {
         ...estado,
@@ -60,20 +61,20 @@ const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
         estaCargando: false,
         error: null
       };
-      
+
     case 'ERROR':
       return {
         ...estado,
         error: accion.payload,
         estaCargando: false
       };
-      
+
     case 'LIMPIAR_ERROR':
       return {
         ...estado,
         error: null
       };
-      
+
     case 'REFRESCAR_TOKEN':
       return {
         ...estado,
@@ -82,7 +83,7 @@ const authReducer = (estado: EstadoAuth, accion: AccionAuth): EstadoAuth => {
           access: accion.payload.access
         }
       };
-      
+
     default:
       return estado;
   }
@@ -136,14 +137,14 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
 
       if (respuesta.success && respuesta.data) {
         const { access, refresh, user } = respuesta.data;
-        
+
         // Guardar tokens
         const tokens: TokensAuth = { access, refresh };
         guardarTokensEnStorage(tokens);
-        
+
         // Guardar info usuario
         localStorage.setItem('usuario_info', JSON.stringify(user));
-        
+
         dispatch({
           type: 'LOGIN_EXITO',
           payload: {
@@ -157,10 +158,10 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
         throw new Error(respuesta.message || 'Credenciales inválidas');
       }
     } catch (error: any) {
-      const mensaje = error.response?.data?.message || 
-                    error.message || 
-                    'Error en el inicio de sesión';
-      
+      const mensaje = error.response?.data?.message ||
+        error.message ||
+        'Error en el inicio de sesión';
+
       dispatch({ type: 'ERROR', payload: mensaje });
       toast.error(mensaje);
       throw error;
@@ -170,7 +171,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
   const cerrarSesion = useCallback(async (): Promise<void> => {
     try {
       const refreshToken = estado.tokens.refresh;
-      
+
       if (refreshToken) {
         // Notificar al servidor sobre el logout
         await serviciosAuth.logout(refreshToken).catch(console.warn);
@@ -198,10 +199,10 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
         throw new Error(respuesta.message || 'Error en el registro');
       }
     } catch (error: any) {
-      const mensaje = error.response?.data?.message || 
-                    error.message || 
-                    'Error en el registro';
-      
+      const mensaje = error.response?.data?.message ||
+        error.message ||
+        'Error en el registro';
+
       dispatch({ type: 'ERROR', payload: mensaje });
       toast.error(mensaje);
       throw error;
@@ -211,7 +212,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
   const refrescarToken = useCallback(async (): Promise<void> => {
     try {
       const refreshToken = estado.tokens.refresh || localStorage.getItem('refresh_token');
-      
+
       if (!refreshToken) {
         throw new Error('No hay token de refresh');
       }
@@ -220,7 +221,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
 
       if (respuesta.success && respuesta.data) {
         const { access } = respuesta.data;
-        
+
         localStorage.setItem('access_token', access);
         dispatch({ type: 'REFRESCAR_TOKEN', payload: { access } });
       } else {
@@ -242,17 +243,17 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
       if (respuesta.success && respuesta.data) {
         // Actualizar info en localStorage
         localStorage.setItem('usuario_info', JSON.stringify(respuesta.data));
-        
+
         dispatch({ type: 'ACTUALIZAR_USUARIO', payload: respuesta.data });
         toast.success('Perfil actualizado correctamente');
       } else {
         throw new Error(respuesta.message || 'Error actualizando perfil');
       }
     } catch (error: any) {
-      const mensaje = error.response?.data?.message || 
-                    error.message || 
-                    'Error actualizando perfil';
-      
+      const mensaje = error.response?.data?.message ||
+        error.message ||
+        'Error actualizando perfil';
+
       dispatch({ type: 'ERROR', payload: mensaje });
       toast.error(mensaje);
       throw error;
@@ -275,10 +276,10 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
         throw new Error(respuesta.message || 'Error cambiando contraseña');
       }
     } catch (error: any) {
-      const mensaje = error.response?.data?.message || 
-                    error.message || 
-                    'Error cambiando contraseña';
-      
+      const mensaje = error.response?.data?.message ||
+        error.message ||
+        'Error cambiando contraseña';
+
       dispatch({ type: 'ERROR', payload: mensaje });
       toast.error(mensaje);
       throw error;
@@ -297,7 +298,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
     if (!estado.usuario?.rol_detalle) return false;
 
     const rol = estado.usuario.rol_detalle;
-    
+
     // Administrador tiene todos los permisos
     if (rol.codigo === 'administrador') return true;
 
@@ -365,23 +366,30 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
         if (token && usuarioInfo) {
           try {
             const usuario = JSON.parse(usuarioInfo);
-            
+
             // Verificar si el token sigue siendo válido
             const perfilActual = await serviciosAuth.obtenerPerfil();
-            
-            if (perfilActual.success && perfilActual.data) {
-              dispatch({
-                type: 'LOGIN_EXITO',
-                payload: {
-                  usuario: perfilActual.data,
-                  tokens: {
-                    access: token,
-                    refresh: localStorage.getItem('refresh_token')
+
+            if (token && usuarioInfo && esTokenValido(token)) {
+              try {
+                const usuario = JSON.parse(usuarioInfo);
+                dispatch({
+                  type: 'LOGIN_EXITO',
+                  payload: {
+                    usuario,
+                    tokens: {
+                      access: token,
+                      refresh: localStorage.getItem('refresh_token')
+                    }
                   }
-                }
-              });
+                });
+              } catch (error) {
+                console.warn('Error parseando datos de usuario:', error);
+                limpiarTokensDelStorage();
+                dispatch({ type: 'LOGOUT' });
+              }
             } else {
-              // Token inválido, limpiar
+              // Solo limpiar si realmente está expirado
               limpiarTokensDelStorage();
               dispatch({ type: 'LOGOUT' });
             }
@@ -433,7 +441,7 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
     estaAutenticado: estado.estaAutenticado,
     estaCargando: estado.estaCargando,
     error: estado.error,
-    
+
     // Acciones
     iniciarSesion,
     cerrarSesion,
@@ -441,14 +449,14 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
     actualizarPerfil,
     cambiarPassword,
     limpiarError,
-    
+
     // Verificaciones
     tienePermiso,
     esAdministrador,
     esContador,
     esVendedor,
     esCliente,
-    
+
     // Utilidades
     obtenerToken,
     refrescarToken
@@ -467,11 +475,11 @@ export const AuthProvider: React.FC<PropiedadesAuthProvider> = ({ children }) =>
 
 export const useAuth = (): ContextoAuth => {
   const contexto = useContext(AuthContext);
-  
+
   if (contexto === undefined) {
     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
-  
+
   return contexto;
 };
 

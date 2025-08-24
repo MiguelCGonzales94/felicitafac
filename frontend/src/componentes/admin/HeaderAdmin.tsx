@@ -249,7 +249,7 @@ const DropdownUsuario: React.FC<PropiedadesDropdownUsuario> = ({
           Mi Perfil
         </Link>
         <Link
-          to="/admin/configuracion"
+          to="/admin/configuraciones"
           className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
           onClick={onCerrar}
         >

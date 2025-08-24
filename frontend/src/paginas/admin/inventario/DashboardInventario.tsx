@@ -14,11 +14,11 @@ import {
 import LayoutAdmin from '../../../componentes/layouts/LayoutAdmin';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../componentes/ui/card';
 import { Button } from '../../../componentes/ui/button';
-import { Badge } from '../../../componentes/ui/badge';
+import { Badge } from '../../../componentes/ui/bagde';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../componentes/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { useInventario } from '../../../hooks/useInventario';
-import { formatearMoneda } from '../../../utils/formatters';
+import { formatearMoneda } from '../../../utils/formateo';
 
 export const DashboardInventario: React.FC = () => {
   const navigate = useNavigate();

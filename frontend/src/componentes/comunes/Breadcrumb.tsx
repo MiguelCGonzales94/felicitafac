@@ -57,7 +57,7 @@ const MAPEO_RUTAS: Record<string, ElementoBreadcrumb> = {
   '/admin/usuarios': { label: 'Usuarios' },
   '/admin/usuarios/nuevo': { label: 'Nuevo Usuario' },
   '/admin/usuarios/roles': { label: 'Roles y Permisos' },
-  '/admin/configuracion': { label: 'Configuración' },
+  '/admin/configuraciones': { label: 'Configuración' },
   '/admin/configuracion/empresa': { label: 'Datos de Empresa' },
   '/admin/configuracion/sistema': { label: 'Sistema' },
   '/admin/configuracion/integraciones': { label: 'Integraciones' },
